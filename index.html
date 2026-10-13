@@ -1122,176 +1122,72 @@ a.td-item:hover .go-chev{border-color:var(--ink)}
 .vd .vlive:hover{color:var(--ink);border-color:var(--ink)}
 .vd .vlive svg{flex:none}
 @media (max-width:700px){.vd .vlive{display:none}}
+.vd .wk-body{--lane:30px;--cal-top:82px;height:max(150px,calc(var(--cal-top) + var(--lane) * var(--n,0) + 14px))}
+.vd .lanes{top:var(--cal-top)}
 
-/* ---------- the day board: per day what comes in and what goes out, one status word per line ---------- */
-.vd .ib{--ib-date:118px;border:1px solid var(--line);background:var(--sheet);container:ib / inline-size}
-.vd .ib-head,.vd .ib-day,.vd .ib-past{display:grid;grid-template-columns:var(--ib-date) minmax(0,1fr) minmax(0,1fr)}
-.vd .ib-head{background:var(--paper);border-bottom:1px solid var(--line-2)}
-.vd .ib-head > span{padding:9px 14px;font-size:13px;color:var(--ink-3)}
-.vd .ib-head > span + span{border-left:1px solid var(--line)}
-.vd .ib-head b{margin-right:5px;font-weight:700;color:var(--ink)}
-.vd .ib-day{border-bottom:1px solid var(--line);scroll-margin-top:16px;transition:background .3s}
-.vd .ib-day:last-child{border-bottom:0}
-.vd .ib-day[hidden]{display:none}
-.vd .ib-date{display:grid;align-content:start;gap:2px;padding:12px 14px;min-width:0}
-.vd .ib-date b{font:500 21px/1.05 var(--font-display);color:var(--ink)}
-.vd .ib-date span{font-size:12.5px;color:var(--ink-3)}
-.vd .ib-date em{margin-top:5px;font:700 12.5px/1.2 var(--font-ui);font-style:normal;color:var(--forest)}
-.vd .ib-day.is-today{background:#f5f8f1;box-shadow:inset 4px 0 0 var(--forest)}
-.vd .ib-day.past .ib-date b{color:var(--ink-3)}
-.vd .ib-day.flash{background:var(--brass-bg)}
-.vd .ib-col{min-width:0;border-left:1px solid var(--line);padding:5px 0}
-.vd .ib-col > ul{list-style:none;margin:0;padding:0}
-.vd .ib-colh{display:none}
-.vd .ib-none{margin:0;padding:9px 14px;color:var(--ink-3);opacity:.6}
-.vd .ib-row{display:grid;grid-template-columns:var(--pw) minmax(0,1fr) 14px;align-items:start;gap:2px 12px;padding:7px 12px 7px 14px}
-.vd .ib-col.c-in{--pw:7.7em}
-.vd .ib-col.c-out{--pw:10.4em}
-.vd .ib-row[role="button"]{cursor:pointer}
-.vd .ib-row[role="button"]:hover{background:var(--paper)}
-.vd .ib-row .pill{justify-self:start;margin-top:1px}
-.vd .ib-txt{display:grid;gap:1px;min-width:0}
-.vd .ib-txt b{font-size:14.5px;font-weight:600;line-height:1.3;color:var(--ink);overflow-wrap:break-word}
-.vd .ib-sub{font-size:13px;line-height:1.35;color:var(--ink-3)}
-.vd .ib-sub em{font-style:normal}
-.vd .ib-it.t-bad .ib-sub em{color:var(--st-bad-ink);font-weight:600}
-.vd .ib-it.t-late .ib-sub em{color:var(--st-late-ink);font-weight:600}
-.vd .ib-it.t-risk .ib-sub em{color:var(--st-risk-ink);font-weight:600}
-.vd .ib-it.t-info .ib-sub em{color:var(--st-info-ink)}
-.vd .ib-it.t-done .ib-txt b{font-weight:500;color:var(--ink-2)}
-.vd .ib-chev{width:8px;height:8px;margin-top:8px;border-right:1.5px solid var(--line-2);border-bottom:1.5px solid var(--line-2);transform:rotate(45deg);transition:transform .15s}
-.vd .ib-row:hover .ib-chev,.vd .ib-it.open .ib-chev{border-color:var(--ink-3)}
-.vd .ib-it.open{background:var(--paper);box-shadow:inset 0 1px 0 var(--line),inset 0 -1px 0 var(--line)}
-.vd .ib-it.open .ib-chev{transform:rotate(-135deg);margin-top:11px}
-.vd .ib-it.flash > .ib-row{background:var(--brass-bg)}
-.vd .ib-detail{display:grid;gap:12px;padding:6px 14px 16px}
-.vd .ib-detail .qgrid{max-width:none}
-.vd .ib-detail .qgrid > div{flex-basis:128px}
-.vd .ib-detail .qgrid > div.far dd small{color:var(--st-bad-ink);font-weight:600}
-.vd .ib-detail .todo{margin:0;font-size:14px;color:var(--ink)}
-.vd .ib-detail .match{margin:0}
-.vd .ib-detail .btns{gap:8px 14px}
-.vd .ib-detail .vdraft{min-height:170px}
-.vd .ib-note{margin:0;font-size:13.5px;color:var(--ink-2)}
-.vd .ib-how{display:grid;gap:10px}
-.vd .ib-how .how{border:1px solid var(--line);background:var(--sheet);padding:10px 12px;display:grid;gap:6px;font-size:13.5px;color:var(--ink-2)}
-.vd .ib-lines{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.vd .ib-lines > li{display:grid;gap:4px}
-.vd .ib-l b{font-weight:600}
-.vd .ib-p{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:baseline;gap:3px 8px;font-size:13px;line-height:1.4;color:var(--ink-2)}
-.vd .ib-p .pill{align-self:start}
-/* the track: where the goods are now */
-.vd .trk{list-style:none;margin:2px 0 0;padding:0;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
-.vd .trk li{position:relative;display:grid;justify-items:start;align-content:start;gap:1px;padding:18px 6px 0 0;min-width:0}
-.vd .trk li::before{content:"";position:absolute;top:5px;left:6px;right:0;height:2px;background:var(--line-2)}
-.vd .trk li:last-child::before{display:none}
-.vd .trk .dot{position:absolute;top:0;left:0;width:12px;height:12px;border-radius:50%;border:2px solid var(--line-2);background:var(--sheet);z-index:1}
-.vd .trk li.done .dot,.vd .trk li.now .dot{border-color:var(--tk);background:var(--tk)}
-.vd .trk li.done::before{background:var(--tk)}
-.vd .trk li.now .dot{box-shadow:0 0 0 4px var(--tk-bg)}
-.vd .trk li.part .dot{background:var(--sheet)}
-.vd .trk b{font-size:12.5px;font-weight:600;line-height:1.25;color:var(--ink-3)}
-.vd .trk li.done b{color:var(--ink-2)}
-.vd .trk li.now b{color:var(--ink)}
-.vd .trk small{font-size:11.5px;line-height:1.3;color:var(--ink-3)}
-.vd .trk.t-ok{--tk:var(--st-ok);--tk-bg:var(--st-ok-bg)}
-.vd .trk.t-info{--tk:var(--st-info);--tk-bg:var(--st-info-bg)}
-.vd .trk.t-risk{--tk:var(--st-risk);--tk-bg:var(--st-risk-bg)}
-.vd .trk.t-late{--tk:var(--st-late);--tk-bg:var(--st-late-bg)}
-.vd .trk.t-bad{--tk:var(--st-bad);--tk-bg:var(--st-bad-bg)}
-.vd .trk.t-done{--tk:var(--st-muted);--tk-bg:var(--st-muted-bg)}
-/* earlier days of this week, folded into one line */
-.vd .ib-past{border-bottom:1px solid var(--line);background:var(--paper)}
-.vd .ib-past .ib-date{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 6px;padding:9px 14px}
-.vd .ib-past .ib-date b{font:600 13.5px/1.3 var(--font-ui)}
-.vd .ib-past .ib-col p{margin:0;padding:4px 14px;font-size:13px;color:var(--ink-3)}
-.vd .ib-past-btn{margin:0;border:0;background:none;padding:0;font:600 13px/1.3 var(--font-ui);color:var(--leaf);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
-.vd .ib-hint{margin:8px 0 0;font-size:13px;color:var(--ink-3)}
-/* the statuses, in the order goods move */
-.vd .ib-legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 32px}
-.vd .ib-legend h3{margin:0 0 8px;font:600 14px/1.3 var(--font-ui);color:var(--ink)}
-.vd .ib-legend p{margin:8px 0 0;font-size:13.5px;color:var(--ink-2)}
-.vd .ib-legend .ib-flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 4px;margin:0}
-.vd .ib-arr{color:var(--ink-3);font-size:13px;padding:0 2px}
-.vd .ib-legend dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;margin:0;align-items:baseline}
-.vd .ib-legend dd{margin:0;font-size:13.5px;color:var(--ink-2)}
-.vd .ib-legend ul{margin:0;padding-left:18px;display:grid;gap:4px;font-size:13.5px;color:var(--ink-2)}
-.vd .ib-legend .vrule{grid-column:1 / -1;font-size:14.5px}
-@media (max-width:760px){.vd .ib-legend{grid-template-columns:minmax(0,1fr)}}
-.vd .act.prop::before{background:var(--st-info)}
-/* a medium board: two columns stay, the status word sits above the line it belongs to */
-@container ib (min-width:721px) and (max-width:1000px){
-  .vd .ib{--ib-date:96px}
-  .vd .ib-row{grid-template-columns:minmax(0,1fr) 14px;gap:4px 10px}
-  .vd .ib-row .pill{grid-column:1}
-  .vd .ib-row .ib-txt{grid-column:1}
-  .vd .ib-row .ib-chev{grid-column:2;grid-row:1}
-}
-/* a narrow board: each day stacks what comes in above what goes out */
-@container ib (max-width:720px){
-  .vd .ib-head{display:none}
-  .vd .ib-day,.vd .ib-past{grid-template-columns:minmax(0,1fr)}
-  .vd .ib-date{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;padding:10px 12px 4px}
-  .vd .ib-date em{margin:0 0 0 auto}
-  .vd .ib-col{border-left:0;padding:0 0 6px}
-  .vd .ib-day .ib-col.empty{display:none}
-  .vd .ib-day.quiet::after{content:"Niets gepland";padding:0 12px 10px;font-size:13px;color:var(--ink-3)}
-  .vd .ib-colh{display:block;padding:4px 12px 2px;font:600 12.5px/1.3 var(--font-ui);color:var(--ink-3)}
-  .vd .ib-row{grid-template-columns:minmax(0,1fr) 14px;gap:5px 10px;padding:7px 12px}
-  .vd .ib-row .pill{grid-column:1}
-  .vd .ib-row .ib-txt{grid-column:1}
-  .vd .ib-row .ib-chev{grid-column:2;grid-row:1}
-  .vd .ib-detail{padding:4px 12px 14px}
-  .vd .ib-past .ib-col p{padding:0 12px 6px}
-  .vd .ib-past .ib-colh{padding-top:0}
-}
-@container ib (max-width:440px){.vd .trk b{font-size:11.5px}.vd .trk small{font-size:10.5px}}
-
-/* the month: per day a count of what comes in and goes out */
+/* the month: one row per week, a chip per order on its most likely day */
 .vd .mcal-wrap{border:1px solid var(--line);background:var(--sheet);container:mcal / inline-size}
 .vd .mcal{display:grid;grid-template-columns:50px repeat(7,minmax(0,1fr))}
 .vd .mhead,.vd .mrow{display:contents}
-.vd .mhead span{padding:8px 10px;border-bottom:1px solid var(--line-2);font:600 12px/1.2 var(--font-ui);color:var(--ink-3)}
+.vd .mhead span{padding:8px 10px;border-bottom:1px solid var(--line-2);font:600 11px/1.2 var(--font-ui);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3)}
 .vd .mhead span:first-child{border-right:1px solid var(--line)}
 .vd .mwk{display:flex;align-items:flex-start;justify-content:center;margin:0;border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--paper);padding:10px 4px;font:600 11.5px/1.2 var(--font-ui);color:var(--ink-3);text-align:center}
 .vd button.mwk{cursor:pointer}
 .vd button.mwk:hover{color:var(--ink);background:var(--paper-2)}
 .vd .mrow:last-child > *{border-bottom:0}
-.vd .mday{min-width:0;min-height:86px;margin:0;padding:7px 8px 9px;border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:none;display:flex;flex-direction:column;align-items:stretch;gap:4px;font:inherit;color:inherit;text-align:left}
-.vd .mrow > .mday:last-child{border-right:0}
-.vd button.mday{cursor:pointer}
-.vd button.mday:hover{background:var(--paper)}
+.vd .mday{min-width:0;min-height:108px;padding:6px 6px 8px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:4px}
+.vd .mrow > .mday:last-of-type{border-right:0}
 .vd .mday.sun{background:repeating-linear-gradient(135deg,transparent 0 6px,rgba(18,22,20,.035) 6px 7px)}
 .vd .mday.m-out{background:var(--paper)}
 .vd .mday.m-out .md-n{color:var(--ink-3);font-weight:400}
-.vd .mday.m-out .mcs{opacity:.6}
+.vd .mday.m-out .mchip,.vd .mday.m-out .need{opacity:.55}
 .vd .mday.past:not(.m-out) .md-n{color:var(--ink-3)}
 .vd .mday.is-today{box-shadow:inset 0 3px 0 var(--forest)}
 .vd .md-h{display:flex;align-items:baseline;gap:6px;min-width:0}
 .vd .md-n{font:600 15px/1.2 var(--font-ui)}
-.vd .md-today{font:700 11px/1 var(--font-ui);color:var(--forest)}
-.vd .mcs{display:flex;flex-wrap:wrap;gap:4px}
-.vd .mc{display:inline-flex;align-items:center;gap:3px;padding:2px 8px 2px 6px;border-radius:999px;font:600 12.5px/1.3 var(--font-ui);background:var(--st-ok-bg);color:var(--st-ok-ink)}
-.vd .mc i{font-style:normal;font-weight:700}
-.vd .mc b{margin-left:2px;font-weight:800}
-.vd .mc.t-info{background:var(--st-info-bg);color:var(--st-info-ink)}
-.vd .mc.t-risk{background:var(--st-risk-bg);color:var(--st-risk-ink)}
-.vd .mc.t-late{background:var(--st-late-bg);color:var(--st-late-ink)}
-.vd .mc.t-bad{background:var(--st-bad-bg);color:var(--st-bad-ink)}
-.vd .mc.t-done{background:var(--st-muted-bg);color:var(--st-muted-ink)}
-@container mcal (max-width:560px){
-  .vd .mcal{grid-template-columns:30px repeat(7,minmax(0,1fr))}
-  .vd .mhead span{padding:6px 4px;font-size:11px}
-  .vd .mwk{padding:8px 0;font-size:10px}
-  .vd .mday{min-height:64px;padding:5px 3px 6px;gap:3px}
-  .vd .md-n{font-size:13px}
-  .vd .md-today{display:none}
-  .vd .mcs{flex-direction:column;align-items:flex-start;gap:2px}
-  .vd .mc{padding:1px 5px 1px 3px;font-size:11px;gap:1px}
-  .vd .mc b{display:none}
+.vd .md-d{display:none}
+.vd .md-today{font:700 10px/1 var(--font-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--forest)}
+.vd .mday .need{font-size:11px;line-height:1.3}
+.vd .mchips{display:grid;gap:3px;min-width:0}
+.vd .mchip{display:flex;align-items:center;gap:5px;width:100%;min-width:0;margin:0;padding:2px 6px 2px 6px;border:1px solid var(--st-ok-line);border-left:3px solid var(--st-ok);border-radius:3px;background:var(--st-ok-bg);color:var(--ink);font:600 12px/1.35 var(--font-ui);text-align:left;cursor:pointer}
+.vd .mchip .t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vd .mchip i{flex:none;font-style:normal;font-weight:700}
+.vd .mchip.risk{border-color:var(--st-risk-line);border-left-color:var(--st-risk);background:var(--st-risk-bg)}
+.vd .mchip.risk i{color:var(--st-risk-ink)}
+.vd .mchip.late{border-color:var(--st-late-line);border-left-color:var(--st-late);background:var(--st-late-bg)}
+.vd .mchip.late i{color:var(--st-late-ink)}
+.vd .mchip.over{border-color:var(--st-bad-line);border-left-color:var(--st-bad);background:var(--st-bad-bg)}
+.vd .mchip.over i{color:var(--st-bad-ink)}
+.vd .mchip.got{border-color:var(--st-muted);background:var(--st-muted-bg);color:var(--st-muted-ink);cursor:default}
+.vd .mchip.got i{color:var(--st-muted-ink)}
+.vd button.mchip:hover{filter:brightness(.96)}
+.vd .mmore{justify-self:start;margin:0;border:0;background:none;padding:0 2px;font:600 12px/1.3 var(--font-ui);color:var(--ink-2);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.vd span.mmore{text-decoration:none;cursor:default}
+.vd .m-none{display:none}
+/* a smaller month: chips may take two lines, so the plant stays readable */
+@container mcal (min-width:641px) and (max-width:900px){
+  .vd:not(.live) .mchip{align-items:flex-start;font-size:11.5px;line-height:1.25}
+  .vd:not(.live) .mchip .t{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+}
+/* narrow: the month becomes a list of the days that have something */
+@container mcal (max-width:640px){
+  .vd .mcal{display:block}
+  .vd .mhead{display:none}
+  .vd .mrow{display:block;border-bottom:1px solid var(--line-2)}
+  .vd .mrow:last-child{border-bottom:0}
+  .vd .mwk{display:block;width:100%;text-align:left;padding:9px 12px 7px;border:0;background:var(--paper);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+  .vd .mday{display:grid;grid-template-columns:96px minmax(0,1fr);align-items:start;gap:4px 10px;min-height:0;padding:9px 12px;border:0;border-top:1px solid var(--line)}
+  .vd .mday.m-empty,.vd .mday.m-out{display:none}
+  .vd .mday .md-h{grid-column:1;grid-row:1 / span 2;display:grid;gap:3px}
+  .vd .md-n{display:none}
+  .vd .md-d{display:block;font:600 13.5px/1.3 var(--font-ui);color:var(--ink)}
+  .vd .mday.past .md-d{color:var(--ink-3)}
+  .vd .mday .need,.vd .mchips{grid-column:2}
+  .vd .mchip{font-size:13px;padding:4px 8px}
+  .vd .mrow.is-none .m-none{display:block;padding:4px 12px 10px;font-size:13px;color:var(--ink-3)}
 }
 
-/* ---------- live screen (#/desk/live): the same board, big and calm, readable from across the room ---------- */
+/* ---------- live screen (#/desk/live): big, calm, readable from across the room ---------- */
 .vd.live{--lv-pad:clamp(16px,2.25vw,96px);--lv-gap:clamp(10px,min(.94vw,1.7vh),40px);font-size:clamp(13px,min(.94vw,1.7vh),40px);display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr) auto;gap:var(--lv-gap);min-height:100vh;min-height:100dvh;padding:0 0 .9em;background:var(--paper);color:var(--ink)}
 .vd.live :focus-visible{outline-offset:3px}
 .lv-top{display:flex;align-items:center;gap:1.2em;padding:.75em var(--lv-pad);background:var(--forest);color:var(--on-ink)}
@@ -1307,7 +1203,8 @@ a.td-item:hover .go-chev{border-color:var(--ink)}
 @keyframes lvpulse{0%{box-shadow:0 0 0 0 rgba(127,214,107,.6)}70%{box-shadow:0 0 0 .7em rgba(127,214,107,0)}100%{box-shadow:0 0 0 0 rgba(127,214,107,0)}}
 @media (prefers-reduced-motion:reduce){.lv-on i{animation:none}}
 .lv-ctl{margin-left:auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:.6em;font-size:max(13px,.74em);transition:opacity .6s}
-.lv-ctl .seg{padding:.2em;background:transparent;border-color:var(--on-ink-line)}
+.lv-ctl .seg{background:transparent;border-color:var(--on-ink-line)}
+.lv-ctl .seg{padding:.2em}
 .lv-ctl .seg button{padding:.45em 1.05em;font-size:1em;color:var(--on-ink-2)}
 .lv-ctl .seg button:hover{color:#fff}
 .lv-ctl .seg button[aria-pressed="true"]{background:var(--on-ink);color:var(--forest)}
@@ -1326,6 +1223,8 @@ a.td-item:hover .go-chev{border-color:var(--ink)}
 .lv-kpi span{font-size:1em;line-height:1.25;color:var(--ink-2)}
 .lv-kpi.k-over{border-left-color:var(--st-bad)}
 .lv-kpi.k-over b{color:var(--st-bad-ink)}
+.lv-kpi.k-late{border-left-color:var(--st-late)}
+.lv-kpi.k-late b{color:var(--st-late-ink)}
 .lv-kpi.k-risk{border-left-color:var(--st-risk)}
 .lv-kpi.k-risk b{color:var(--st-risk-ink)}
 .lv-kpi.k-ok{border-left-color:var(--st-ok)}
@@ -1333,48 +1232,79 @@ a.td-item:hover .go-chev{border-color:var(--ink)}
 .lv-kpi.k-plain{border-left-color:var(--forest)}
 .lv-kpi.k-zero b{color:var(--ink-3)}
 
-.lv-card{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;margin:0 var(--lv-pad);background:var(--sheet);border:1px solid var(--line)}
-.lv-card-h{flex:none;display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:.4em 1.2em;padding:.7em 1.1em;border-bottom:1px solid var(--line)}
-.lv-card-h h2{margin:0;font:500 1.55em/1.1 var(--font-display)}
-.lv-sub{font-size:max(11px,.78em);color:var(--ink-3)}
-.lv-plan .mcal-wrap{flex:1 1 auto;min-height:0;border:0;overflow:hidden}
-/* two boards, like arrivals and departures: grouped by day, one line per order */
-.lv-boards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--lv-gap);padding:0 var(--lv-pad);min-height:0}
-.lv-boards .lv-card{margin:0}
-.lv-card-h h2 small{margin-left:.35em;font:400 .5em/1 var(--font-ui);color:var(--ink-3)}
-.lvb{flex:1 1 auto;min-height:0;overflow:hidden;border:0}
-.vd .lvb-day{border-bottom:1px solid var(--line)}
-.vd .lvb-day[hidden],.vd .lvb li[hidden]{display:none}
-.vd .lvb-day h3{margin:0;padding:.55em 1.1em .25em;font:600 max(11px,.74em)/1.3 var(--font-ui);color:var(--ink-3)}
-.vd .lvb-day.is-today{background:#f5f8f1;box-shadow:inset .3em 0 0 var(--forest)}
-.vd .lvb-day.is-today h3{color:var(--forest)}
-.vd .lvb ul{list-style:none;margin:0;padding:0 0 .35em}
-.vd .lvb-none{margin:0;padding:.2em 1.1em .7em;font-size:max(11px,.8em);color:var(--ink-3)}
-.vd.live .lvb{--pw:8.1em}
-.vd.live .lv-board:last-child .lvb{--pw:10.4em}
-.vd.live .ib-row{grid-template-columns:var(--pw) minmax(0,1fr);gap:.1em .8em;padding:.32em 1.1em}
-.vd.live .pill{font-size:max(10.5px,.72em)}
-.vd.live .ib-txt b{font-size:1em}
-.vd.live .ib-sub{font-size:max(11px,.76em)}
-/* one line per order on the big screen, so more days fit */
-.vd.live .ib-txt{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.vd.live .ib-sub{display:inline;margin-left:.7em}
+.lv-main{display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1fr);gap:var(--lv-gap);padding:0 var(--lv-pad);min-height:0}
+.lv-card{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;background:var(--sheet);border:1px solid var(--line)}
+.lv-card-h{flex:none;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.4em 1.2em;padding:.7em 1.1em;border-bottom:1px solid var(--line)}
+.lv-card-h h2{display:flex;align-items:baseline;gap:.55em;margin:0;font:500 1.55em/1.1 var(--font-display)}
+.lv-card-h h2 span{font:500 .5em/1 var(--font-ui);color:var(--ink-3)}
+.lv-n{display:inline-grid;place-items:center;min-width:1.8em;height:1.8em;padding:0 .45em;border-radius:999px;background:var(--forest);color:#fff;font:700 .85em/1 var(--font-ui)}
+.vd.live .legend{padding:0;gap:.3em 1.1em;font-size:max(10.5px,.72em)}
+.vd.live .legend i.lg{width:1.05em;height:1.05em}
+.vd.live .legend .lg.win{width:2em}
+.lv-plan .cal-wrap,.lv-plan .mcal-wrap{flex:1 1 auto;min-height:0;border:0}
+
+/* the week, scaled up */
+.vd.live .wk-body{--lane:2.6em;--cal-top:6em}
+.vd.live .day{padding:.65em .6em}
+.vd.live .day .dw{font-size:max(10px,.68em)}
+.vd.live .day .dn{font-size:1.75em}
+.vd.live .need{font-size:max(10px,.72em)}
+.vd.live .vbar{height:calc(var(--lane) - .45em);border-radius:.25em;cursor:default}
+.vd.live .vbar:hover{filter:none}
+.vd.live .vbar .bl{font-size:max(11.5px,.88em);padding:.1em .5em}
+.vd.live .cal-empty{font-size:1em}
 /* the month, scaled up */
 .vd.live .mcal{grid-template-columns:3.1em repeat(7,minmax(0,1fr))}
-.vd.live .mhead span{padding:.5em .7em;font-size:max(10px,.7em)}
+.vd.live .mhead span{padding:.5em .7em;font-size:max(10px,.68em)}
 .vd.live .mwk{padding:.6em .2em;font-size:max(10px,.68em)}
-.vd.live .mday{min-height:5em;padding:.4em .55em .5em;gap:.3em}
+.vd.live .mday{min-height:6em;padding:.35em .45em .45em;gap:.28em}
 .vd.live .md-n{font-size:1.05em}
-.vd.live .md-today{font-size:max(9px,.6em)}
-.vd.live .mcs{gap:.3em}
-.vd.live .mc{font-size:max(12px,1em);padding:.2em .7em .2em .55em}
+.vd.live .md-today{font-size:max(9px,.56em)}
+.vd.live .mday .need{font-size:max(10px,.66em)}
+.vd.live .mchips{gap:.22em}
+.vd.live .mchip{font-size:max(11px,.78em);padding:.18em .45em;cursor:default}
+.vd.live .mmore{font-size:max(10.5px,.7em)}
+
+/* the side: what needs Jan, and what comes today and tomorrow */
+.lv-side{display:grid;grid-template-rows:minmax(0,auto) minmax(8em,1fr);gap:var(--lv-gap);min-height:0}
+.lv-list{list-style:none;margin:0;padding:0;min-height:0;overflow:hidden}
+.vd .lv-it{position:relative;display:grid;gap:.3em;padding:.65em 1.1em .7em 1.4em;border-bottom:1px solid var(--line);color:var(--ink);font-weight:400}
+.lv-l1{display:flex;flex-wrap:wrap;align-items:center;gap:.3em .6em}
+.lv-it::before{content:"";position:absolute;left:0;top:0;bottom:0;width:.3em;background:var(--st-risk)}
+.lv-it.over::before{background:var(--st-bad)}
+.lv-it.late::before{background:var(--st-late)}
+.vd.live .pill{font-size:max(10.5px,.7em)}
+.lv-it b{font-size:1em;font-weight:600;line-height:1.25}
+.lv-why{font-size:.84em;line-height:1.35;color:var(--ink-2)}
+.lv-src{font-size:.86em;color:var(--ink-3)}
+.lv-more{margin:0;padding:.55em 1.1em;font-size:.76em;color:var(--ink-3)}
+.lv-calm{display:flex;align-items:center;gap:.6em;margin:0;padding:1em 1.1em;font-size:1.05em;color:var(--st-ok-ink)}
+.lv-calm span{display:grid;place-items:center;width:1.7em;height:1.7em;border-radius:50%;background:var(--st-ok-bg);font-weight:700}
+.lv-day{padding:.65em 1.1em;border-bottom:1px solid var(--line);min-height:0}
+.lv-day:last-child{border-bottom:0}
+.lv-day h3{display:flex;align-items:baseline;gap:.6em;margin:0 0 .45em;font:700 max(10px,.66em)/1.2 var(--font-ui);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3)}
+.lv-day h3 span{font-weight:600;letter-spacing:.03em;text-transform:none;color:var(--ink-2)}
+.lv-mini{list-style:none;margin:0;padding:0;display:grid;gap:.4em}
+.vd .lv-mini li{display:flex;flex-wrap:wrap;align-items:baseline;gap:.1em .55em;padding-left:.7em;border-left:.25em solid var(--st-ok);color:var(--ink);font-weight:400}
+.vd .lv-mini li.risk{border-left-color:var(--st-risk)}
+.vd .lv-mini li.late{border-left-color:var(--st-late)}
+.vd .lv-mini li.over{border-left-color:var(--st-bad)}
+.vd .lv-mini li.got{border-left-color:var(--st-muted);color:var(--st-muted-ink)}
+.lv-mini li b{font-size:.95em;font-weight:600}
+.lv-mini li span{font-size:.8em;color:var(--ink-2)}
+.vd .lv-mini .chip{font-size:max(10px,.66em)}
+.lv-none{margin:0;font-size:.84em;color:var(--ink-3)}
 .lv-foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.2em 1.4em;padding:0 var(--lv-pad);font-size:max(10.5px,.7em);color:var(--ink-3)}
 
-/* a landscape screen: everything on one page, nothing to scroll */
+/* a landscape screen: everything on one page, nothing to scroll; the week's lanes stretch to fill */
 @media (min-width:1100px) and (min-height:600px){
   .vd.live{height:100vh;height:100dvh;overflow:hidden}
+  .vd.live .lv-plan .cal-wrap{container-type:size;overflow:hidden}
+  .vd.live .lv-plan .cal{min-width:0;height:100%}
+  .vd.live .lv-plan .wk-body{height:100%;--lane:clamp(2.1em,calc((100cqh - var(--cal-top) - .8em) / max(var(--n,1),5)),3.7em)}
+  .vd.live .lv-plan .mcal-wrap{overflow:hidden}
   .vd.live .lv-plan .mcal{height:100%;grid-template-rows:auto repeat(var(--rows),minmax(min-content,1fr))}
-  .vd.live .lv-plan .mday{min-height:0}
+  .vd.live .lv-plan .mday{min-height:0;overflow:hidden}
 }
 /* smaller or upright screens: the same parts, stacked */
 @media (max-width:1099px){
@@ -1383,8 +1313,8 @@ a.td-item:hover .go-chev{border-color:var(--ink)}
   .lv-h{font-size:1.6em}
   .lv-clock b{font-size:2.2em}
   .lv-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .lv-boards{grid-template-columns:minmax(0,1fr)}
-  .vd.live .ib-txt{white-space:normal}
+  .lv-main{grid-template-columns:minmax(0,1fr)}
+  .lv-side{grid-template-rows:none}
 }
 @media (max-width:560px){
   .lv-top .wm-txt{display:none}
@@ -1393,7 +1323,6 @@ a.td-item:hover .go-chev{border-color:var(--ink)}
   .lv-clock{margin-left:auto}
   .lv-kpi b{font-size:2.4em}
   .lv-kpi{padding:.6em .8em}
-  .vd.live .ib-row{grid-template-columns:minmax(0,1fr);gap:.3em}
 }
 
 /* ---------- desk: the forest header with Jan's logo, and small fixes ---------- */
@@ -3390,7 +3319,7 @@ ${pubFoot()}`;
 /* one tab title per page, so several open tabs can be told apart */
 function pageTitle(r) {
   if (r === 'login/desk') return 'Inloggen · Campo desk';
-  if (r === 'desk/live') return 'Live · Binnenkomen en verzenden · Campo desk';
+  if (r === 'desk/live') return 'Live ontvangsten · Campo desk';
   if (r.indexOf('desk') === 0) { const item = DESK_NAV.find(x => x[0] === r.split('/')[1]); return `${item ? item[1] : 'Vandaag'} · Campo desk`; }
   const name = { suppliers: t('growersBtn'), 'login/customer': t('track'), customer: t('sideK') }[r];
   return name ? `${name} · Campo International` : 'Campo International';
@@ -3552,11 +3481,9 @@ function colCheck() {
   return { done: !total, html: tcol(3, 'Nakijken', 'Wat de desk niet vertrouwt of niet zeker heeft gelezen.', `${total} open`, !total, rows ? `<ul class="td-list">${rows}</ul>` : '<p class="td-empty">Niets na te kijken.</p>', '<span>Wat klopt, blijft hier weg.</span><a class="td-more" href="#/desk/log">Logboek</a>') };
 }
 
-/* ================= Vandaag: binnenkomen en verzenden ================= */
-/* One day board: per day what comes in from growers and what goes out to customers, each with one status word.
-   Receiving days are Campo's own estimates: order day plus how long each step usually takes for this grower and route,
-   taken from our own past receipts. What a grower mails is shown next to it, for comparison.
-   Shipping days follow from the day the customer gets the order, minus the usual days on the road to that country.
+/* ================= Vandaag: verwachte ontvangsten ================= */
+/* Expected receiving days for every open purchase order. These are Campo's own estimates: order day plus how long each step
+   usually takes for this grower and route, taken from our own past receipts. What a grower mails is shown only for comparison.
    The desk estimates and warns; Jan orders, calls and decides. */
 const VD = (() => {
   const T0 = midnight(new Date());
@@ -3566,8 +3493,8 @@ const VD = (() => {
   const dow = n => DOWS.nl[D(n).getDay()];
   const mon3 = n => D(n).toLocaleDateString('nl-NL', { month: 'short' }).replace('.', '');
   const fD = n => `${dow(n)} ${D(n).getDate()} ${mon3(n)}`;
+  const rel = n => (n === 0 ? 'vandaag' : n === 1 ? 'morgen' : n === -1 ? 'gisteren' : n > 0 ? `over ${n} dagen` : `${-n} dagen geleden`);
   const fRange = (a, b) => (a === b ? fD(a) : `${fD(a)} – ${fD(b)}`);
-  const fDr = n => (n === 0 ? 'vandaag' : n === 1 ? 'morgen' : fD(n));
   const dg = n => `${n} ${n === 1 ? 'dag' : 'dagen'}`;
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
   const h = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
@@ -3576,11 +3503,7 @@ const VD = (() => {
   /* the working week shown first: this week, or next week when today is Sunday */
   const BASE_MON = (() => { const t = T0.getDay() === 0 ? 1 : 0; return t - ((D(t).getDay() + 6) % 7); })();
   const wkNl = d => `wk ${isoWeek(d)} ${DOWS.nl[d.getDay()]}`;
-
-  /* usual days on the road from Nootdorp to the customer's country: the order leaves that many days before the customer has it */
-  const ROAD = { NL: 0, BE: 1, DE: 1, FR: 1, DK: 1, PL: 1, IT: 1, SE: 2, GB: 2 };
-  const shipDay = co => { let n = off(co.when) - (ROAD[CUSTOMERS[co.cust].cc] ?? 1); if (D(n).getDay() === 0) n--; return n; };
-  const whenOf = ci => { const co = ORDERS.find(x => x.id === ci); return co ? shipDay(co) : null; };
+  const whenOf = ci => { const o = ORDERS.find(x => x.id === ci); return o ? off(o.when) : null; };
 
   /* Usual steps per route, in days: [step, fastest, usual, slowest]. From our own receipts, not from mails. */
   const R = {
@@ -3609,7 +3532,7 @@ const VD = (() => {
       todo: `Komt de rest later dan de kweker zegt, dan haalt Lila het niet. Lila alvast laten weten dat de rest ${wkNl(N(2))} komt.` },
     { id: 'PO-2628', grower: 'hortensia', plant: 'hydr', size: 'P17 · H40', qty: 24, cust: 'weber', ci: 'CI-26-0409', ordered: -1, note: 'Nalevering van de 24 die bij PO-2617 ontbraken.',
       steps: R.nlSlow, says: null, hist: [4, 4, 3, 5, 4],
-      todo: 'Weber krijgt nu 216 in plaats van 240. Even met Jonas Weber overleggen: nu 216 en de rest later, of alles samen.' },
+      todo: 'Weber krijgt morgen 216 in plaats van 240. Even met Jonas Weber overleggen: nu 216 en de rest later, of alles samen.' },
     { id: 'PO-2623', grower: 'leeuwen', plant: 'phal', name: 'Phalaenopsis 3-tak', size: 'P12', qty: 240, ordered: -2, steps: R.nl, says: { day: off(N(0)), txt: 'Week en dag zoals besteld' }, hist: [3, 3, 3, 3, 4, 3] },
     { id: 'PO-2622', grower: 'zonnehoek', plant: 'kala', size: 'P12', qty: 600, ordered: -2, steps: R.hub, says: { day: off(N(1)), txt: 'Week en dag zoals besteld' }, hist: [4, 4, 5, 4, 3, 4] },
     { id: 'PO-2625', grower: 'hortensia', plant: 'hydr', size: 'P17 · H40', qty: 120, ordered: -2, steps: R.nlSlow, says: { day: off(N(2)), txt: 'Week en dag zoals besteld' }, hist: [4, 4, 3, 5, 4] },
@@ -3627,206 +3550,223 @@ const VD = (() => {
   }
   OPEN.forEach(o => { o._e = estimate(o); });
 
-  /* ib: the open line on the board; how: the line that shows how we estimate; past: earlier days of this week shown */
-  const V = { ib: null, how: null, draft: null, week: 0, month: 0, past: false };
+  const V = { open: null, draft: null, week: 0, month: 0, showGot: true };
   const recv = () => { if (!S.recv) S.recv = {}; return S.recv; };
   /* the planning shows a week or a month; Jan's choice stays on this computer */
   const mode = () => (P.vdView === 'month' ? 'month' : 'week');
 
   const gName = o => GROWERS[o.grower].name;
   const pName = o => o.name || PLANTS[o.plant].nl;
-  const pWord = p => PLANTS[p].nl.split(/[ ,]/)[0];
   const custName = o => (o.cust ? CUSTOMERS[o.cust].name : 'Eigen voorraad');
   const shortName = g => g.replace(/^(Kwekerij|Gärtnerei|Kwiaciarnia|Kantoorgroen|Blumenhaus|Fleuriste) /, '').replace(/ (BV|ApS|Blomster|AB|Ltd)$/, '').replace(/^Van /, '');
-  /* a purchase order: received, too late, delayed, at risk for the customer it is for, or on schedule */
   function statusOf(o) {
     if (recv()[o.id] != null) return 'in';
     const e = o._e;
     if (0 > e.late) return 'over';
     if (0 > e.likely) return 'late';
-    if (o.needBy != null && (e.late > o.needBy || (o.says && o.says.day > o.needBy))) return 'risk';
+    if (o.needBy != null && e.late > o.needBy) return 'risk';
     return 'ok';
   }
+  const LABEL = { over: 'Over tijd', late: 'Later dan verwacht', risk: 'Risico voor klant', ok: 'Verwacht', in: 'Binnen' };
   const attn = s => s === 'over' || s === 'late' || s === 'risk';
   const growerOff = o => (o.says ? o.says.day - o._e.likely : 0);
   const growerFar = o => o.says && (o.says.day < o._e.early - 1 || o.says.day > o._e.late + 1);
   const openOrders = () => OPEN.filter(o => statusOf(o) !== 'in');
-  /* where an order on schedule probably is now, from the step it is most likely at */
-  function stageOf(o) {
-    const name = o.steps[Math.min(o._e.passed, o.steps.length - 1)][0];
-    const st = /^Bevestig/.test(name) ? 'ordered' : /klaarzet|kweken|oogst/i.test(name) ? 'grower' : 'moving';
-    return st === 'ordered' && o.says ? 'grower' : st;
-  }
+  const needCount = () => openOrders().filter(o => attn(statusOf(o))).length;
 
-  /* one word per line on the board. tone gives the colour; the word always says it too */
-  const ST = {
-    over:    { label: 'Te laat',            tone: 'bad',  ic: '!' },
-    late:    { label: 'Vertraagd',          tone: 'late', ic: '!' },
-    risk:    { label: 'Risico klant',       tone: 'risk', ic: '!' },
-    ordered: { label: 'Besteld',            tone: 'ok',   ic: '•' },
-    grower:  { label: 'Bij kweker',         tone: 'ok',   ic: '•' },
-    moving:  { label: 'Onderweg',           tone: 'ok',   ic: '→' },
-    in:      { label: 'Binnen',             tone: 'done', ic: '✓' },
-    missed:  { label: 'Te laat',            tone: 'bad',  ic: '!' },
-    buy:     { label: 'Nog inkopen',        tone: 'info', ic: '+' },
-    wait:    { label: 'Wacht op inkoop',    tone: 'ok',   ic: '•' },
-    ready:   { label: 'Klaar om te pakken', tone: 'ok',   ic: '•' },
-    packed:  { label: 'Gepakt',             tone: 'ok',   ic: '•' },
-    shipped: { label: 'Onderweg',           tone: 'ok',   ic: '→' },
-    done:    { label: 'Geleverd',           tone: 'done', ic: '✓' },
-  };
-  const PILL = { ok: 'ok', info: 'check', risk: 'risk', late: 'late', bad: 'over', done: 'done' };
-  const TONE_RANK = { bad: 0, late: 1, risk: 2, info: 3, ok: 4, done: 5 };
-  const pill = st => `<span class="pill ${PILL[ST[st].tone]}"><i aria-hidden="true">${ST[st].ic}</i>${ST[st].label}</span>`;
-
-  /* ---------- what comes in ---------- */
-  /* received, straight from the packing lists on the Pakbonnen page, plus orders Jan marked as received here */
-  const SLIP_NOTE = { fewer: s => `${nf(s.of - s.got)} te weinig`, partial: () => 'deellevering, de rest volgt', size: s => `andere maat: ${s.gotSize}` };
+  /* received this week and last, straight from the packing lists on the Pakbonnen page */
   function gotItems() {
     return SLIPS.concat(ARCHIVE_SLIPS).filter(s => s.kind === 'Pakbon').map(s => {
       const po = POS[s.po];
-      return { key: 'slip:' + s.id, id: s.po, grower: GROWERS[s.grower].name, plant: po ? PLANTS[po.plant].nl : '', size: po ? po.size : '', qty: s.got != null ? s.got : po ? po.qty : 0, of: s.of,
-        day: off(s.at), cust: po ? po.cust : null, order: po ? po.order : null, issue: s.issue ? SLIP_NOTE[s.issue](s) : '' };
-    }).concat(OPEN.filter(o => recv()[o.id] != null).map(o => ({ key: 'got:' + o.id, id: o.id, grower: gName(o), plant: pName(o), size: o.size, qty: o.qty,
-      day: recv()[o.id], cust: o.cust || null, order: o.ci || null, issue: '' })));
-  }
-  /* what Jan placed from the order list in Offertes; in this prototype those have no purchase order number yet */
-  const placedAt = () => (S.placed ? S.placed.at : 0);
-  const isPlaced = id => !!placedAt() && (S.ticks[id] === true || S.ticks[id] <= placedAt());
-  function needState(n) {
-    const rows = scoreNeed(n).filter(r => S.ticks[r.o.id]);
-    const placed = rows.filter(r => isPlaced(r.o.id));
-    if (placed.length && placed.reduce((s, r) => s + r.q, 0) >= n.qty) return { st: 'ordered', rows: placed, day: Math.max(...placed.map(r => off(r.o.arrive))) };
-    return { st: rows.length ? 'listed' : 'buy', rows };
-  }
-  function inItems() {
-    const out = [];
-    OPEN.forEach(o => {
-      const s = statusOf(o);
-      if (s === 'in') return;
-      const e = o._e;
-      const note = s === 'over' ? `uiterlijk ${fD(e.late)} verwacht` : s === 'late' ? `verwacht ${fD(e.likely)}, kan tot ${fD(e.late)} duren`
-        : s === 'risk' ? (o.says && o.says.day > o.needBy ? `kweker zegt ${fD(o.says.day)}` : `kan tot ${fD(e.late)} duren`) : '';
-      out.push({ dir: 'in', key: 'po:' + o.id, day: Math.max(e.likely, 0), st: s === 'ok' ? stageOf(o) : s, o,
-        what: `${nf(o.qty)} ${pName(o)}`, who: `${shortName(gName(o))}${o.cust ? ` · voor ${shortName(custName(o))}` : ' · voorraad'}`, note });
-    });
-    NEEDS.forEach(n => {
-      const x = needState(n);
-      if (x.st !== 'ordered') return;
-      x.rows.forEach(r => out.push({ dir: 'in', key: 'buy:' + r.o.id, day: Math.max(off(r.o.arrive), 0), st: 'ordered', b: { n, r },
-        what: `${nf(r.q)} ${PLANTS[n.plant].nl}`, who: `${shortName(GROWERS[r.o.grower].name)} · voor ${shortName(CUSTOMERS[n.cust].name)}`, note: 'via je bestellijst' }));
-    });
-    gotItems().forEach(g => out.push({ dir: 'in', key: g.key, day: g.day, st: 'in', g,
-      what: `${nf(g.qty)}${g.of ? ` van ${nf(g.of)}` : ''} ${g.plant}`, who: shortName(g.grower), note: g.issue }));
-    return out;
+      const qty = s.got != null ? s.got : po ? po.qty : 0;
+      return { id: s.po, grower: GROWERS[s.grower].name, plant: po ? PLANTS[po.plant].nl : '', qty, of: s.of, day: off(s.at) };
+    }).concat(OPEN.filter(o => recv()[o.id] != null).map(o => ({ id: o.id, grower: gName(o), plant: pName(o), qty: o.qty, day: recv()[o.id] })));
   }
 
-  /* ---------- what goes out ---------- */
-  /* per order line: where its goods are. Received earlier, on its way from a grower, still to buy, or from stock */
-  function supplyOf(co, sd) {
-    return co.lines.map(([plant, size, qty]) => {
-      const parts = [];
-      SLIPS.concat(ARCHIVE_SLIPS).filter(s => s.kind === 'Pakbon' && POS[s.po] && POS[s.po].order === co.id && POS[s.po].plant === plant).forEach(s => {
-        const q = s.got != null ? s.got : POS[s.po].qty;
-        parts.push(s.issue === 'size' ? { st: 'risk', q, txt: `binnen, maar in een andere maat (${s.gotSize})`, why: 'andere maat binnengekomen', todo: 'Bekijk de pakbon bij Pakbonnen: houden, ruilen of de klant iets anders voorstellen.' } : { st: 'in', q, txt: `binnen sinds ${fD(off(s.at))}` });
-      });
-      OPEN.filter(p => p.ci === co.id && p.plant === plant).forEach(p => {
-        const s = statusOf(p);
-        if (s === 'in') { parts.push({ st: 'in', q: p.qty, txt: `binnen sinds ${fD(recv()[p.id])}` }); return; }
-        const saysLate = p.says && p.says.day > sd, bad = s === 'over' || p._e.late > sd || saysLate;
-        const why = saysLate ? `kweker zegt ${fD(p.says.day)}` : s === 'over' ? 'inkoop is te laat' : `kan tot ${fD(p._e.late)} duren`;
-        parts.push({ st: bad ? 'risk' : 'wait', q: p.qty, po: p.id, day: p._e.likely, why, todo: p.todo,
-          txt: `${p.id} bij ${shortName(gName(p))}, verwacht ${fD(Math.max(p._e.likely, 0))}${p.says && p.says.day > sd ? `; de kweker zegt ${fD(p.says.day)}` : !bad ? '' : p._e.late > sd ? `, kan tot ${fD(p._e.late)} duren` : ''}` });
-      });
-      NEEDS.filter(n => n.order === co.id && n.plant === plant).forEach(n => {
-        const x = needState(n);
-        if (x.st === 'buy') parts.push({ st: 'buy', q: n.qty, txt: 'nog inkopen, kies een offerte' });
-        else if (x.st === 'listed') parts.push({ st: 'buy', q: n.qty, listed: true, txt: 'op je bestellijst, nog niet besteld' });
-        else parts.push({ st: x.day > sd ? 'risk' : 'wait', q: n.qty, day: x.day, why: `offerte zegt ${fD(x.day)}`, todo: 'Een snellere offerte kiezen in Offertes, of de klant laten weten dat het later wordt.', txt: `besteld bij ${shortName(GROWERS[x.rows[0].o.grower].name)}, volgens de offerte binnen ${fD(x.day)}` });
-      });
-      if (!parts.length) parts.push({ st: 'in', q: qty, txt: 'uit voorraad' });
-      return { plant, size, qty, parts };
-    });
-  }
-  function outItem(co) {
-    const step = stepOf(co), sd = shipDay(co), sup = supplyOf(co, sd), parts = sup.reduce((t, l) => t.concat(l.parts.map(p => Object.assign({ plant: l.plant }, p))), []);
-    const has = k => parts.some(p => p.st === k);
-    const st = step >= 3 ? 'done' : step === 2 ? 'shipped' : sd < 0 ? 'missed' : has('risk') ? 'risk' : has('buy') ? 'buy' : has('wait') ? 'wait' : step === 1 ? 'packed' : 'ready';
-    const firstOf = k => parts.find(p => p.st === k);
-    const buyWords = [...new Set(parts.filter(p => p.st === 'buy').map(p => pWord(p.plant)))];
-    const waitLast = Math.max(...parts.filter(p => p.st === 'wait').map(p => p.day));
-    const hint = co.hint && step < co.hint.to ? co.hint : null;
-    const r = firstOf('risk'), multi = co.lines.length > 1;
-    const rLine = r ? sup.find(l => l.plant === r.plant) : null, rWho = r && (multi || r.q < rLine.qty) ? `${nf(r.q)} ${pWord(r.plant)}: ` : '';
-    const note = st === 'missed' ? `had ${fD(sd)} weg gemoeten`
-      : st === 'risk' ? `${rWho}${r.why}`
-      : st === 'buy' ? (parts.filter(p => p.st === 'buy').every(p => p.listed) ? 'op je bestellijst, nog niet besteld' : multi ? `${buyWords.join(' en ')} nog inkopen` : '')
-      : st === 'wait' ? `inkoop verwacht ${fD(Math.max(waitLast, 0))}`
-      : st === 'ready' ? 'alles is binnen'
-      : st === 'packed' ? `klaar voor ${fD(sd)}`
-      : st === 'shipped' ? (hint ? `voorstel: zet op ${STEPS_NL[hint.to]}` : `bij de klant ${fD(off(co.when))}`)
-      : `geleverd ${fD(off(co.when))}`;
-    return { dir: 'out', key: 'co:' + co.id, day: st === 'missed' ? 0 : sd, st, co, sd, sup, step, hint,
-      what: CUSTOMERS[co.cust].name, who: `${co.lines.map(([p, , q]) => `${nf(q)} ${pWord(p)}`).join(' + ')} · ${CUSTOMERS[co.cust].city}`, note };
-  }
-  const outItems = () => ORDERS.map(outItem);
-  const allItems = () => inItems().concat(outItems());
-  const byTone = (a, b) => TONE_RANK[ST[a.st].tone] - TONE_RANK[ST[b.st].tone];
-
-  /* the four numbers on top of the page and of the live screen */
-  function tally(items) {
-    const today = items.filter(it => it.day === 0);
-    return {
-      inToday: today.filter(it => it.dir === 'in' && it.st !== 'in').length,
-      outToday: today.filter(it => it.dir === 'out' && !['shipped', 'done'].includes(it.st)).length,
-      late: items.filter(it => it.st === 'over' || it.st === 'late' || it.st === 'missed').length,
-      risk: items.filter(it => it.dir === 'out' && it.st === 'risk').length,
-    };
+  /* ---------- head ---------- */
+  function headParts() {
+    const open = openOrders();
+    const c = k => open.filter(o => statusOf(o) === k).length;
+    const inWeek = w => open.filter(o => o._e.likely >= BASE_MON + w * 7 && o._e.likely <= BASE_MON + w * 7 + 6).length;
+    const week = inWeek(0), next = inWeek(1), n = c('over') + c('late') + c('risk');
+    const label = BASE_MON > 0 ? 'komende week' : 'deze week';
+    const lede = `${open.length} inkooporders staan open. We verwachten er ${label} ${week}, en de week daarna ${next}. ${n ? `<b>${n} ${n === 1 ? 'vraagt' : 'vragen'} iets van jou.</b>` : 'Niets vraagt nu iets van jou.'}`;
+    const status = `<div class="status" aria-label="Stand van de inkooporders">
+      <div class="${c('over') ? 's-over' : c('late') ? 's-late' : 's-none'}"><b class="num">${c('over') + c('late')}</b><span>Over of later<br>dan verwacht</span></div>
+      <div class="${c('risk') ? 's-risk' : 's-none'}"><b class="num">${c('risk')}</b><span>Risico<br>voor klant</span></div>
+      <div class="s-ok"><b class="num">${week}</b><span>Verwacht<br>${label}</span></div>
+      <div><b class="num">${next}</b><span>Week<br>daarna</span></div></div>`;
+    return { lede, status };
   }
 
-  /* ---------- needs Jan: late or risky purchases, and proposals for what a customer sees ---------- */
-  const ACT_ORDER = ['over', 'late', 'risk'];
-  const actPOs = () => OPEN.filter(o => attn(statusOf(o))).sort((a, b) => ACT_ORDER.indexOf(statusOf(a)) - ACT_ORDER.indexOf(statusOf(b)));
-  const actProps = () => ORDERS.filter(co => co.hint && stepOf(co) < co.hint.to);
-  const needCount = () => actPOs().length + actProps().length;
+  /* ---------- 1. action cards ---------- */
   function reason(o) {
     const e = o._e, s = statusOf(o);
     if (s === 'over') return `We verwachtten hem uiterlijk ${fD(e.late)}. Dat is ${dg(-e.late)} geleden en hij is niet binnen.`;
     if (s === 'late') return `Waarschijnlijkste dag was ${fD(e.likely)}. Volgens onze schatting kan het nog tot ${fD(e.late)} duren.`;
-    if (o.says && o.says.day > o.needBy) return `${h(gName(o))} bevestigde ${fD(o.says.day)}. De order voor ${h(custName(o))} gaat ${fDr(o.needBy)} weg.`;
-    return `We verwachten hem tussen ${fRange(e.early, e.late)}. De order voor ${h(custName(o))} gaat ${fDr(o.needBy)} weg.`;
+    return `We verwachten hem tussen ${fRange(e.early, e.late)}. ${h(custName(o))} heeft het nodig op ${fD(o.needBy)}.`;
   }
   function actsHtml() {
-    const pos = actPOs(), props = actProps();
-    if (!pos.length && !props.length) return '<p class="all-good">Niets is te laat, niets dreigt te laat te komen voor een klant en er liggen geen voorstellen.</p>';
-    return `<ul class="acts">${pos.map(o => {
+    const order = ['over', 'late', 'risk'];
+    const list = OPEN.filter(o => attn(statusOf(o))).sort((a, b) => order.indexOf(statusOf(a)) - order.indexOf(statusOf(b)));
+    if (!list.length) return '<p class="all-good">Niets is over tijd en niets dreigt te laat te komen voor een klant.</p>';
+    return `<ul class="acts">${list.map(o => {
       const s = statusOf(o);
       return `<li class="act ${s}">
-        ${pill(s)}
+        <span class="pill ${s}"><i aria-hidden="true">!</i>${LABEL[s]}</span>
         <div class="act-main"><b>${h(custName(o))} · ${nf(o.qty)} ${h(pName(o))}</b>
           <span class="act-why">${reason(o)}</span>
-          <span class="act-src">${h(gName(o))} · <span class="mono">${o.id}</span>${o.ci ? ` · ${o.ci}` : ''}</span></div>
-        <div class="act-btns">${o.draft ? `<button class="btn btn-leaf btn-sm" type="button" data-vd="open-draft" data-key="po:${o.id}">Concept-mail</button>` : ''}<button class="btn btn-line btn-sm" type="button" data-vd="got" data-id="${o.id}">Is binnen</button><button class="lnk" type="button" data-vd="goto" data-key="po:${o.id}">Details</button></div>
-      </li>`;
-    }).join('')}${props.map(co => {
-      const step = stepOf(co), c = CUSTOMERS[co.cust];
-      return `<li class="act prop">
-        <span class="pill check"><i aria-hidden="true">✓</i>Voorstel</span>
-        <div class="act-main"><b>${h(c.name)} · ${co.id}</b>
-          <span class="act-why">${h(co.hint.why)} De klant ziet nog “${STEPS_EN[step]}”.</span>
-          <span class="act-src">${co.lines.map(([p, , q]) => `${nf(q)} ${pWord(p)}`).join(' + ')} · ${h(c.city)}</span></div>
-        <div class="act-btns"><button class="btn btn-line btn-sm" type="button" data-act="step" data-id="${co.id}" data-step="${co.hint.to}">Zet op ${STEPS_NL[co.hint.to]}</button><button class="lnk" type="button" data-vd="goto" data-key="co:${co.id}">Details</button></div>
+          <span class="act-src">${h(gName(o))} · <span class="mono">${o.id}</span>${o.ci ? ` · ${o.ci}` : ''}${growerFar(o) ? ` · kweker mailde “${h(o.says.txt)}”` : ''}</span></div>
+        <div class="act-btns">${o.draft ? `<button class="btn btn-leaf btn-sm" type="button" data-vd="open-draft" data-id="${o.id}">Concept-mail</button>` : ''}<button class="btn btn-line btn-sm" type="button" data-vd="got" data-id="${o.id}">Is binnen</button><button class="lnk" type="button" data-vd="goto" data-id="${o.id}">Details</button></div>
       </li>`;
     }).join('')}</ul>`;
   }
 
-  /* ---------- the day board ---------- */
-  const safeId = key => 'ib-' + key.replace(/[^\w-]/g, '-');
-  /* a short track: where the goods are now. reached = the last step they got to (-1: none yet) */
-  function track(names, subs, reached, tone, part) {
-    return `<ol class="trk t-${tone}" aria-label="Waar het nu is">${names.map((n, i) => `<li class="${i < reached ? 'done' : i === reached ? 'now' : ''}${part && part.includes(i) ? ' part' : ''}"><span class="dot" aria-hidden="true"></span><b>${n}</b><small>${subs[i] || ''}</small></li>`).join('')}</ol>`;
+  /* ---------- 2. planning: a week with windows, or a month with one chip per order ---------- */
+  /* what the planning shows: every open order from its fastest to its slowest day, plus what came in when Jan wants to see it */
+  function planItems() {
+    const items = [];
+    OPEN.forEach(o => {
+      const s = statusOf(o);
+      if (s === 'in') return;
+      items.push({ kind: s, a: o._e.early, b: o._e.late, lk: o._e.likely, id: o.id,
+        label: `${shortName(custName(o))} · ${nf(o.qty)} ${pName(o).split(/[ ,]/)[0]}`,
+        mlabel: `${nf(o.qty)} ${pName(o).split(/[ ,]/)[0]} · ${o.cust ? shortName(custName(o)) : 'voorraad'}`,
+        title: `${o.id} · ${nf(o.qty)} ${pName(o)} van ${gName(o)}${o.cust ? ` voor ${custName(o)}` : ''} · ${LABEL[s]} · verwacht ${fRange(o._e.early, o._e.late)}, waarschijnlijk ${fD(o._e.likely)}` });
+    });
+    if (V.showGot) gotItems().forEach(g => items.push({ kind: 'got', a: g.day, b: g.day, lk: null, id: null,
+      label: `${shortName(g.grower)} · ${nf(g.qty)} ${g.plant.split(/[ ,]/)[0]}`,
+      mlabel: `${nf(g.qty)} ${g.plant.split(/[ ,]/)[0]} · ${shortName(g.grower)}`,
+      title: `${g.id} · ${nf(g.qty)}${g.of ? ` van ${nf(g.of)}` : ''} ${g.plant} · binnen ${fD(g.day)}` }));
+    return items;
   }
-  const sureTxt = n => ['', 'onzeker', 'redelijk zeker', 'zeker'][n];
+  /* the days a customer needs something that is still on its way */
+  function needMap() {
+    const needs = {};
+    OPEN.forEach(o => { if (o.needBy != null && statusOf(o) !== 'in') (needs[o.needBy] = needs[o.needBy] || new Set()).add(shortName(custName(o))); });
+    return needs;
+  }
+  const needTag = (needs, n) => (needs[n] ? `<span class="need" title="Klant heeft het nodig: ${h([...needs[n]].join(', '))}">▲ ${h([...needs[n]].join(', '))}</span>` : '');
+
+  /* the week: lanes of bars. Lane height and header height come from CSS, so the big screen can scale them. */
+  function calHtml(wo, live) {
+    const ws = BASE_MON + wo * 7, we = ws + 6, needs = needMap();
+    const inWeek = planItems().filter(it => it.b >= ws && it.a <= we).sort((x, y) => x.a - y.a || (y.b - y.a) - (x.b - x.a));
+    const lanes = [];
+    inWeek.forEach(it => { const sa = Math.max(it.a, ws); let l = lanes.findIndex(end => end < sa); if (l < 0) { l = lanes.length; lanes.push(0); } lanes[l] = Math.min(it.b, we); it.lane = l; });
+    let days = '';
+    for (let i = 0; i < 7; i++) {
+      const n = ws + i;
+      days += `<div class="day${D(n).getDay() === 0 ? ' sun' : ''}${n < 0 ? ' past' : ''}${n === 0 ? ' is-today' : ''}"><span class="dw">${dow(n)}${n === 0 ? ' · vandaag' : ''}</span><span class="dn num">${D(n).getDate()} ${mon3(n)}</span>${needTag(needs, n)}</div>`;
+    }
+    let bars = '';
+    inWeek.forEach(it => {
+      const sa = Math.max(it.a, ws), sb = Math.min(it.b, we);
+      const left = (sa - ws) / 7 * 100, width = (sb - sa + 1) / 7 * 100;
+      const cls = `vbar ${it.kind}${it.a < ws ? ' cont-l' : ''}${it.b > we ? ' cont-r' : ''}`;
+      let lk = '', dark = false;
+      if (it.lk != null && it.lk >= sa && it.lk <= sb) {
+        const span = sb - sa + 1;
+        lk = `<span class="lk" style="left:${(it.lk - sa) / span * 100}%;width:${100 / span}%"></span>`;
+        dark = it.lk === sa;
+      }
+      const style = `left:calc(${left}% + 4px);width:calc(${width}% - 8px);top:calc(var(--lane) * ${it.lane})`;
+      const label = `${lk}<span class="bl${dark ? ' on-dark' : ''}">${h(it.kind === 'got' ? `✓ ${it.label}` : it.label)}</span>`;
+      bars += live
+        ? `<div class="${cls}" style="${style}">${label}</div>`
+        : `<button type="button" class="${cls}" style="${style}" title="${h(it.title)}" ${it.id ? `data-vd="goto" data-id="${it.id}"` : 'tabindex="-1"'}>${label}</button>`;
+    });
+    return `<div class="wk-body" style="--n:${lanes.length}"><div class="days">${days}</div><div class="lanes">${bars || '<p class="cal-empty">Deze week verwachten we geen ontvangsten.</p>'}</div></div>`;
+  }
+
+  /* the month: Monday to Sunday, the weeks of the month as rows. Each order sits on its most likely day. */
+  const DOW_SHORT = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
+  const KIND_ORDER = { over: 0, late: 1, risk: 2, ok: 3, got: 4 };
+  const KIND_IC = { over: '!', late: '!', risk: '!', ok: '', got: '✓' };
+  const monthDate = mo => new Date(T0.getFullYear(), T0.getMonth() + mo, 1);
+  const monthName = mo => cap(monthDate(mo).toLocaleDateString('nl-NL', { month: 'long', year: 'numeric' }));
+  function monthBounds(mo) {
+    const fs = off(monthDate(mo)), fe = off(new Date(T0.getFullYear(), T0.getMonth() + mo + 1, 0));
+    return { fs, fe, gs: fs - ((D(fs).getDay() + 6) % 7), ge: fe + (6 - ((D(fe).getDay() + 6) % 7)) };
+  }
+  function mChip(it, live) {
+    const inner = `${KIND_IC[it.kind] ? `<i aria-hidden="true">${KIND_IC[it.kind]}</i>` : ''}<span class="t">${h(it.mlabel || it.label)}</span><span class="sr-only"> · ${it.kind === 'got' ? 'binnen' : LABEL[it.kind]}</span>`;
+    return it.id && !live
+      ? `<button type="button" class="mchip ${it.kind}" data-vd="goto" data-id="${it.id}" title="${h(it.title)}">${inner}</button>`
+      : `<span class="mchip ${it.kind}"${live ? '' : ` title="${h(it.title)}"`}>${inner}</span>`;
+  }
+  function monthHtml(mo, live) {
+    const { fs, fe, gs, ge } = monthBounds(mo), needs = needMap(), by = {};
+    planItems().forEach(it => { const d = it.kind === 'got' ? it.a : it.lk; if (d >= gs && d <= ge) (by[d] = by[d] || []).push(it); });
+    const max = live ? 4 : 3;
+    let rows = '';
+    for (let w = gs; w <= ge; w += 7) {
+      let cells = '', any = false;
+      for (let n = w; n < w + 7; n++) {
+        const its = (by[n] || []).sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind]);
+        const inMonth = n >= fs && n <= fe, nd = needTag(needs, n);
+        if (inMonth && (its.length || nd)) any = true;
+        const shown = its.length > max ? its.slice(0, max - 1) : its, more = its.length - shown.length;
+        const moreHtml = !more ? '' : live ? `<span class="mmore">+${more} meer</span>`
+          : `<button type="button" class="mmore" data-vd="to-week" data-w="${(w - BASE_MON) / 7}">+${more} meer</button>`;
+        cells += `<div class="mday${inMonth ? '' : ' m-out'}${n < 0 ? ' past' : ''}${n === 0 ? ' is-today' : ''}${D(n).getDay() === 0 ? ' sun' : ''}${its.length || nd ? '' : ' m-empty'}">
+          <span class="md-h"><b class="md-n num">${D(n).getDate()}</b><span class="md-d">${cap(dow(n))} ${D(n).getDate()} ${mon3(n)}</span>${n === 0 ? '<span class="md-today">vandaag</span>' : ''}</span>${nd}${its.length ? `<span class="mchips">${shown.map(it => mChip(it, live)).join('')}${moreHtml}</span>` : ''}</div>`;
+      }
+      const wn = isoWeek(D(w));
+      rows += `<div class="mrow${any ? '' : ' is-none'}">${live ? `<span class="mwk">wk ${wn}</span>` : `<button type="button" class="mwk" data-vd="to-week" data-w="${(w - BASE_MON) / 7}" title="Week ${wn} in de weekplanning">wk ${wn}</button>`}${cells}<span class="m-none">Niets verwacht</span></div>`;
+    }
+    return `<div class="mcal" style="--rows:${(ge - gs + 1) / 7}"><div class="mhead" aria-hidden="true"><span></span>${DOW_SHORT.map(d => `<span>${d}</span>`).join('')}</div>${rows}</div>`;
+  }
+
+  /* open orders that fall before what is on screen, so nothing slips out of view */
+  function behindHtml() {
+    const m = mode();
+    if (m === 'week' ? V.week !== 0 : V.month !== 0) return '';
+    const from = m === 'week' ? BASE_MON : monthBounds(0).gs;
+    const back = openOrders().filter(o => (m === 'week' ? o._e.late : o._e.likely) < from);
+    if (!back.length) return '';
+    return `<p class="behind"><b>Niet in deze ${m === 'week' ? 'week' : 'maand'}, wel open:</b> ${back.map(o => `<button type="button" class="lnk" data-vd="goto" data-id="${o.id}">${h(gName(o))} · ${nf(o.qty)} ${h(pName(o))}</button> <span class="faint">verwacht uiterlijk ${fD(o._e.late)}</span>`).join(' · ')}</p>`;
+  }
+  const legendHtml = m => `<div class="legend">
+    <span><i class="lg ok"></i>Op schema</span><span><i class="lg risk"></i>Risico voor klant</span><span><i class="lg late"></i>Later dan verwacht</span><span><i class="lg over"></i>Over tijd</span><span><i class="lg got"></i>Al binnen</span>
+    <span class="lg-sep" aria-hidden="true"></span>${m === 'month' ? '<span>Elke order staat op de waarschijnlijkste dag</span>' : '<span><i class="lg win"></i>Venster</span><span><i class="lg lk"></i>Waarschijnlijkste dag</span>'}<span class="lg-need">▲ Klant heeft het nodig</span>
+  </div>`;
+  const SCREEN_ICO = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="12.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 20.5h7M12 16.5v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+  function planSection() {
+    const m = mode(), away = m === 'month' ? V.month !== 0 : V.week !== 0;
+    return `<section aria-labelledby="vd-h-cal">
+  <div class="sec-head">
+    <h2 id="vd-h-cal">${m === 'month' ? 'Maandplanning' : 'Weekplanning'} ontvangsten</h2>
+    <div class="cal-tools">
+      <div class="seg" role="group" aria-label="Planning per week of per maand"><button type="button" data-vd="view" data-v="week" aria-pressed="${m === 'week'}">Week</button><button type="button" data-vd="view" data-v="month" aria-pressed="${m === 'month'}">Maand</button></div>
+      <div class="cal-nav"><button class="vicon" type="button" data-vd="prev" aria-label="${m === 'month' ? 'Vorige maand' : 'Vorige week'}">‹</button><span class="m${m === 'month' ? ' mo' : ''}">${m === 'month' ? monthName(V.month) : `Week ${isoWeek(D(BASE_MON + V.week * 7))}`}</span><button class="vicon" type="button" data-vd="next" aria-label="${m === 'month' ? 'Volgende maand' : 'Volgende week'}">›</button></div>
+      ${away ? '<button type="button" class="lnk" data-vd="now">Vandaag</button>' : ''}
+      <label class="toggle" for="vd-show-got"><input type="checkbox" id="vd-show-got" data-vd="show-got"${V.showGot ? ' checked' : ''}> Toon wat al binnen is</label>
+      <button type="button" class="vlive" data-vd="live" title="Open de planning als live scherm in een eigen venster, om op een groot beeldscherm te laten staan">${SCREEN_ICO}Live scherm</button>
+    </div>
+  </div>
+  ${behindHtml()}
+  ${m === 'month' ? `<div class="mcal-wrap">${monthHtml(V.month, false)}</div>` : `<div class="cal-wrap"><div class="cal">${calHtml(V.week, false)}</div></div>`}
+  ${legendHtml(m)}
+</section>`;
+  }
+
+  /* ---------- 3. one list, customer by customer ---------- */
+  const sureHtml = n => `<span class="sure"><i>${[1, 2, 3].map(i => `<span class="${i <= n ? 'on' : ''}"></span>`).join('')}</i>${['', 'onzeker', 'redelijk zeker', 'zeker'][n]}</span>`;
+  function stepsHtml(o) {
+    const e = o._e;
+    const bar = o.steps.map((s, i) => `<span class="${i < e.passed ? 'passed' : ''}" style="flex:${Math.max(1, s[2])}" title="${h(s[0])}: gewoonlijk ${dg(s[2])}"></span>`).join('');
+    const nowStep = o.steps[Math.min(e.passed, o.steps.length - 1)][0];
+    const txt = statusOf(o) === 'over' || e.passed >= o.steps.length ? 'Had volgens ons al binnen moeten zijn' : `Waarschijnlijk nu bij: <b>${h(nowStep.toLowerCase())}</b>`;
+    return `<div class="vsteps"><div class="sline" aria-hidden="true">${bar}</div><p>${txt}<br><span class="faint">${o.steps.length} stappen, gewoonlijk ${dg(e.likely - o.ordered)} · besteld ${fD(o.ordered)}</span></p></div>`;
+  }
+  const oursHtml = o => `<div class="ours"><b class="num">${cap(fD(o._e.likely))}</b><span class="win num">tussen ${fRange(o._e.early, o._e.late)}</span>${sureHtml(o._e.sure)}</div>`;
+  function theirsHtml(o) {
+    if (!o.says) return '<div class="theirs"><span class="faint">Kweker mailde niets</span></div>';
+    const d = growerOff(o), far = growerFar(o);
+    const diff = d === 0 ? 'zelfde dag als wij' : d > 0 ? `${dg(d)} later dan wij` : `${dg(-d)} eerder dan wij`;
+    return `<div class="theirs"><span>Kweker: “${h(o.says.txt)}”</span><span class="diff${far ? ' big' : ''}">${fD(o.says.day)} · ${diff}</span></div>`;
+  }
   function stepTable(o) {
     const e = o._e, cur = Math.min(e.passed, o.steps.length - 1), over = statusOf(o) === 'over';
     const rows = o.steps.map((s, i) => `<tr class="${i === cur && !over ? 'vnow' : ''}"><td><b>${h(s[0])}</b>${i === cur && !over ? '<small>waarschijnlijk nu</small>' : ''}</td><td class="num">${s[1] === s[3] ? dg(s[2]) : `${s[1]}–${s[3]} dagen`}<small>gewoonlijk ${dg(s[2])}</small></td><td class="num">${fD(e.at[i][1])}<small>${fRange(e.at[i][0], e.at[i][2])}</small></td></tr>`).join('');
@@ -3838,208 +3778,96 @@ const VD = (() => {
       <p>Dat komt uit de laatste ${hs.length} leveringen van deze kweker over dezelfde route: gemiddeld ${avg.toFixed(1).replace('.', ',')} dagen, snelst ${Math.min(...hs)}, traagst ${mx}.</p>
       <div class="vhist" aria-label="Doorlooptijd laatste leveringen in dagen">${hs.map(x => `<span class="${x === e.likely - o.ordered ? 'hl' : ''}" style="height:${Math.max(4, x / mx * 34)}px" title="${dg(x)}"></span>`).join('')}</div>`;
   }
-  const fact = (dt, dd, small, cls) => `<div${cls ? ` class="${cls}"` : ''}><dt>${dt}</dt><dd>${dd}${small ? `<small>${small}</small>` : ''}</dd></div>`;
-  /* what opens under a line: a short track, the key facts in boxes, and what Jan can do */
-  function poDetail(it) {
-    const o = it.o, e = o._e, s = statusOf(o), key = it.key, stage = stageOf(o);
-    const ti = o.steps.findIndex(x => !/^Bevestig/.test(x[0]) && !/klaarzet|kweken|oogst/i.test(x[0]));
-    const idx = { ordered: 0, grower: 1, moving: 2 }[stage];
-    const tr = track(['Besteld', 'Bij kweker', 'Onderweg', 'Binnen'], [fD(o.ordered), `± ${fD(e.at[0][1])}`, `± ${fD(e.at[Math.max(ti - 1, 0)][1])}`, `± ${fD(e.likely)}`], idx, ST[it.st].tone);
-    const d = growerOff(o);
-    const facts = `<dl class="qgrid">
-      ${fact('Verwacht binnen', cap(fD(e.likely)), `tussen ${fRange(e.early, e.late)} · ${sureTxt(e.sure)}`)}
-      ${fact('Kweker', h(gName(o)), `${h(GROWERS[o.grower].place)} ${GROWERS[o.grower].cc}`)}
-      ${fact('Voor', h(custName(o)), o.ci ? `${o.ci} · gaat ${fD(o.needBy)} weg` : 'geen klantorder')}
-      ${fact('Kweker mailde', o.says ? `“${h(o.says.txt)}”` : 'Nog niets', o.says ? `${fD(o.says.day)} · ${d === 0 ? 'zelfde dag als wij' : d > 0 ? `${dg(d)} later dan wij` : `${dg(-d)} eerder dan wij`}` : 'geen bevestiging in de mail', o.says && growerFar(o) ? 'far' : '')}
-      ${fact('Inkooporder', `<span class="mono">${o.id}</span>`, `${nf(o.qty)} ${h(pName(o))} ${h(o.size)} · besteld ${fD(o.ordered)}`)}
-    </dl>`;
-    const btns = `<div class="btns">${o.draft && attn(s) ? `<button class="btn btn-leaf btn-sm" type="button" data-vd="draft" data-key="${key}">${V.draft === key ? 'Concept verbergen' : 'Concept-mail'}</button>` : ''}<button class="btn btn-line btn-sm" type="button" data-vd="got" data-id="${o.id}">Is binnen</button><button class="lnk" type="button" data-vd="how" data-key="${key}" aria-expanded="${V.how === key}">${V.how === key ? 'Verberg de schatting' : 'Hoe we dit schatten'}</button></div>`;
-    const draft = V.draft === key && o.draft ? `<label class="eyebrow" for="vd-draft-${o.id}">Concept, jij verstuurt het zelf</label><textarea class="vdraft" id="vd-draft-${o.id}">${h(o.draft)}</textarea><div class="btns"><button class="btn btn-line btn-sm" type="button" data-vd="copy" data-id="${o.id}">Kopieer tekst</button></div>` : '';
-    const how = V.how === key ? `<div class="ib-how">${stepTable(o)}<div class="how">${howHtml(o)}</div></div>` : '';
-    return `${tr}${facts}${o.note ? `<p class="ib-note">${h(o.note)}</p>` : ''}${attn(s) && o.todo ? `<p class="todo"><b>Wat je kunt doen:</b> ${h(o.todo)}</p>` : ''}${btns}${draft}${how}`;
-  }
-  function buyDetail(it) {
-    const { n, r } = it.b, o = r.o, g = GROWERS[o.grower];
-    return `${track(['Besteld', 'Bij kweker', 'Onderweg', 'Binnen'], [fD(off(new Date(placedAt()))), '', '', `± ${fD(off(o.arrive))}`], 0, 'ok')}
-      <dl class="qgrid">
-        ${fact('Verwacht binnen', cap(fD(off(o.arrive))), 'volgens de offerte')}
-        ${fact('Kweker', h(g.name), `${h(g.place)} ${g.cc}`)}
-        ${fact('Voor', h(CUSTOMERS[n.cust].name), `${n.order}`)}
-        ${fact('Offerte', `<span class="mono">${h(o.file)}</span>`, `${nf(r.q)} ${h(PLANTS[n.plant].nl)} ${h(n.size)}`, 'wide')}
-      </dl>
-      <p class="ib-note">Zelf besteld via je bestellijst. Zodra de kweker bevestigt, komt hier zijn bevestiging bij.</p>
-      <div class="btns"><a class="btn btn-line btn-sm" href="#/desk/quotes">Naar Offertes</a></div>`;
-  }
-  function gotDetail(it) {
-    const g = it.g;
-    return `<dl class="qgrid">
-        ${fact('Binnen', cap(fD(g.day)), g.of ? `${nf(g.qty)} van de ${nf(g.of)}` : `${nf(g.qty)} stuks`)}
-        ${fact('Kweker', h(g.grower))}
-        ${fact('Voor', g.cust ? h(CUSTOMERS[g.cust].name) : 'Eigen voorraad', g.order || '')}
-        ${fact('Inkooporder', `<span class="mono">${g.id}</span>`, `${h(g.plant)} ${h(g.size)}`)}
-      </dl>${g.issue ? `<p class="ib-note">Op de pakbon: ${h(g.issue)}.</p>` : ''}
-      <div class="btns"><a class="btn btn-line btn-sm" href="#/desk/slips">Naar Pakbonnen</a></div>`;
-  }
-  const SUP_TONE = { in: 'done', wait: 'ok', buy: 'info', risk: 'risk' };
-  const SUP_WORD = { in: 'Binnen', wait: 'Onderweg', buy: 'Nog inkopen', risk: 'Risico' };
-  function coDetail(it) {
-    const { co, sd, sup, step, hint } = it, c = CUSTOMERS[co.cust];
-    const parts = sup.reduce((t, l) => t.concat(l.parts), []);
-    const bought = !parts.some(p => p.st === 'buy'), allIn = parts.every(p => p.st === 'in');
-    const reached = step >= 1 ? step + 1 : allIn ? 1 : bought ? 0 : -1;
-    const last = Math.max(...parts.filter(p => p.day != null).map(p => p.day), -99);
-    const restDay = last > -99 ? `± ${fD(Math.max(last, 0))}` : '';
-    const tr = track(['Inkoop', 'Binnen', 'Gepakt', 'Onderweg', 'Geleverd'],
-      [bought ? 'geregeld' : 'nog niet alles', allIn ? 'alles' : reached >= 1 ? (restDay ? `deels, rest ${restDay}` : 'deels') : restDay, '', fD(sd), fD(off(co.when))], reached, ST[it.st].tone,
-      [!bought && reached >= 0 ? 0 : -1, !allIn && reached >= 1 ? 1 : -1]);
-    const lines = `<ul class="ib-lines">${sup.map(l => `<li><span class="ib-l"><b>${nf(l.qty)} ${h(PLANTS[l.plant].nl)}</b> <span class="size">${h(l.size)}</span></span>${l.parts.map(p => `<span class="ib-p"><span class="pill mini ${PILL[SUP_TONE[p.st]]}"><i aria-hidden="true">${p.st === 'in' ? '✓' : p.st === 'risk' ? '!' : p.st === 'buy' ? '+' : '→'}</i>${SUP_WORD[p.st]}</span><span>${l.parts.length > 1 ? `${nf(p.q)}: ` : ''}${h(p.txt)}</span></span>`).join('')}</li>`).join('')}</ul>`;
-    const facts = `<dl class="qgrid">
-      ${fact('Weg uit Nootdorp', cap(fD(sd)), sd < 0 && step < 2 ? 'die dag is voorbij' : '')}
-      ${fact('Bij de klant', cap(fD(off(co.when))), `${h(c.city)}, ${COUNTRY_NL[c.cc] || c.cc}`)}
-      ${fact('De klant ziet', `“${STEPS_EN[step]}”`, `${STEPS_NL[step]} · gezet ${fWhen(setAtOf(co))}`)}
-      ${fact('Order', `<span class="mono">${co.id}</span>`, `besteld ${fD(off(co.ordered))}`)}
-    </dl>`;
-    const nextStep = hint ? hint.to : step >= 1 && step < 3 ? step + 1 : it.st === 'ready' ? 1 : null;
-    const todos = it.st === 'risk' ? [...new Set(parts.filter(p => p.st === 'risk' && p.todo).map(p => p.todo))] : [];
-    const btns = `<div class="btns">${it.st === 'buy' || parts.some(p => p.st === 'buy') ? '<a class="btn btn-leaf btn-sm" href="#/desk/quotes">Naar Offertes</a>' : ''}${nextStep != null ? `<button class="btn btn-line btn-sm" type="button" data-act="step" data-id="${co.id}" data-step="${nextStep}">Zet op ${STEPS_NL[nextStep]}</button>` : ''}<a class="lnk" href="#/desk/customers/${co.cust}">Naar ${h(c.name)}</a></div>`;
-    return `${tr}${lines}${facts}${todos.map(t => `<p class="todo"><b>Wat je kunt doen:</b> ${h(t)}</p>`).join('')}${hint ? `<p class="match"><b>Voorstel:</b> ${h(hint.why)} De klant ziet nog “${STEPS_EN[step]}”.</p>` : ''}${btns}`;
-  }
-  function itemHtml(it, live) {
-    const open = !live && V.ib === it.key, tone = ST[it.st].tone;
-    const body = `${pill(it.st)}<span class="ib-txt"><b>${h(it.what)}</b><span class="ib-sub">${h(it.who)}${it.note ? ` · <em>${h(it.note)}</em>` : ''}</span></span>`;
-    if (live) return `<li class="ib-it t-${tone}"><div class="ib-row">${body}</div></li>`;
-    const detail = !open ? '' : it.dir === 'out' ? coDetail(it) : it.o ? poDetail(it) : it.b ? buyDetail(it) : gotDetail(it);
-    return `<li class="ib-it t-${tone}${open ? ' open' : ''}" id="${safeId(it.key)}">
-      <div class="ib-row" role="button" tabindex="0" aria-expanded="${open}" data-ib="${it.key}">${body}<span class="ib-chev" aria-hidden="true"></span></div>
-      ${open ? `<div class="ib-detail">${detail}</div>` : ''}
-    </li>`;
-  }
-  function dayHtml(n, g, live) {
-    const col = (dir, list) => `<div class="ib-col c-${dir}${list.length ? '' : ' empty'}"><span class="ib-colh">${dir === 'in' ? '↓ Binnenkomen' : '↑ Verzenden'}</span>${list.length ? `<ul>${list.sort(byTone).map(it => itemHtml(it, live)).join('')}</ul>` : '<p class="ib-none">—</p>'}</div>`;
-    const tag = n === 0 ? 'Vandaag' : n === 1 ? 'Morgen' : n === -1 ? 'Gisteren' : '';
-    return `<div class="ib-day${n === 0 ? ' is-today' : ''}${n < 0 ? ' past' : ''}${g.in.length || g.out.length ? '' : ' quiet'}" id="ib-day-${n}" data-label="${fD(n)}">
-      <div class="ib-date"><b>${dow(n)} ${D(n).getDate()}</b><span>${mon3(n)}${live && D(n).getDay() === 1 ? ` · wk ${isoWeek(D(n))}` : ''}</span>${tag ? `<em>${tag}</em>` : ''}</div>
-      ${col('in', g.in)}${col('out', g.out)}
+  function rowHtml(o) {
+    const s = statusOf(o), open = V.open === o.id;
+    let detail = '';
+    if (open) {
+      let side = `<div class="side"><h3>Hoe we dit schatten</h3><div class="how">${howHtml(o)}</div>`;
+      if (o.note) side += `<p>${h(o.note)}</p>`;
+      if (o.ci && o.needBy != null) side += `<p>Nodig voor <b>${h(custName(o))}</b>, ${o.ci}, op ${fD(o.needBy)} (${rel(o.needBy)}).</p>`;
+      if (attn(s) && o.todo) side += `<h3>Wat je kunt doen</h3><p>${h(o.todo)}</p>`;
+      side += `<div class="btns">${o.draft && attn(s) ? `<button class="btn btn-leaf btn-sm" type="button" data-vd="draft" data-id="${o.id}">${V.draft === o.id ? 'Concept verbergen' : 'Concept-mail aan kweker'}</button>` : ''}<button class="btn btn-line btn-sm" type="button" data-vd="got" data-id="${o.id}">Is binnen</button></div>`;
+      if (V.draft === o.id) side += `<label class="eyebrow" for="vd-draft-${o.id}">Concept, jij verstuurt het zelf</label><textarea class="vdraft" id="vd-draft-${o.id}">${h(o.draft)}</textarea><div class="btns"><button class="btn btn-line btn-sm" type="button" data-vd="copy" data-id="${o.id}">Kopieer tekst</button></div>`;
+      side += '</div>';
+      detail = `<div class="detail"><div><h3 class="eyebrow" style="margin-bottom:8px">Stappen in dagen</h3>${stepTable(o)}</div>${side}</div>`;
+    }
+    return `<div class="row ${s}" id="vd-row-${o.id}" data-open="${open}">
+      <div class="row-main" role="button" tabindex="0" aria-expanded="${open}" data-vd-row="${o.id}">
+        <div class="o-who"><b>${nf(o.qty)} ${h(pName(o))} <span class="size">${h(o.size)}</span></b>
+          <span class="what">${h(gName(o))} <span class="eyebrow" style="letter-spacing:.12em">${GROWERS[o.grower].cc}</span></span>
+          <span class="for"><span class="mono">${o.id}</span>${o.ci ? ` · ${o.ci}` : ''}${s !== 'ok' ? ` <span class="chip ${s}">${LABEL[s]}</span>` : ''}</span></div>
+        ${stepsHtml(o)}${oursHtml(o)}${theirsHtml(o)}
+        <span class="vchev" aria-hidden="true"></span>
+      </div>${detail}
     </div>`;
   }
-  function group(items) {
-    const by = {};
-    items.forEach(it => { (by[it.day] = by[it.day] || { in: [], out: [] })[it.dir].push(it); });
-    return n => by[n] || { in: [], out: [] };
-  }
-  const boardHead = () => `<div class="ib-head" aria-hidden="true"><span></span><span><b>↓ Binnenkomen</b> van kwekers</span><span><b>↑ Verzenden</b> naar klanten</span></div>`;
-  /* the week on the desk: earlier days of this week fold into one line, so the board starts at today */
-  function weekBoard() {
-    const items = allItems(), g = group(items), ws = BASE_MON + V.week * 7;
-    const first = V.week === 0 ? Math.min(ws, 0) : ws, days = [];
-    for (let n = first; n <= ws + 6; n++) {
-      const x = g(n);
-      if (D(n).getDay() === 0 && !x.in.length && !x.out.length && n !== 0) continue;
-      days.push(n);
-    }
-    const past = V.week === 0 ? days.filter(n => n < 0) : [];
-    let pastRow = '';
-    if (past.length) {
-      const ins = past.reduce((s, n) => s + g(n).in.length, 0), outs = past.map(n => g(n).out).reduce((t, a) => t.concat(a), []);
-      const sh = outs.filter(it => it.st === 'shipped').length, dn = outs.filter(it => it.st === 'done').length;
-      pastRow = `<div class="ib-past"><div class="ib-date"><b>Eerder</b><span>deze week</span><button type="button" class="ib-past-btn" data-vd="past" aria-expanded="${V.past}">${V.past ? 'Verberg' : 'Toon'}</button></div><div class="ib-col c-in"><span class="ib-colh">↓ Binnenkomen</span><p>${ins ? `${ins} binnen` : 'niets binnengekomen'}</p></div><div class="ib-col c-out"><span class="ib-colh">↑ Verzenden</span><p>${outs.length ? [sh ? `${sh} onderweg naar de klant` : '', dn ? `${dn} geleverd` : '', outs.length - sh - dn ? `${outs.length - sh - dn} anders` : ''].filter(Boolean).join(', ') : 'niets verzonden'}</p></div>
-        </div>`;
-    }
-    const shown = V.past ? days : days.filter(n => n >= 0 || V.week !== 0);
-    return `<div class="ib">${boardHead()}${pastRow}${shown.map(n => dayHtml(n, g(n), false)).join('')}</div>`;
+  function listHtml() {
+    const rows = openOrders();
+    const names = [...new Set(rows.map(custName))].sort((a, b) => (a === 'Eigen voorraad') - (b === 'Eigen voorraad') || a.localeCompare(b, 'nl'));
+    return names.map(name => {
+      const mine = rows.filter(o => custName(o) === name).sort((a, b) => a._e.likely - b._e.likely);
+      const ships = [...new Set(mine.filter(o => o.needBy != null).map(o => o.needBy))].sort((a, b) => a - b);
+      return `<div class="cust-h"><b>${h(name)}</b><span>${mine.length} ${mine.length === 1 ? 'order' : 'orders'}${ships.length ? ` · nodig op ${ships.map(fD).join(', ')}` : ''}</span></div>${mine.map(rowHtml).join('')}`;
+    }).join('');
   }
 
-  /* the month: per day how much comes in and goes out; the colour is the worst status that day */
-  const DOW_SHORT = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
-  const monthDate = mo => new Date(T0.getFullYear(), T0.getMonth() + mo, 1);
-  const monthName = mo => cap(monthDate(mo).toLocaleDateString('nl-NL', { month: 'long', year: 'numeric' }));
-  function monthBounds(mo) {
-    const fs = off(monthDate(mo)), fe = off(new Date(T0.getFullYear(), T0.getMonth() + mo + 1, 0));
-    return { fs, fe, gs: fs - ((D(fs).getDay() + 6) % 7), ge: fe + (6 - ((D(fe).getDay() + 6) % 7)) };
-  }
-  function countChip(list, dir, n) {
-    if (!list.length) return '';
-    const tone = n < 0 ? 'done' : list.map(it => ST[it.st].tone).sort((a, b) => TONE_RANK[a] - TONE_RANK[b])[0];
-    const bad = list.filter(it => ['bad', 'late', 'risk'].includes(ST[it.st].tone)).length;
-    const words = dir === 'in' ? ['binnenkomen', 'binnengekomen'] : ['verzenden', 'verzonden'];
-    return `<span class="mc t-${tone}" title="${list.length} ${n < 0 ? words[1] : words[0]}${bad ? `, waarvan ${bad} met een waarschuwing` : ''}"><i aria-hidden="true">${dir === 'in' ? '↓' : '↑'}</i>${list.length}${bad && n >= 0 ? '<b aria-hidden="true">!</b>' : ''}<span class="sr-only"> ${dir === 'in' ? 'binnen' : 'weg'}${bad ? `, ${bad} met een waarschuwing` : ''}</span></span>`;
-  }
-  function monthHtml(mo, live) {
-    const { fs, fe, gs, ge } = monthBounds(mo), g = group(allItems());
-    let rows = '';
-    for (let w = gs; w <= ge; w += 7) {
-      let cells = '';
-      for (let n = w; n < w + 7; n++) {
-        const x = g(n), inMonth = n >= fs && n <= fe, chips = countChip(x.in, 'in', n) + countChip(x.out, 'out', n);
-        const cls = `mday${inMonth ? '' : ' m-out'}${n < 0 ? ' past' : ''}${n === 0 ? ' is-today' : ''}${D(n).getDay() === 0 ? ' sun' : ''}${chips ? '' : ' m-empty'}`;
-        const inner = `<span class="md-h"><b class="md-n num">${D(n).getDate()}</b>${n === 0 ? '<span class="md-today">vandaag</span>' : ''}</span>${chips ? `<span class="mcs">${chips}</span>` : ''}`;
-        cells += live || !chips ? `<div class="${cls}">${inner}</div>` : `<button type="button" class="${cls}" data-vd="to-day" data-day="${n}" aria-label="${cap(fD(n))}: toon in de week">${inner}</button>`;
+  /* ---------- 4. to customers: proposals and orders that wait on a late purchase ---------- */
+  function outHtml() {
+    const cards = [];
+    ORDERS.filter(o => stepOf(o) < 3).forEach(o => {
+      const st = stepOf(o), c = CUSTOMERS[o.cust];
+      const waits = OPEN.filter(p => p.ci === o.id && attn(statusOf(p)));
+      if (o.hint && st < o.hint.to) {
+        cards.push(`<article><div class="ref"><b class="mono">${o.id}</b><span class="chip ok">Voorstel</span></div><strong>${h(c.name)}, ${h(c.city)}</strong><p>${h(o.hint.why)} De klant ziet nog “${STEPS_EN[st]}”.</p><div class="btns"><button class="btn btn-line btn-sm" type="button" data-act="step" data-id="${o.id}" data-step="${o.hint.to}">Zet op ${STEPS_NL[o.hint.to]}</button></div></article>`);
+      } else if (waits.length) {
+        cards.push(`<article><div class="ref"><b class="mono">${o.id}</b><span class="chip risk">Wacht op ${waits.map(p => p.id).join(', ')}</span></div><strong>${h(c.name)}, ${h(c.city)}</strong><p>Gaat ${fD(off(o.when))} weg. ${waits.map(p => `${nf(p.qty)} ${h(pName(p))} kan tot ${fD(p._e.late)} duren`).join('; ')}. De klant ziet “${STEPS_EN[st]}”.</p></article>`);
       }
-      const wn = isoWeek(D(w));
-      rows += `<div class="mrow">${live ? `<span class="mwk">wk ${wn}</span>` : `<button type="button" class="mwk" data-vd="to-week" data-w="${(w - BASE_MON) / 7}" title="Week ${wn} in de weekplanning">wk ${wn}</button>`}${cells}</div>`;
-    }
-    return `<div class="mcal" style="--rows:${(ge - gs + 1) / 7}"><div class="mhead" aria-hidden="true"><span></span>${DOW_SHORT.map(d => `<span>${d}</span>`).join('')}</div>${rows}</div>`;
+    });
+    return cards.length ? cards.join('') : '<article><p>Geen voorstellen en niets dat op een late inkoop wacht.</p></article>';
   }
-
-  const SCREEN_ICO = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="12.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 20.5h7M12 16.5v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-  function planSection() {
-    const m = mode(), away = m === 'month' ? V.month !== 0 : V.week !== 0;
-    return `<section aria-labelledby="vd-h-cal">
-  <div class="sec-head">
-    <h2 id="vd-h-cal">Binnenkomen en verzenden</h2>
-    <div class="cal-tools">
-      <div class="seg" role="group" aria-label="Planning per week of per maand"><button type="button" data-vd="view" data-v="week" aria-pressed="${m === 'week'}">Week</button><button type="button" data-vd="view" data-v="month" aria-pressed="${m === 'month'}">Maand</button></div>
-      <div class="cal-nav"><button class="vicon" type="button" data-vd="prev" aria-label="${m === 'month' ? 'Vorige maand' : 'Vorige week'}">‹</button><span class="m${m === 'month' ? ' mo' : ''}">${m === 'month' ? monthName(V.month) : `Week ${isoWeek(D(BASE_MON + V.week * 7))}`}</span><button class="vicon" type="button" data-vd="next" aria-label="${m === 'month' ? 'Volgende maand' : 'Volgende week'}">›</button></div>
-      ${away ? '<button type="button" class="lnk" data-vd="now">Vandaag</button>' : ''}
-      <button type="button" class="vlive" data-vd="live" title="Open de planning als live scherm in een eigen venster, om op een groot beeldscherm te laten staan">${SCREEN_ICO}Live scherm</button>
-    </div>
-  </div>
-  ${m === 'month' ? `<div class="mcal-wrap">${monthHtml(V.month, false)}</div><p class="ib-hint">Klik op een dag om hem in de week te zien. ↓ komt binnen, ↑ gaat weg; de kleur is de zwaarste status van die dag.</p>` : weekBoard()}
-</section>`;
-  }
-  /* one fold with every status word, in the order goods move */
-  const flow = keys => `<p class="ib-flow">${keys.map(k => pill(k)).join('<span class="ib-arr" aria-hidden="true">→</span>')}</p>`;
-  const legendHtml = () => `<div class="ib-legend">
-    <div><h3>Binnenkomen, van kweker naar Nootdorp</h3>${flow(['ordered', 'grower', 'moving', 'in'])}<p>Waar een order nu is, schatten we uit de gewone duur van elke stap bij die kweker en route.</p></div>
-    <div><h3>Verzenden, van Nootdorp naar de klant</h3>${flow(['buy', 'wait', 'ready', 'packed', 'shipped', 'done'])}<p>Gepakt, Onderweg en Geleverd zet jij; de klant ziet alleen wat jij zet.</p></div>
-    <div><h3>Waarschuwingen</h3><dl>
-      <dt>${pill('late')}</dt><dd>De waarschijnlijkste dag is voorbij en hij is nog niet binnen.</dd>
-      <dt>${pill('over')}</dt><dd>Ook de traagste dag is voorbij, of een order had al weg gemoeten.</dd>
-      <dt>${pill('risk')}</dt><dd>Iets voor een klant komt misschien pas na de dag dat zijn order weggaat, volgens onze schatting of volgens de kweker zelf, of het kwam in een andere maat binnen.</dd>
-    </dl></div>
-    <div><h3>Zo rekent de desk</h3><ul>
-      <li>Een ontvangstdag is onze eigen schatting: de dag dat jij bestelde, plus per stap hoe lang die bij deze kweker en route meestal duurt</li>
-      <li>Op het bord staat elke order op zijn waarschijnlijkste dag; wat al voorbij is maar nog niet binnen, staat bij vandaag</li>
-      <li>Een verzenddag is de dag dat de klant het heeft, min de gewone dagen onderweg naar dat land; een zondag schuift naar zaterdag</li>
-      <li>Wat een kweker mailt, staat er ter vergelijking bij</li>
-    </ul></div>
-    <p class="vrule">De desk rekent, schat en waarschuwt. <b>Jij bestelt, belt en beslist.</b> Meld je een order als binnen, dan telt die levering mee voor volgende schattingen.</p>
-  </div>`;
 
   /* ---------- the page ---------- */
   function view() {
-    const items = allItems(), t = tally(items), n = needCount();
-    const lede = `Vandaag ${t.inToday ? `komen er nog <b>${t.inToday}</b> ${t.inToday === 1 ? 'levering' : 'leveringen'} binnen` : 'komt er niets meer binnen'} en ${t.outToday ? `${t.outToday === 1 ? 'gaat er <b>1</b> order' : `gaan er <b>${t.outToday}</b> orders`} weg` : 'gaat er niets weg'}. ${n ? `<b>${n} ${n === 1 ? 'vraagt' : 'vragen'} iets van jou.</b>` : 'Niets vraagt nu iets van jou.'}`;
-    const status = `<div class="status" aria-label="Vandaag">
-      <div class="${t.inToday ? 's-ok' : 's-none'}"><b class="num">${t.inToday}</b><span>Vandaag<br>binnen</span></div>
-      <div class="${t.outToday ? 's-ok' : 's-none'}"><b class="num">${t.outToday}</b><span>Vandaag<br>weg</span></div>
-      <div class="${t.late ? 's-over' : 's-none'}"><b class="num">${t.late}</b><span>Te laat of<br>vertraagd</span></div>
-      <div class="${t.risk ? 's-risk' : 's-none'}"><b class="num">${t.risk}</b><span>Risico<br>klant</span></div></div>`;
+    const hp = headParts(), rows = openOrders(), attnN = rows.filter(o => attn(statusOf(o))).length;
+    const props = ORDERS.filter(o => stepOf(o) < 3 && o.hint && stepOf(o) < o.hint.to).length;
+    const waits = ORDERS.filter(o => stepOf(o) < 3 && !(o.hint && stepOf(o) < o.hint.to) && OPEN.some(p => p.ci === o.id && attn(statusOf(p)))).length;
     return desk('today', `<div class="vd">
 <div class="vd-head">
-  <div class="vd-title"><p class="eyebrow">${fLong(TODAY)} · week ${isoWeek(TODAY)}</p><h1>${greeting()}, Jan</h1><p class="vd-sum">${lede}</p></div>
-  ${status}
+  <div class="vd-title"><p class="eyebrow">${fLong(TODAY)} · week ${isoWeek(TODAY)}</p><h1>${greeting()}, Jan</h1><p class="vd-sum">${hp.lede}</p></div>
+  ${hp.status}
 </div>
 <section aria-labelledby="vd-h-now">
-  <div class="sec-head"><h2 id="vd-h-now">Nu van jou nodig</h2><span class="sec-note">Te laat, vertraagd of een risico voor een klant, en voorstellen voor wat een klant ziet</span></div>
+  <div class="sec-head"><h2 id="vd-h-now">Nu van jou nodig</h2><span class="sec-note">Over tijd volgens onze schatting, of mogelijk te laat voor een klant</span></div>
   ${actsHtml()}
 </section>
 ${planSection()}
-${fold('vd-rules', 'Wat betekenen de statussen?', '', legendHtml(), { cls: 'block' })}
+${fold('vd-list', 'Alle verwachte ontvangsten', `${pl(rows.length, 'order', 'orders')} open${attnN ? ` · <span class="pill late"><i aria-hidden="true">!</i>${attnN} vragen aandacht</span>` : ''}`, `
+  <p class="intro">Eén lijst, per klant. Klik een order open voor de stappen, de dagen per stap en hoe we tot de schatting komen.</p>
+  <div class="list-head"><span class="eyebrow">Order</span><span class="eyebrow">Waar hij volgens ons is</span><span class="eyebrow">Onze schatting</span><span class="eyebrow">Ter vergelijking</span><span></span></div>
+  <div>${listHtml()}</div>`, { cls: 'block' })}
+${fold('vd-out', 'Naar klanten', props || waits ? `${props ? `<span class="pill ok"><i aria-hidden="true">✓</i>${pl(props, 'voorstel', 'voorstellen')}</span> ` : ''}${waits ? `${pl(waits, 'order wacht', 'orders wachten')} op een late inkoop` : ''}` : 'niets te doen', `
+  <p class="intro">Voorstellen voor de status die de klant ziet, en orders die op een late inkoop wachten. De klant ziet alleen wat jij zet.</p>
+  <div class="out">${outHtml()}</div>`, { cls: 'block' })}
+${fold('vd-rules', 'Zo schat en waarschuwt de desk', '', `<div class="vrules">
+  <div><h3>Zo schatten we de ontvangstdag</h3><ul>
+    <li>Alle ontvangstdagen op deze pagina zijn onze eigen schattingen; wat een kweker mailt, staat er alleen ter vergelijking naast</li>
+    <li>We beginnen bij de dag dat Jan bestelde</li>
+    <li>Per stap tellen we op hoeveel dagen die bij deze kweker en route meestal duurt: snelst, gewoonlijk en traagst</li>
+    <li>Valt een dag op zondag, dan schuift hij naar maandag</li>
+    <li>Hoe groter het verschil tussen snelst en traagst, hoe minder zeker de schatting</li>
+  </ul></div>
+  <div><h3>Wanneer de desk waarschuwt</h3><ul>
+    <li><b>Over tijd:</b> ook de traagste schatting is voorbij en de order is niet binnen</li>
+    <li><b>Later dan verwacht:</b> de waarschijnlijkste dag is voorbij</li>
+    <li><b>Risico voor klant:</b> de traagste dag valt na de dag dat de klant het nodig heeft</li>
+    <li><b>Kweker wijkt af:</b> wat de kweker mailt, ligt ver van onze schatting</li>
+  </ul></div>
+  <p class="vrule">De desk rekent, schat en waarschuwt. <b>Jij bestelt, belt en beslist.</b> Meld je een order als binnen, dan telt die levering mee voor volgende schattingen.</p>
+</div>`, { cls: 'block' })}
 </div>`);
   }
 
-  /* ---------- live screen: the same board, large, for a screen that stays on ---------- */
+  /* ---------- live screen: the planning large, for a screen that stays on ---------- */
   /* Read only. It shows what the desk knows and refreshes itself every minute; changes made on the desk
      (an order marked as received, a reset) reach it through this computer's own storage, never over the internet. */
   const FEED_KEY = 'campo-desk-feed-v2', LV_KEY = 'campo-live-v1';
@@ -4053,67 +3881,65 @@ ${fold('vd-rules', 'Wat betekenen de statussen?', '', legendHtml(), { cls: 'bloc
     writeJSON('sessionStorage', KEY, S);
     return true;
   }
-  /* rows that do not fit on the screen are left out whole; the header says up to which day it shows */
-  /* each board shows as many days as fit; what does not fit is left out from the first line that does not fit */
-  function lvTrim() {
-    document.querySelectorAll('.lvb').forEach(box => {
-      const lim = box.getBoundingClientRect().bottom;
-      let full = false, last = null, left = 0;
-      box.querySelectorAll('.lvb-day').forEach(day => {
-        day.querySelectorAll('li').forEach(li => { if (full || li.getBoundingClientRect().bottom > lim + 1) { li.hidden = true; full = true; left++; } });
-        if (full && !day.querySelector('li:not([hidden])') && day.querySelector('li')) day.hidden = true;
-        else if (full && !day.querySelector('li')) day.hidden = true;
-        else last = day;
-        if (!full && day.getBoundingClientRect().bottom > lim + 1) { day.hidden = true; full = true; }
-      });
-      const sub = box.parentElement.querySelector('.lv-sub');
-      if (sub && last) sub.textContent = left ? `t/m ${last.dataset.label} · nog ${left} op de desk` : `t/m ${last.dataset.label}`;
-    });
-  }
-  /* one board per direction, like the arrivals and departures at an airport: grouped by day, today first */
-  function lvBoard(items, dir, g, days) {
-    const empty = dir === 'in' ? 'Niets meer verwacht' : 'Niets gaat weg';
-    return days.map(n => {
-      const list = g(n)[dir].sort(byTone);
-      if (!list.length && n !== 0) return '';
-      const name = n === 0 ? `Vandaag · ${fD(n)}` : n === 1 ? `Morgen · ${fD(n)}` : `${cap(fD(n))}${D(n).getDay() === 1 ? ` · wk ${isoWeek(D(n))}` : ''}`;
-      return `<div class="lvb-day${n === 0 ? ' is-today' : ''}" data-label="${fD(n)}"><h3>${name}</h3>${list.length ? `<ul>${list.map(it => itemHtml(it, true)).join('')}</ul>` : `<p class="lvb-none">${empty}</p>`}</div>`;
-    }).join('');
+  function liveWhy(o) {
+    const e = o._e, s = statusOf(o);
+    if (s === 'over') return `Uiterlijk verwacht ${fD(e.late)}, nog niet binnen`;
+    if (s === 'late') return `Waarschijnlijkste dag was ${fD(e.likely)}, kan tot ${fD(e.late)} duren`;
+    return `Kan tot ${fD(e.late)} duren, ${h(shortName(custName(o)))} heeft het ${fD(o.needBy)} nodig`;
   }
   function live() {
     syncFromFeed();
-    const m = lvMode(), items = allItems(), t = tally(items), g = group(items);
+    const m = lvMode(), open = openOrders(), got = gotItems(), ws = BASE_MON;
+    const c = k => open.filter(o => statusOf(o) === k).length;
+    const behind = c('over') + c('late');
+    const todayN = open.filter(o => o._e.likely === 0).length, weekN = open.filter(o => o._e.likely >= ws && o._e.likely <= ws + 6).length;
     const kpi = (cls, n, label) => `<div class="lv-kpi k-${n ? cls : 'zero'}"><b class="num">${n}</b><span>${label}</span></div>`;
-    const kpis = `<div class="lv-kpis" aria-label="Vandaag">
-      ${kpi('ok', t.inToday, '↓ Vandaag nog binnen')}
-      ${kpi('plain', t.outToday, '↑ Vandaag weg')}
-      ${kpi('over', t.late, 'Te laat of vertraagd')}
-      ${kpi('risk', t.risk, 'Risico voor een klant')}
+    const kpis = `<div class="lv-kpis" aria-label="Stand van de inkooporders">
+      ${kpi(c('over') ? 'over' : 'late', behind, 'Over tijd of later dan verwacht')}
+      ${kpi('risk', c('risk'), 'Risico voor een klant')}
+      ${kpi('ok', todayN, 'Vandaag verwacht')}
+      ${kpi('plain', weekN, ws > 0 ? 'Verwacht komende week' : 'Nog verwacht deze week')}
     </div>`;
-    const days = [];
-    for (let n = 0; n < 21; n++) days.push(n);
-    const boards = `<div class="lv-boards">
-      <section class="lv-card lv-board" aria-labelledby="lv-h-in"><div class="lv-card-h"><h2 id="lv-h-in">↓ Binnenkomen <small>van kwekers</small></h2><span class="lv-sub"></span></div><div class="lvb">${lvBoard(items, 'in', g, days)}</div></section>
-      <section class="lv-card lv-board" aria-labelledby="lv-h-out"><div class="lv-card-h"><h2 id="lv-h-out">↑ Verzenden <small>naar klanten</small></h2><span class="lv-sub"></span></div><div class="lvb">${lvBoard(items, 'out', g, days)}</div></section>
-    </div>`;
+    const order = ['over', 'late', 'risk'];
+    const att = OPEN.filter(o => attn(statusOf(o))).sort((a, b) => order.indexOf(statusOf(a)) - order.indexOf(statusOf(b)));
+    const attHtml = att.length
+      ? `<ul class="lv-list">${att.slice(0, 5).map(o => { const s = statusOf(o); return `<li class="lv-it ${s}"><span class="lv-l1"><span class="pill ${s}"><i aria-hidden="true">!</i>${LABEL[s]}</span><b>${h(custName(o))} · ${nf(o.qty)} ${h(pName(o))}</b></span><span class="lv-why">${liveWhy(o)} <span class="lv-src">· ${h(gName(o))} · <span class="mono">${o.id}</span></span></span></li>`; }).join('')}</ul>${att.length > 5 ? `<p class="lv-more">en nog ${att.length - 5} op de desk</p>` : ''}`
+      : '<p class="lv-calm"><span aria-hidden="true">✓</span>Niets vraagt nu iets van jou.</p>';
+    const dayList = (d, label) => {
+      const os = open.filter(o => o._e.likely === d).sort((a, b) => KIND_ORDER[statusOf(a)] - KIND_ORDER[statusOf(b)]);
+      const gs = d === 0 && V.showGot ? got.filter(g => g.day === 0) : [];
+      const rows = os.map(o => { const s = statusOf(o); return `<li class="${s}"><b>${nf(o.qty)} ${h(pName(o))}</b><span>${h(gName(o))}${o.cust ? ` · voor ${h(shortName(custName(o)))}` : ' · eigen voorraad'}</span>${s !== 'ok' ? `<span class="chip ${s}">${LABEL[s]}</span>` : ''}</li>`; })
+        .concat(gs.map(g => `<li class="got"><b>✓ ${nf(g.qty)} ${h(g.plant)}</b><span>${h(g.grower)} · binnen</span></li>`));
+      return `<div class="lv-day"><h3>${label}<span>${d < 2 ? fD(d) : `${D(d).getDate()} ${mon3(d)}`}</span></h3>${rows.length ? `<ul class="lv-mini">${rows.join('')}</ul>` : '<p class="lv-none">Niets verwacht</p>'}</div>`;
+    };
+    const coming = [];
+    for (let d = 0; coming.length < 3 && d < 7; d++) if (D(d).getDay() !== 0) coming.push(d);
+    const dayName = d => (d === 0 ? 'Vandaag' : d === 1 ? 'Morgen' : D(d).toLocaleDateString('nl-NL', { weekday: 'long' }));
+    const planTitle = m === 'month' ? monthName(0) : `Week ${isoWeek(D(ws))}<span>${fRange(ws, ws + 6)}</span>`;
+    const plan = m === 'month' ? `<div class="mcal-wrap">${monthHtml(0, true)}</div>` : `<div class="cal-wrap"><div class="cal">${calHtml(0, true)}</div></div>`;
     const now = new Date(), pop = !!window.opener, fsOk = !!(document.fullscreenEnabled && document.documentElement.requestFullscreen);
-    requestAnimationFrame(lvTrim);
     return `<div class="vd live">
   <header class="lv-top">
     <span class="wordmark">${MARK}<span class="wm-txt" aria-hidden="true"><b>CAMPO</b><i>International</i></span></span>
-    <h1 class="lv-h"><span class="lv-on"><i aria-hidden="true"></i>Live</span>Binnenkomen en verzenden</h1>
+    <h1 class="lv-h"><span class="lv-on"><i aria-hidden="true"></i>Live</span>Ontvangsten</h1>
     <div class="lv-ctl">
-      <div class="seg" role="group" aria-label="Dagen of maand"><button type="button" data-live="week" aria-pressed="${m === 'week'}">Dagen</button><button type="button" data-live="month" aria-pressed="${m === 'month'}">Maand</button></div>
+      <div class="seg" role="group" aria-label="Planning per week of per maand"><button type="button" data-live="week" aria-pressed="${m === 'week'}">Week</button><button type="button" data-live="month" aria-pressed="${m === 'month'}">Maand</button></div>
       ${fsOk ? `<button type="button" class="lv-btn" data-live="full">${document.fullscreenElement ? 'Volledig scherm uit' : 'Volledig scherm'}</button>` : ''}
       ${pop ? '<button type="button" class="lv-btn" data-live="close">Venster sluiten</button>' : '<a class="lv-btn" href="#/desk/today">Terug naar de desk</a>'}
     </div>
     <div class="lv-clock"><b class="num">${fTime(now)}</b><span>${cap(fLong(TODAY))} · week ${isoWeek(TODAY)}</span></div>
   </header>
   ${kpis}
-  ${m === 'month' ? `<section class="lv-card lv-plan is-month" aria-labelledby="lv-h-plan">
-    <div class="lv-card-h"><h2 id="lv-h-plan">${monthName(0)}</h2><span class="lv-sub">↓ komt binnen · ↑ gaat weg · ! met een waarschuwing</span></div>
-    <div class="mcal-wrap">${monthHtml(0, true)}</div>
-  </section>` : boards}
+  <div class="lv-main">
+    <section class="lv-card lv-plan${m === 'month' ? ' is-month' : ''}" aria-labelledby="lv-h-plan">
+      <div class="lv-card-h"><h2 id="lv-h-plan">${planTitle}</h2>${legendHtml(m)}</div>
+      ${plan}
+    </section>
+    <div class="lv-side">
+      <section class="lv-card" aria-labelledby="lv-h-now"><div class="lv-card-h"><h2 id="lv-h-now">Nu van jou nodig</h2>${att.length ? `<span class="lv-n">${att.length}</span>` : ''}</div>${attHtml}</section>
+      <section class="lv-card" aria-labelledby="lv-h-soon"><div class="lv-card-h"><h2 id="lv-h-soon">Komende dagen</h2></div>${coming.map(d => dayList(d, dayName(d))).join('')}</section>
+    </div>
+  </div>
   <footer class="lv-foot"><span>Alleen lezen. De desk schat en waarschuwt; Jan bestelt, belt en beslist. Voorbeelddata.</span><span>Ververst elke minuut${S.at ? ` · laatste wijziging op de desk om ${fTime(new Date(S.at))}` : ''}</span></footer>
 </div>`;
   }
@@ -4161,8 +3987,6 @@ ${fold('vd-rules', 'Wat betekenen de statussen?', '', legendHtml(), { cls: 'bloc
     if (now.getMinutes() !== lvMin) { lvMin = now.getMinutes(); render(false); }
   }, 5000);
   window.addEventListener('storage', e => { if (e.key === FEED_KEY && isLive() && syncFromFeed()) render(false); });
-  let lvSize = 0;
-  window.addEventListener('resize', () => { if (!isLive()) return; clearTimeout(lvSize); lvSize = setTimeout(() => render(false), 150); });
   /* on a screen that is left alone, the pointer and the buttons fade away until the mouse moves */
   function lvWake() {
     document.documentElement.classList.remove('lv-idle');
@@ -4186,65 +4010,51 @@ ${fold('vd-rules', 'Wat betekenen de statussen?', '', legendHtml(), { cls: 'bloc
   });
 
   /* ---------- events ---------- */
-  const smooth = () => (matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
-  function flash(el) { el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1400); }
-  /* open one line on the board, in the week that holds it, and bring it into view */
-  function openItem(key, draft) {
-    const it = allItems().find(x => x.key === key);
-    if (!it) return;
-    P.vdView = 'week'; savePrefs();
-    V.week = it.day === 0 ? 0 : Math.floor((it.day - BASE_MON) / 7);
-    if (V.week === 0 && it.day < 0) V.past = true;
-    V.ib = key; V.draft = draft ? key : null; V.how = null;
+  function openRow(id, draft) {
+    const o = OPEN.find(x => x.id === id);
+    if (!o || statusOf(o) === 'in') return;
+    V.open = id; V.draft = draft ? id : null;
+    P.fold['vd-list'] = false; savePrefs();
     render(false);
-    const el = document.getElementById(safeId(key));
+    const el = document.getElementById('vd-row-' + id);
     if (el) {
-      el.scrollIntoView({ behavior: smooth(), block: 'center' }); flash(el);
-      const t = draft && it.o && document.getElementById('vd-draft-' + it.o.id); if (t) t.focus({ preventScroll: true });
+      el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+      el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1400);
+      const t = draft && document.getElementById('vd-draft-' + id); if (t) t.focus({ preventScroll: true });
     }
-  }
-  function toggleItem(key) {
-    V.ib = V.ib === key ? null : key; V.draft = null; V.how = null; render(false);
-    const n = document.querySelector(`[data-ib="${key}"]`); if (n) n.focus({ preventScroll: true });
   }
   document.addEventListener('click', e => {
     const a = e.target.closest('[data-vd]');
     if (a) {
-      const id = a.dataset.id, key = a.dataset.key, act = a.dataset.vd;
+      const id = a.dataset.id, act = a.dataset.vd;
+      if (act === 'show-got') { V.showGot = a.checked; render(false); return; }
       if (act === 'view') { P.vdView = a.dataset.v === 'month' ? 'month' : 'week'; savePrefs(); render(false); return; }
-      if (act === 'prev') { if (mode() === 'month') V.month--; else V.week--; render(false); return; }
-      if (act === 'next') { if (mode() === 'month') V.month++; else V.week++; render(false); return; }
-      if (act === 'now') { V.week = 0; V.month = 0; render(false); return; }
-      if (act === 'past') { V.past = !V.past; render(false); return; }
+      if (act === 'prev' || act === 'w-prev') { if (mode() === 'month') V.month--; else V.week--; render(false); }
+      if (act === 'next' || act === 'w-next') { if (mode() === 'month') V.month++; else V.week++; render(false); }
+      if (act === 'now') { V.week = 0; V.month = 0; render(false); }
       if (act === 'to-week') { V.week = +a.dataset.w || 0; P.vdView = 'week'; savePrefs(); render(false); const s = document.getElementById('vd-h-cal'); if (s) s.scrollIntoView({ block: 'start' }); return; }
-      if (act === 'to-day') {
-        const n = +a.dataset.day;
-        V.week = n === 0 ? 0 : Math.floor((n - BASE_MON) / 7); if (V.week === 0 && n < 0) V.past = true;
-        P.vdView = 'week'; savePrefs(); render(false);
-        const r = document.getElementById('ib-day-' + n); if (r) { r.scrollIntoView({ behavior: smooth(), block: 'start' }); flash(r); }
-        return;
-      }
       if (act === 'live') { openLive(); return; }
-      if (act === 'goto') { openItem(key, false); return; }
-      if (act === 'open-draft') { openItem(key, true); return; }
-      if (act === 'draft') { V.draft = V.draft === key ? null : key; render(false); return; }
-      if (act === 'how') { V.how = V.how === key ? null : key; render(false); return; }
+      if (act === 'goto') openRow(id, false);
+      if (act === 'open-draft') openRow(id, true);
+      if (act === 'draft') { V.draft = V.draft === id ? null : id; render(false); }
       if (act === 'got') {
         const o = OPEN.find(x => x.id === id);
-        recv()[id] = 0; V.ib = null; V.draft = null; V.how = null;
+        recv()[id] = 0; V.open = null; V.draft = null;
         log(`Ontvangst · ${gName(o)} · ${id}`, `Geschat: ${fD(o._e.likely)}, tussen ${fRange(o._e.early, o._e.late)}`, `Als binnen gemeld op ${fD(0)}.`, '');
         commit(`${id} als binnen gemeld. Deze levering telt mee voor volgende schattingen.`);
-        return;
       }
       if (act === 'copy') { const ta = document.getElementById('vd-draft-' + id); if (ta) copyText(ta.value); }
       return;
     }
-    const r = e.target.closest('[data-ib]');
-    if (r && !e.target.closest('a, button, input, textarea, select, label')) toggleItem(r.dataset.ib);
+    const r = e.target.closest('[data-vd-row]');
+    if (r) { const id = r.dataset.vdRow; V.open = V.open === id ? null : id; V.draft = null; render(false); }
   });
   document.addEventListener('keydown', e => {
-    const r = e.target.closest && e.target.closest('[data-ib]');
-    if (r && e.target === r && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggleItem(r.dataset.ib); }
+    const r = e.target.closest && e.target.closest('[data-vd-row]');
+    if (r && e.target === r && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault(); const id = r.dataset.vdRow; V.open = V.open === id ? null : id; render(false);
+      const n = document.querySelector(`[data-vd-row="${id}"]`); if (n) n.focus();
+    }
   });
 
   /* what an open purchase order is, for Pakbonnen: plant, size, amount, customer and what the grower confirmed */
@@ -5978,7 +5788,7 @@ document.addEventListener('input', e => {
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.matches('input[data-act="tick"]')) {
-    if (t.checked) S.ticks[t.dataset.id] = Date.now(); else delete S.ticks[t.dataset.id];
+    if (t.checked) S.ticks[t.dataset.id] = true; else delete S.ticks[t.dataset.id];
     commit();
   } else if (t.matches('input[data-act="need-tick"]')) {
     const n = NEEDS.find(x => x.id === t.dataset.id), x = matchOf(n), who = `${pn(n.plant)} voor ${CUSTOMERS[n.cust].name}`;
@@ -6074,7 +5884,7 @@ function dropOffer(id, where) {
     toast(`Bij je favorieten: ${g}, ${what}.`);
   } else if (where === 'order') {
     if (S.ticks[id]) { toast('Die staat al op de bestellijst.'); return; }
-    S.ticks[id] = Date.now();
+    S.ticks[id] = true;
     commit(`Op de bestellijst: ${qty(x.r.q)} ${what}, bij ${g}. Bestellen doe je zelf.`);
   }
 }
