@@ -5,28 +5,28 @@ import crypto from 'node:crypto';
 import { pool, setting, setSetting, log } from '../db.js';
 import { processMessage } from './process.js';
 
-const SMTP_PORTS = new Set([25, 465, 587, 2525]);
 const LOOKS_RELEVANT = /(factuur|invoice|rechnung|faktura|pakbon|lieferschein|delivery note|bevestiging|levering|eta|vertrek|aankomst|credit)/i;
 
+// Only an explicitly named invoice mailbox is read (IMAP_*). EMAIL_* variables are for sending
+// and may belong to someone's personal mailbox, so they are never read.
 export function mailConfig() {
   if (/^(uit|off|nee|false|0)$/i.test(process.env.MAIL_LEZEN || '')) return { aan: false, reden: 'Uitgezet met MAIL_LEZEN' };
-  let host = process.env.IMAP_HOST || process.env.EMAIL_HOST;
-  let port = Number(process.env.IMAP_PORT || process.env.EMAIL_PORT || 993);
-  const user = process.env.IMAP_USER || process.env.EMAIL_USER;
-  const pass = process.env.IMAP_PASS || process.env.EMAIL_PASS;
-  if (!host || !user || !pass) return { aan: false, reden: 'Geen mailgegevens ingesteld (IMAP_HOST, IMAP_USER, IMAP_PASS)' };
-  // the EMAIL_* variables may describe the outgoing (SMTP) server; IMAP usually sits next to it
-  if (!process.env.IMAP_HOST && /^smtp\./i.test(host)) host = host.replace(/^smtp\./i, 'imap.');
-  if (!process.env.IMAP_PORT && SMTP_PORTS.has(port)) port = 993;
+  const host = process.env.IMAP_HOST, user = process.env.IMAP_USER, pass = process.env.IMAP_PASS;
+  const port = Number(process.env.IMAP_PORT || 993);
+  if (!host || !user || !pass) {
+    const onlySend = process.env.EMAIL_HOST || process.env.EMAIL_USER;
+    return { aan: false, reden: onlySend ? 'Er staan alleen EMAIL_-gegevens (om te versturen). Voor het lezen van de factuurmailbox zijn IMAP_HOST, IMAP_USER en IMAP_PASS nodig.' : 'Geen mailgegevens ingesteld (IMAP_HOST, IMAP_USER, IMAP_PASS)' };
+  }
   return { aan: true, host, port, user, pass, secure: port === 993 };
 }
 
-let running = false, lastRun = null, lastError = null, lastCount = 0;
+let running = false, lastRun = null, lastError = null, lastCount = 0, blocked = null; // blocked: login refused, wait for new credentials (a restart)
 export const mailStatus = () => { const c = mailConfig(); return { aan: c.aan, reden: c.reden || null, host: c.host || null, user: c.user || null, laatsteKeer: lastRun, laatsteFout: lastError, laatsteAantal: lastCount }; };
 
 export async function pollMail() {
   const cfg = mailConfig();
   if (!cfg.aan || running) return { ok: false, reden: cfg.reden || 'Loopt al' };
+  if (blocked) return { ok: false, reden: blocked };
   running = true; lastRun = new Date().toISOString();
   const client = new ImapFlow({ host: cfg.host, port: cfg.port, secure: cfg.secure, auth: { user: cfg.user, pass: cfg.pass }, logger: false, socketTimeout: 60000 });
   let stored = 0;
@@ -78,8 +78,13 @@ export async function pollMail() {
     if (stored) await log('mail', `${stored} ${stored === 1 ? 'mail' : 'mails'} binnengehaald`);
     return { ok: true, nieuw: stored };
   } catch (e) {
-    lastError = e.message;
-    console.error('[mail]', e.message);
+    const server = e.responseText ? ` (${String(e.responseText).slice(0, 160)})` : '';
+    if (e.authenticationFailed) {
+      // never keep knocking with a wrong password: mail providers lock accounts for that
+      blocked = `De mailserver weigert de inlog${server}. Controleer IMAP_USER en IMAP_PASS (vaak een app-wachtwoord); na het aanpassen start de desk opnieuw en probeert hij het weer.`;
+      lastError = blocked;
+    } else lastError = `${e.message}${server}`;
+    console.error('[mail]', lastError);
     try { await client.logout(); } catch { /* ignore */ }
     return { ok: false, reden: e.message };
   } finally {

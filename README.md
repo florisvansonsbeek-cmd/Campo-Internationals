@@ -23,7 +23,7 @@ Uitgangspunt: **de desk leest, vergelijkt en waarschuwt; Jan bestelt, keurt goed
 | `DATABASE_URL` | ja | De Postgres van Railway (koppel de Postgres-service). |
 | `DESK_PASSWORD` | ja | Het wachtwoord van de desk. Zonder staat inloggen uit. |
 | `XAI_API_KEY` | nee | AI-lezen met Grok. `XAI_MODEL` kiest een model. |
-| `IMAP_HOST`, `IMAP_USER`, `IMAP_PASS` | nee | De factuurmailbox (alleen lezen). `EMAIL_HOST/USER/PASS/PORT` werken ook; een `smtp.`-host wordt dan `imap.`. `MAIL_MINUTEN` = hoe vaak (standaard 3). |
+| `IMAP_HOST`, `IMAP_USER`, `IMAP_PASS` | nee | De factuurmailbox (alleen lezen, `IMAP_PORT` standaard 993). `MAIL_MINUTEN` = hoe vaak (standaard 3). `EMAIL_*`-variabelen worden nooit gelezen. Weigert de server de inlog, dan stopt de desk tot de gegevens zijn aangepast. |
 | `WHATSAPP_TOKEN`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` | nee | WhatsApp Cloud API (Meta). De webhook staat op `/api/whatsapp/webhook`. |
 | `DEMO_DATA` | nee | `uit` = geen voorbeelddata aanmaken bij een lege database. |
 | `CAMPO_TZ` | nee | Tijdzone, standaard Europe/Amsterdam. |
