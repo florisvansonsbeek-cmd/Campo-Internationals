@@ -23,6 +23,8 @@ app.use((req, res, next) => {
   res.set('X-Content-Type-Options', 'nosniff');
   res.set('Referrer-Policy', 'same-origin');
   res.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  // nothing from the API or the health check may be kept by the browser or Railway's edge cache
+  if (req.path.startsWith('/api') || req.path === '/healthz') res.set('Cache-Control', 'no-store');
   if (req.path.startsWith('/desk') || req.path.startsWith('/api')) {
     res.set('X-Frame-Options', 'SAMEORIGIN');
     res.set('Content-Security-Policy', "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'");
@@ -43,10 +45,10 @@ app.get('/api/status', (req, res) => res.json({ ingelogd: !!session(req), inlogg
 app.use('/api', (req, res, next) => (dbReady ? next() : res.status(503).json({ fout: dbError ? `De database is niet bereikbaar: ${dbError}` : 'De database start nog op. Probeer het zo opnieuw.' })));
 app.use('/api', requireAuth, api);
 
-// static files: images and fonts may be cached long, pages always fresh
+// static files: images and fonts may be cached long; pages, scripts and styles are checked every time,
+// so after a deploy the desk never mixes old and new modules
 const longCache = (res, file) => {
   if (/\.(woff2|webp|avif|png|jpg|svg)$/.test(file)) res.set('Cache-Control', 'public, max-age=2592000');
-  else if (/\.(css|js)$/.test(file)) res.set('Cache-Control', 'public, max-age=300');
   else res.set('Cache-Control', 'no-cache');
 };
 app.use('/desk', express.static(path.join(pub, 'desk'), { index: 'index.html', setHeaders: longCache }));
