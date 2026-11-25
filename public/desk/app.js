@@ -9,6 +9,9 @@ import * as kwekers from './views/kwekers.js';
 import * as klanten from './views/klanten.js';
 import * as planten from './views/planten.js';
 import * as koppelingen from './views/koppelingen.js';
+import * as aanbod from './views/aanbod.js';
+import * as loods from './views/loods.js';
+import * as uitleg from './views/uitleg.js';
 
 const app = document.getElementById('app');
 let me = null, badge = { inbox: 0, werk: 0 };
@@ -16,6 +19,9 @@ let me = null, badge = { inbox: 0, werk: 0 };
 const ROUTES = [
   { re: /^vandaag$/, nav: 'vandaag', title: 'Vandaag', view: vandaag.render, actions: vandaag.actions, every: vandaag.refreshEvery },
   { re: /^workflow$/, nav: 'workflow', title: 'Workflow', view: workflow.render, actions: workflow.actions, every: workflow.refreshEvery },
+  { re: /^aanbod\/(\d+)$/, keys: ['id'], nav: 'workflow', title: 'Aanbod', view: aanbod.render, actions: aanbod.actions },
+  { re: /^loods$/, nav: 'loods', title: 'Loods', view: loods.render, actions: loods.actions, every: loods.refreshEvery },
+  { re: /^uitleg$/, nav: 'uitleg', title: 'Zo werkt het', view: uitleg.render, actions: uitleg.actions },
   { re: /^factuur\/(\d+)$/, keys: ['id'], nav: 'workflow', title: 'Factuur', view: factuur.render, actions: factuur.actions, change: factuur.onChange },
   { re: /^inbox(?:\/(\d+))?$/, keys: ['id'], nav: 'inbox', title: 'Inbox', view: inbox.render, actions: inbox.actions, mount: inbox.mount },
   { re: /^kwekers$/, nav: 'kwekers', title: 'Kwekers', view: kwekers.renderList, actions: kwekers.listActions, input: kwekers.onInput },
@@ -24,11 +30,11 @@ const ROUTES = [
   { re: /^klant\/(\d+)$/, keys: ['id'], nav: 'klanten', title: 'Klant', view: klanten.renderDetail, actions: klanten.detailActions },
   { re: /^planten$/, nav: 'planten', title: 'Planten', view: planten.renderList, actions: planten.listActions, input: planten.onInput },
   { re: /^plant\/(\d+)$/, keys: ['id'], nav: 'planten', title: 'Plant', view: planten.renderDetail, actions: planten.detailActions },
-  { re: /^koppelingen$/, nav: 'koppelingen', title: 'Koppelingen', view: koppelingen.render, actions: koppelingen.actions },
+  { re: /^koppelingen$/, nav: 'koppelingen', title: 'Koppelingen', view: koppelingen.render, actions: koppelingen.actions, change: koppelingen.onChange },
 ];
 const NAV = [
-  ['vandaag', 'Vandaag', 'today'], ['workflow', 'Workflow', 'flow'], ['inbox', 'Inbox', 'inbox'],
-  ['kwekers', 'Kwekers', 'grower'], ['klanten', 'Klanten', 'customer'], ['planten', 'Planten', 'plant'], ['koppelingen', 'Koppelingen', 'plug'],
+  ['vandaag', 'Vandaag', 'today'], ['workflow', 'Workflow', 'flow'], ['loods', 'Loods', 'shed'], ['inbox', 'Inbox', 'inbox'],
+  ['kwekers', 'Kwekers', 'grower'], ['klanten', 'Klanten', 'customer'], ['planten', 'Planten', 'plant'], ['koppelingen', 'Koppelingen', 'plug'], ['uitleg', 'Zo werkt het', 'book'],
 ];
 
 function parse() {
@@ -72,7 +78,7 @@ function loginView(msg = '') {
 function shell() {
   app.innerHTML = `<header class="top">
       <a class="wm" href="#/vandaag">${MARK}<b>CAMPO</b><i>Desk</i></a>
-      <div class="search"><input type="search" id="q" placeholder="Zoek kweker, klant, plant, factuur of order" autocomplete="off" aria-label="Zoeken">${icon('search')}<div class="sres" id="sres" hidden></div></div>
+      <div class="search"><input type="search" id="q" placeholder="Zoek kweker, klant, plant, bestelling of factuur" autocomplete="off" aria-label="Zoeken">${icon('search')}<div class="sres" id="sres" hidden></div></div>
       <div class="top-r"><span class="clock" id="clock"></span><span class="who">${h(me.naam)}</span><button class="btn btn-sm btn-line" data-act="logout">${icon('logout')}<span class="sr">Uitloggen</span></button></div>
     </header>
     <div class="shell">
@@ -90,7 +96,7 @@ async function updateBadges() {
   try {
     const d = await api('/workflow');
     badge.inbox = d.inbox.length;
-    badge.werk = d.kaarten.filter(c => c.stap !== 'klaar').length;
+    badge.werk = d.aanbod.filter(c => c.stap === 'aanbod' || c.stap === 'bellen').length;
     for (const el of document.querySelectorAll('[data-badge]')) {
       const n = el.dataset.badge === 'inbox' ? badge.inbox : badge.werk;
       el.hidden = !n; el.textContent = n;
@@ -139,7 +145,7 @@ const ctx = {
 function setupSearch() {
   const q = document.getElementById('q'), box = document.getElementById('sres');
   let t = null;
-  const go = { kweker: id => `#/kweker/${id}`, klant: id => `#/klant/${id}`, plant: id => `#/plant/${id}`, factuur: id => `#/factuur/${id}`, order: id => `#/klant/${id}` };
+  const go = { kweker: id => `#/kweker/${id}`, klant: id => `#/klant/${id}`, plant: id => `#/plant/${id}`, factuur: id => `#/factuur/${id}`, order: id => `#/klant/${id}`, aanbod: id => `#/aanbod/${id}` };
   q.addEventListener('input', () => {
     clearTimeout(t);
     t = setTimeout(async () => {

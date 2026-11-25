@@ -15,6 +15,9 @@ function rng(seed) {
   return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
 
+// raise this when the demo world changes shape; an all-demo database is then made again on start
+export const DEMO_VERSION = 2;
+
 export async function seedDemo({ days = 450, seed = 20261125, now = new Date() } = {}) {
   const r = rng(seed);
   const R = (a, b) => a + (b - a) * r();
@@ -296,10 +299,19 @@ export async function seedDemo({ days = 450, seed = 20261125, now = new Date() }
       const rg = inv.regels[0]; rg.aantal += rg.plant.per_laag; rg.besteld += rg.plant.per_laag; rg.rest = rg.plant.per_laag;
     }
   }
+  // what stays in the loods: rests of the last three days, and one older lot that was forgotten
+  let forgotten;
+  const forgottenLot = () => (forgotten !== undefined ? forgotten : (forgotten = allocs.find(a => a.bestemming === 'voorraad' && a.rg.plant.groep !== 'snijbloem' && dayDiff(a.rg.inv.datum, TODAY) >= 6 && dayDiff(a.rg.inv.datum, TODAY) <= 9) || null));
   const allocState = (a) => {
     const inv = a.rg.inv;
     const st = stageOf.get(inv);
-    if (!st) return a.levering && +a.levering.aankomst_werkelijk <= now_ ? 'geleverd' : 'bevestigd';
+    if (!st) {
+      if (a.levering) return +a.levering.aankomst_werkelijk <= now_ ? 'geleverd' : 'bevestigd';
+      // no truck of its own: sold from the loods over the following days
+      const age = dayDiff(inv.datum, TODAY);
+      if (a.bestemming === 'voorraad') return age > 3 && a !== forgottenLot() ? 'geleverd' : 'bevestigd';
+      return age >= 1 ? 'geleverd' : 'bevestigd';
+    }
     if (st === 'koppelen' || st === 'nakijken') return a.soort === 'order' ? 'voorstel' : null;
     if (st === 'rest') return a.soort === 'order' ? 'bevestigd' : null;
     return a.levering && +a.levering.aankomst_werkelijk <= now_ ? 'geleverd' : 'bevestigd';
@@ -473,7 +485,7 @@ export async function seedDemo({ days = 450, seed = 20261125, now = new Date() }
       msgs.map(m => [m.klant.id, m.inv.dbId, m.soort, m.kanaal, m.taal, m.onderwerp, m.tekst, m.status, m.aangemaakt, m.verstuurd_op]));
     await ins('verkoopfacturen', ['klant_id', 'order_id', 'nummer', 'datum', 'vervaldatum', 'bedrag', 'betaald_op'],
       verkoop.map(v => [v.klant.id, v.order.id, v.nummer, ymd(v.datum), ymd(v.verval), v.bedrag, v.betaald ? ymd(v.betaald) : null]));
-    await c.query(`INSERT INTO instellingen (sleutel, waarde) VALUES ('demo', $1) ON CONFLICT (sleutel) DO UPDATE SET waarde = EXCLUDED.waarde`, [JSON.stringify({ anker: ymd(TODAY), gemaakt: now.toISOString() })]);
+    await c.query(`INSERT INTO instellingen (sleutel, waarde) VALUES ('demo', $1) ON CONFLICT (sleutel) DO UPDATE SET waarde = EXCLUDED.waarde`, [JSON.stringify({ anker: ymd(TODAY), gemaakt: now.toISOString(), versie: 0 })]);
     await c.query(`INSERT INTO logboek (wie, actie, details) VALUES ('desk', 'Demo-data aangemaakt', $1)`, [JSON.stringify({ kwekers: growers.length, klanten: customers.length, facturen: live.length, orders: orders.length })]);
     await c.query('COMMIT');
     return { kwekers: growers.length, klanten: customers.length, planten: plants.length, orders: orders.length, facturen: live.length, toewijzingen: keepAllocs.length, gebeurtenissen: events.length, berichten: msgs.length, inbox: inbound.length };
@@ -507,12 +519,20 @@ export async function keepDemoCurrent() {
       leveringen: ['vertrek_gepland', 'vertrek_werkelijk', 'aankomst_gepland', 'aankomst_verwacht', 'aankomst_werkelijk'],
       toewijzingen: ['aangemaakt'], gebeurtenissen: ['tijd', 'eta'], afwijkingen: ['gemeld_op'], berichten_uit: ['aangemaakt', 'verstuurd_op'],
       verkoopfacturen: ['datum', 'vervaldatum', 'betaald_op'],
+      aanbiedingen: ['ontvangen', 'geldig_tot', 'levering', 'besteld_op', 'gemeld_op', 'aangemaakt', 'bijgewerkt'],
+      aanbod_klanten: ['aangemaakt'], concepten: ['gebeld_op', 'gezet_op', 'verstuurd_op', 'aangemaakt', 'bijgewerkt'],
     };
     for (const [t, cs] of Object.entries(cols)) {
       await c.query(`UPDATE ${t} SET ${cs.map(x => `${x} = ${x} + interval '${iv}'`).join(', ')}`);
     }
+    await c.query(`UPDATE concepten SET inhoud = jsonb_set(inhoud, '{datum}', to_jsonb(((inhoud->>'datum')::date + $1::int)::text)) WHERE inhoud ? 'datum'`, [shift]);
+    await c.query(`UPDATE concepten SET inhoud = jsonb_set(inhoud, '{geldig_tot}', to_jsonb(((inhoud->>'geldig_tot')::timestamptz + make_interval(days => $1::int))::text)) WHERE inhoud->>'geldig_tot' IS NOT NULL`, [shift]);
     await c.query(`UPDATE instellingen SET waarde = jsonb_set(waarde, '{anker}', to_jsonb($1::text)) WHERE sleutel = 'demo'`, [`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`]);
     await c.query('COMMIT');
+    // the drafts name the delivery day: write them again for the new dates
+    const open = (await c.query(`SELECT id FROM aanbiedingen WHERE status IN ('nieuw', 'bellen', 'besteld') AND ontvangen > now() - interval '10 days'`)).rows;
+    const { afterChange } = await import('./pipeline.js');
+    for (const a of open) await afterChange(a.id).catch(e => console.error('[demo] concept', a.id, e.message));
     return shift;
   } catch (e) {
     await c.query('ROLLBACK').catch(() => {});
@@ -539,4 +559,52 @@ export async function removeDemo() {
   } finally {
     c.release();
   }
+}
+
+// a clean demo: every table emptied (only when there is nothing but demo data), then the world made again
+export async function resetDemo() {
+  const c = await pool.connect();
+  try {
+    await c.query('SET search_path TO campo, public');
+    await c.query('BEGIN');
+    await c.query(`TRUNCATE concepten, aanbod_klanten, aanbod_regels, aanbiedingen, berichten_uit, verkoopfacturen, afwijkingen, gebeurtenissen, toewijzingen, leveringen, zendingen,
+      factuur_regels, facturen, bestanden, berichten_in, klant_order_regels, klant_orders, plant_namen, klanten, planten, kwekers, logboek RESTART IDENTITY CASCADE`);
+    await c.query(`SELECT setval('bestelnummer_seq', 1, false), setval('offertenummer_seq', 1, false)`);
+    await c.query(`DELETE FROM instellingen WHERE sleutel IN ('demo', 'imap')`);
+    await c.query('COMMIT');
+  } catch (e) {
+    await c.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    c.release();
+  }
+}
+
+async function onlyDemo() {
+  const r = await pool.query(`SELECT (SELECT count(*) FROM campo.kwekers WHERE bron <> 'demo') + (SELECT count(*) FROM campo.klanten WHERE bron <> 'demo')
+    + (SELECT count(*) FROM campo.berichten_in WHERE kanaal <> 'demo' AND coalesce(extern_id, '') NOT LIKE 'demo-%') AS n`);
+  return Number(r.rows[0].n) === 0;
+}
+
+// on start: an empty database gets the demo; an older demo is made again when the demo changed shape
+export async function ensureDemo() {
+  const n = Number((await pool.query('SELECT count(*) AS n FROM campo.kwekers')).rows[0].n);
+  const s = (await pool.query(`SELECT waarde FROM campo.instellingen WHERE sleutel = 'demo'`)).rows[0];
+  const { seedOffers } = await import('./demo/offers.js');
+  const done = () => pool.query(`UPDATE campo.instellingen SET waarde = jsonb_set(waarde, '{versie}', to_jsonb($1::int)) WHERE sleutel = 'demo'`, [DEMO_VERSION]);
+  if (!n) {
+    const out = await seedDemo();
+    const extra = await seedOffers();
+    await done();
+    return { gemaakt: true, ...out, aanbod: extra };
+  }
+  // the version is only written when everything is made, so a demo that broke halfway is made again next time
+  if (s && (Number(s.waarde.versie ?? 1) < DEMO_VERSION || process.env.DEMO_OPNIEUW === 'ja') && await onlyDemo()) {
+    await resetDemo();
+    const out = await seedDemo();
+    const extra = await seedOffers();
+    await done();
+    return { opnieuw: true, ...out, aanbod: extra };
+  }
+  return null;
 }

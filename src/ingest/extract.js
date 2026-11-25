@@ -44,23 +44,14 @@ export function parseDate(s) {
 
 const MONEY = /€?\s*-?\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,3})?|€?\s*-?\d+(?:[.,]\d{1,3})?/g;
 
-// an invoice read with plain rules. Returns null when it does not look like one.
-export function readInvoiceText(text) {
-  const t = String(text || '');
-  const lines = t.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  const out = { soort: 'factuur', factuurnummer: null, datum: null, vervaldatum: null, totaal_excl: null, iban: null, regels: [], leverancier: {} };
-  const num = t.match(/(?:factuur(?:nummer|nr\.?)?|invoice(?:\s*(?:no\.?|number))?|rechnung(?:snummer|s-nr\.?)?|faktura(?:nummer)?)\s*[|:#]?\s*\|?\s*([A-Z0-9][A-Z0-9\-/]{2,})/i);
-  if (num && !/^(datum|date)$/i.test(num[1])) out.factuurnummer = num[1];
-  const dat = t.match(/(?:factuurdatum|invoice date|rechnungsdatum|datum|date)\s*[|:]?\s*\|?\s*(\d{1,2}[-./]\d{1,2}[-./]\d{2,4}|\d{4}-\d{2}-\d{2})/i);
-  if (dat) out.datum = parseDate(dat[1]);
-  const due = t.match(/(?:vervaldatum|due date|fällig(?:keit)?(?:sdatum)?)\s*[|:]?\s*\|?\s*(\d{1,2}[-./]\d{1,2}[-./]\d{2,4}|\d{4}-\d{2}-\d{2})/i);
-  if (due) out.vervaldatum = parseDate(due[1]);
-  const tot = t.match(/(?:totaal|total|summe|netto)\s*(?:excl\.?|exkl\.?|excluding|ohne)?\s*(?:btw|vat|mwst|ust)?\.?\s*[|:]?\s*\|?\s*(€?\s*[\d.,]+)/i);
-  if (tot) out.totaal_excl = parseNum(tot[1]);
-  const iban = t.replace(/\s/g, '').match(/[A-Z]{2}\d{2}[A-Z]{4}\d{7,16}/);
-  if (iban) out.iban = iban[0];
 
-  for (const raw of lines) {
+const minOf = raw => { const m = String(raw).match(/\b(?:min(?:imaal|imum|\.)?|afname vanaf|vanaf)\s*(\d{1,6})\b/i); return m ? Number(m[1]) : null; };
+
+// rows with an amount, a plant and a price, the way growers write them in mails, WhatsApp and pdf tables
+export function readRows(lines) {
+  const out = { regels: [] };
+  for (const line of lines) {
+    const raw = String(line).replace(/^[-•*·]\s*/, '');
     // WhatsApp style: "240x Phal. 2t 12 Ø 55cm à €2,81"
     let m = raw.match(/^(\d[\d.]*)\s*(?:x|×|st\.?|stuks|pcs)?\s+(.+?)\s+(?:à|a|@|x|per)\s*€?\s*(\d+[.,]?\d*)\b/i);
     if (m && /[a-z]{3}/i.test(m[2])) {
@@ -84,9 +75,41 @@ export function readInvoiceText(text) {
     m = raw.match(/^(\d{1,6})\s+([A-Za-zÀ-ÿ].+?)\s+(€?\s*\d+[.,]\d{2,3})\s+(€?\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2})$/);
     if (m) {
       const aantal = parseNum(m[1]), prijs = parseNum(m[3], { unit: true }), bedrag = parseNum(m[4]);
-      if (aantal > 0 && prijs > 0) out.regels.push({ aantal, omschrijving: m[2].trim(), prijs, bedrag, referentie: null });
+      if (aantal > 0 && prijs > 0) { out.regels.push({ aantal, omschrijving: m[2].trim(), prijs, bedrag, referentie: null }); continue; }
+    }
+    // offers: "200 Monstera P21 H70 € 12,40" or "- 200x Monstera P21 €12,40 (min 60)"
+    m = raw.match(/^(\d[\d.]*)\s*(?:x|×|st\.?|stuks|stelen|pcs)?\s+([A-Za-zÀ-ÿ].+?)\s+€\s*(\d+[.,]\d{1,3})\b/i);
+    if (m) {
+      const aantal = parseNum(m[1]), prijs = parseNum(m[3], { unit: true });
+      if (aantal > 0 && prijs > 0) { out.regels.push({ aantal, omschrijving: m[2].trim(), prijs, bedrag: null, referentie: null, minimum: minOf(raw) }); continue; }
+    }
+    // name first: "Monstera P21 H70: 200 st à 12,40" / "Calathea P14 – 120 stuks – € 4,10"
+    m = raw.match(/^([A-Za-zÀ-ÿ][^:–—]+?)\s*[:–—-]\s*(\d[\d.]*)\s*(?:x|×|st\.?|stuks|stelen|pcs)?\s*(?:[–—-]\s*)?(?:à|a|@|per|voor)?\s*€?\s*(\d+[.,]\d{1,3})\b/i);
+    if (m && /[a-z]{3}/i.test(m[1])) {
+      const aantal = parseNum(m[2]), prijs = parseNum(m[3], { unit: true });
+      if (aantal > 0 && prijs > 0) out.regels.push({ aantal, omschrijving: m[1].trim(), prijs, bedrag: null, referentie: null, minimum: minOf(raw) });
     }
   }
+  return out.regels.map(r => ({ ...r, minimum: r.minimum ?? null }));
+}
+
+// an invoice read with plain rules. Returns null when it does not look like one.
+export function readInvoiceText(text) {
+  const t = String(text || '');
+  const lines = t.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const out = { soort: 'factuur', factuurnummer: null, datum: null, vervaldatum: null, totaal_excl: null, iban: null, regels: [], leverancier: {} };
+  const num = t.match(/(?:factuur(?:nummer|nr\.?)?|invoice(?:\s*(?:no\.?|number))?|rechnung(?:snummer|s-nr\.?)?|faktura(?:nummer)?)\s*[|:#]?\s*\|?\s*([A-Z0-9][A-Z0-9\-/]{2,})/i);
+  if (num && !/^(datum|date)$/i.test(num[1])) out.factuurnummer = num[1];
+  const dat = t.match(/(?:factuurdatum|invoice date|rechnungsdatum|datum|date)\s*[|:]?\s*\|?\s*(\d{1,2}[-./]\d{1,2}[-./]\d{2,4}|\d{4}-\d{2}-\d{2})/i);
+  if (dat) out.datum = parseDate(dat[1]);
+  const due = t.match(/(?:vervaldatum|due date|fällig(?:keit)?(?:sdatum)?)\s*[|:]?\s*\|?\s*(\d{1,2}[-./]\d{1,2}[-./]\d{2,4}|\d{4}-\d{2}-\d{2})/i);
+  if (due) out.vervaldatum = parseDate(due[1]);
+  const tot = t.match(/(?:totaal|total|summe|netto)\s*(?:excl\.?|exkl\.?|excluding|ohne)?\s*(?:btw|vat|mwst|ust)?\.?\s*[|:]?\s*\|?\s*(€?\s*[\d.,]+)/i);
+  if (tot) out.totaal_excl = parseNum(tot[1]);
+  const iban = t.replace(/\s/g, '').match(/[A-Z]{2}\d{2}[A-Z]{4}\d{7,16}/);
+  if (iban) out.iban = iban[0];
+
+  out.regels = readRows(lines);
   if (!out.regels.length) return null;
   // WhatsApp invoices often say "voor morgen" and "rond 8:15"
   const low = t.toLowerCase();
@@ -111,5 +134,47 @@ export function readTimeText(text) {
     vertraging: late,
     vertrek: left && times.length > 1 ? fmt(times[0]) : (left && !etaWord ? fmt(times[0]) : null),
     eta: etaWord || late ? fmt(times[times.length - 1]) : null,
+  };
+}
+
+// ---------------------------------------------------------------- offers: "heb nog 200 Monstera P21 à 12,40, levering morgen, geldig tot 14:00"
+const DAYS = { maandag: 1, dinsdag: 2, woensdag: 3, donderdag: 4, vrijdag: 5, zaterdag: 6, zondag: 7, montag: 1, dienstag: 2, mittwoch: 3, donnerstag: 4, freitag: 5, samstag: 6, sonntag: 7,
+  monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7, ma: 1, di: 2, wo: 3, do: 4, vr: 5, za: 6, zo: 7 };
+const ymdOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function dayRef(s, base) {
+  const t = String(s || '').toLowerCase();
+  const b = new Date(base); b.setHours(0, 0, 0, 0);
+  if (/\b(overmorgen|übermorgen)\b/.test(t)) return new Date(b.getTime() + 2 * 864e5);
+  if (/\b(morgen|tomorrow)\b/.test(t) && !/morgen früh/.test(t)) return new Date(b.getTime() + 864e5);
+  if (/\b(vandaag|heute|today)\b/.test(t)) return b;
+  const dm = t.match(/\b(\d{1,2})[-./](\d{1,2})(?:[-./](\d{2,4}))?\b/);
+  if (dm) { let y = dm[3] ? Number(dm[3]) : b.getFullYear(); if (y < 100) y += 2000; const d = new Date(y, Number(dm[2]) - 1, Number(dm[1])); if (!dm[3] && d < b) d.setFullYear(y + 1); return d; }
+  const w = t.match(/\b(maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|zondag|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/);
+  if (w) { const want = DAYS[w[1]], now = ((b.getDay() + 6) % 7) + 1; return new Date(b.getTime() + (((want - now + 7) % 7) || 7) * 864e5); }
+  return null;
+}
+const OFFER_WORDS = /(aanbod|aanbieding|offerte|beschikbaar|heb(?:ben)? (?:nog|deze week)|kan(?:nen)? (?:nog )?leveren|partij|angebot|verfügbar|haben noch|availability|available|we have|special offer)/i;
+const INVOICE_WORDS = /(factuur\s*(?:nummer|nr\.?)?\s*[:#]?\s*[A-Z0-9-]{3,}|invoice\s*(?:no|number)|rechnung(?:snummer|s-nr)?\s*[:#]|\biban\b|vervaldatum|due date|te betalen)/i;
+export function readOfferText(text, ontvangen = new Date()) {
+  const t = String(text || '');
+  if (!OFFER_WORDS.test(t) || INVOICE_WORDS.test(t)) return null;
+  const lines = t.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const regels = readRows(lines);
+  if (!regels.length) return null;
+  const low = t.toLowerCase();
+  const lev = low.match(/(?:lever(?:ing|en|baar)?|liefer(?:ung|bar)?|deliver(?:y|ed)?|kan (?:er )?zijn)[^\n.]{0,40}/);
+  const levering = lev ? dayRef(lev[0], ontvangen) : null;
+  let geldig = null;
+  const g = low.match(/(?:geldig tot|tot|reactie (?:voor|vóór)|graag (?:voor|vóór)|uiterlijk|bis|until|before)\s*([^\n.]{0,24}?)\s*(\d{1,2})(?:[:.u](\d{2}))?\s*(?:uur|u\b|h\b|uhr)?/);
+  if (g && Number(g[2]) <= 23) {
+    const d = dayRef(g[1], ontvangen) || new Date(new Date(ontvangen).setHours(0, 0, 0, 0));
+    d.setHours(Number(g[2]), Number(g[3] || 0), 0, 0);
+    if (d > new Date(new Date(ontvangen).getTime() - 864e5)) geldig = d.toISOString();
+  }
+  const ref = t.match(/(?:aanbod|aanbieding|angebot|offer)\s*(?:nr\.?|nummer|no\.?|#)\s*[:#]?\s*([A-Z0-9][A-Z0-9\-/]{2,})/i) || t.match(/\b(?:week|wk|kw)\s*(\d{1,2})\b/i);
+  return {
+    soort: 'aanbod', leverancier: {}, regels, waarschuwingen: [],
+    aanbod: { referentie: ref ? (/^\d{1,2}$/.test(ref[1]) ? `week ${ref[1]}` : ref[1]) : null, levering: levering ? ymdOf(levering) : null, geldig_tot: geldig,
+      hele_partij: /(hele partij|alles of niets|alleen (?:in )?(?:één|1) keer|alleen compleet|complete partij|nur komplett|all or nothing|whole lot)/i.test(t) },
   };
 }

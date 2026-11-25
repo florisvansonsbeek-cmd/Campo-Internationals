@@ -25,8 +25,9 @@ export const pool = new pg.Pool({
   ssl: sslFor(process.env.DATABASE_URL),
   max: 8,
   idleTimeoutMillis: 30000,
+  // every connection starts in the campo schema and in Dutch time, without an extra query racing the first one
+  options: `-c search_path=campo,public -c TimeZone=${TZ}`,
 });
-pool.on('connect', c => { c.query(`SET search_path TO campo, public; SET TIME ZONE '${TZ}'`).catch(() => {}); });
 pool.on('error', e => console.error('[db] idle client error', e.message));
 
 export const q = (text, params) => pool.query(text, params);
@@ -50,6 +51,7 @@ export async function tx(fn) {
 
 const MIGRATIONS = [
   { v: 1, file: 'schema.sql' },
+  { v: 2, file: 'schema-2-aanbod.sql' },
 ];
 
 export async function migrate() {

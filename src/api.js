@@ -10,6 +10,11 @@ import { aiStatus, aiCheck } from './ingest/ai.js';
 import { mailStatus, pollMail } from './ingest/mail.js';
 import { whatsappStatus } from './ingest/whatsapp.js';
 import { removeDemo } from './seed.js';
+import { offerCards, offerDetail, callOutcome, placeOrder, declineOffer, receiveOrder, proposeOffer, customerStats, dropCaches } from './offers.js';
+import { conceptPdf, conceptEml } from './drafts.js';
+import { pushOffer, pushConcept, sendConcept, outlookStatus, disconnect, removeFromOutlook, syncSent, authStart, authBack, target } from './outlook.js';
+import { afterChange, afterOffer } from './pipeline.js';
+import { loodsNow } from './loods.js';
 
 export const api = express.Router();
 const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -186,7 +191,7 @@ api.get('/vandaag', wrap(async (req, res) => {
     const t = {
       nakijken: { toon: 'wait', titel: `Nakijken: ${f.naam} ${f.nummer}`, tekst: `${f.twijfel} ${f.twijfel === 1 ? 'regel is' : 'regels zijn'} niet zeker gelezen.` },
       koppelen: { toon: 'info', titel: `Koppeling bevestigen: ${f.naam} ${f.nummer}`, tekst: 'De desk heeft de planten al aan klanten gekoppeld. Even nalopen en bevestigen.' },
-      rest: { toon: 'wait', titel: `Rest verdelen: ${f.naam} ${f.nummer}`, tekst: `${Number(f.rest).toLocaleString('nl-NL')} stuks hebben nog geen bestemming.` },
+      rest: { toon: 'info', titel: `Vrij in de loods: ${f.naam} ${f.nummer}`, tekst: `${Number(f.rest).toLocaleString('nl-NL')} stuks hebben nog geen klant. Bied ze aan vanuit de loods.` },
       informeren: { toon: 'info', titel: `Klanten informeren: ${f.naam} ${f.nummer}`, tekst: `${f.klanten - f.verstuurd} ${f.klanten - f.verstuurd === 1 ? 'klant wacht' : 'klanten wachten'} op een bericht.` },
     }[f.stap];
     aandacht.push({ ...t, soort: f.stap, link: `#/factuur/${f.id}`, knop: 'Openen' });
@@ -195,14 +200,34 @@ api.get('/vandaag', wrap(async (req, res) => {
   const slapers = (await cachedCustomers()).filter(c => c.segment === 'slapend' && c.actief).slice(0, 3);
   if (slapers.length) aandacht.push({ toon: 'info', soort: 'klanten', titel: `${slapers.length} ${slapers.length === 1 ? 'klant bestelt' : 'klanten bestellen'} later dan normaal`, tekst: slapers.map(c => `${c.naam} (${c.dagen_sinds} dagen, normaal ${c.ritme})`).join(', '), link: '#/klanten?segment=slapend', knop: 'Bekijken' });
 
+  // offers: what Jan can order now, and who to call
+  const cards = await offerCards();
+  const offerItems = [];
+  for (const c of cards.filter(c => c.stap === 'aanbod' || c.stap === 'bellen')) {
+    const left = c.geldig_tot ? (new Date(c.geldig_tot) - now) / MIN : null;
+    const soon = left != null && left > 0 && left <= 120;
+    const titel = c.stap === 'aanbod' ? `Klaar om te bestellen: ${c.kweker}` : `${c.bellen ? `Nog ${c.bellen} ${c.bellen === 1 ? 'klant' : 'klanten'} bellen` : 'Bestelling plaatsen'}: ${c.kweker}`;
+    const parts = [`${c.stuks.toLocaleString('nl-NL')} stuks, ${c.gekoppeld_pct}% heeft een klant`];
+    if (c.akkoord) parts.push(`${c.akkoord} akkoord`);
+    if (c.marge) parts.push(`marge € ${Math.round(c.marge).toLocaleString('nl-NL')}`);
+    if (soon) parts.push(`aanbod verloopt ${hm(c.geldig_tot)}`);
+    offerItems.push({ toon: soon || (c.risico && c.risico.niveau === 'hoog') ? 'wait' : 'info', soort: 'aanbod', titel, tekst: parts.join(' · ') + '.', link: `#/aanbod/${c.id}`, knop: c.stap === 'aanbod' ? 'Voorstel bekijken' : c.bellen ? 'Verder bellen' : 'Bestelling plaatsen', risico: c.risico ? c.risico.niveau : null });
+  }
+  const loods = await loodsNow();
+  if (loods.kpi.te_lang) aandacht.push({ toon: 'wait', soort: 'loods', titel: `${loods.kpi.te_lang} ${loods.kpi.te_lang === 1 ? 'partij staat' : 'partijen staan'} te lang in de loods`, tekst: 'Vrije planten die al dagen staan. Bied ze aan of schrijf ze af.', link: '#/loods', knop: 'Naar de loods' });
+  aandacht.unshift(...offerItems);
   const order = ['bad', 'wait', 'info'];
-  aandacht.sort((a, b) => order.indexOf(a.toon) - order.indexOf(b.toon));
+  aandacht.sort((a, b) => order.indexOf(a.toon) - order.indexOf(b.toon) || (b.soort === 'aanbod') - (a.soort === 'aanbod'));
   res.json({
     nu: now.toISOString(),
     kpi: {
       onderweg: zOut.filter(z => z.state === 'onderweg').length, binnen: zOut.filter(z => z.state === 'binnen' && new Date(z.gepland).toDateString() === now.toDateString()).length,
       vandaag: zOut.filter(z => new Date(z.gepland).toDateString() === now.toDateString()).length, achter: zOut.filter(z => z.state !== 'binnen' && (z.delay >= 15 || z.silentLate)).length,
       uit: lOut.filter(l => l.state === 'onderweg').length, afgeleverd: lOut.filter(l => l.state === 'afgeleverd').length, leveringen: lOut.length, krap: lOut.filter(l => l.krap).length,
+      aanbod: cards.filter(c => c.stap === 'aanbod').length, bellen: cards.filter(c => c.stap === 'aanbod' || c.stap === 'bellen').reduce((s, c) => s + c.bellen, 0),
+      bellen_aanbod: cards.filter(c => c.stap === 'bellen').length, besteld: cards.filter(c => c.stap === 'besteld').length,
+      marge: Math.round(cards.filter(c => c.stap === 'aanbod' || c.stap === 'bellen').reduce((s, c) => s + c.marge, 0)),
+      loods: loods.kpi.stuks, loods_vrij: loods.kpi.vrij, loods_klanten: loods.kpi.klanten, loods_te_lang: loods.kpi.te_lang,
     },
     stappen: Object.fromEntries(stappen.map(s => [s.stap, { n: Number(s.n), rest: Number(s.rest || 0) }])),
     inbox: { nieuw: Number(inbox.nieuw), fout: Number(inbox.fout) },
@@ -210,30 +235,40 @@ api.get('/vandaag', wrap(async (req, res) => {
   });
 }));
 const hm = d => new Date(d).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
-let custCache = null, custAt = 0;
-async function cachedCustomers() {
-  if (!custCache || Date.now() - custAt > 120000) { custCache = await customerList(); custAt = Date.now(); }
-  return custCache;
-}
+const cachedCustomers = customerStats;
 
-// ---------------------------------------------------------------- the workflow board
+// ---------------------------------------------------------------- the workflow: from a grower's offer to the loods
 api.get('/workflow', wrap(async (req, res) => {
   const inbox = await rows(`
     SELECT b.id, b.kanaal, b.van, b.van_naam, b.onderwerp, left(b.tekst, 160) AS tekst, b.ontvangen, b.status, b.fout, b.soort, k.naam AS kweker,
            (SELECT json_agg(naam) FROM bestanden WHERE bericht_id = b.id) AS bestanden
       FROM berichten_in b LEFT JOIN kwekers k ON k.id = b.kweker_id
      WHERE b.status IN ('nieuw', 'bezig', 'fout') AND b.ontvangen <= now() AND b.ontvangen > now() - interval '21 days' ORDER BY b.ontvangen DESC`);
-  const cards = await rows(`
-    SELECT f.id, f.nummer, f.datum, f.zekerheid, f.gelezen_door, f.waarschuwing, f.totaal, f.nagekeken, k.id AS kweker_id, k.naam AS kweker, k.plaats,
-           b.kanaal, b.ontvangen, s.*, z.aankomst_gepland, z.aankomst_verwacht, CASE WHEN z.aankomst_werkelijk <= now() THEN z.aankomst_werkelijk END AS binnen_om,
-           (SELECT json_agg(DISTINCT kl.naam) FROM toewijzingen t JOIN factuur_regels fr ON fr.id = t.regel_id JOIN klanten kl ON kl.id = t.klant_id
-             WHERE fr.factuur_id = f.id AND t.status <> 'afgewezen') AS klantnamen,
-           (SELECT json_agg(json_build_object('plant', p.naam, 'maat', p.potmaat, 'aantal', fr.aantal) ORDER BY fr.regelnr) FROM factuur_regels fr LEFT JOIN planten p ON p.id = fr.plant_id WHERE fr.factuur_id = f.id) AS planten
-      FROM facturen f JOIN kwekers k ON k.id = f.kweker_id JOIN factuur_stap s ON s.factuur_id = f.id
-      LEFT JOIN berichten_in b ON b.id = f.bericht_id LEFT JOIN zendingen z ON z.factuur_id = f.id
-     WHERE NOT f.afgerond AND (s.stap <> 'klaar' OR f.datum >= current_date - 1)
-     ORDER BY f.datum, z.aankomst_gepland NULLS LAST, f.id`);
-  res.json({ inbox, kaarten: cards });
+  const aanbod = await offerCards();
+  // trucks on their way that did not come from an offer (ordered by phone, invoice already in)
+  const komt = await rows(`
+    SELECT z.id, z.factuur_id, f.nummer, g.id AS kweker_id, g.naam AS kweker, z.aankomst_gepland, z.aankomst_verwacht,
+           CASE WHEN z.vertrek_werkelijk <= now() THEN z.vertrek_werkelijk END AS vertrokken,
+           (SELECT sum(fr.aantal) FROM factuur_regels fr WHERE fr.factuur_id = z.factuur_id) AS stuks,
+           (SELECT count(DISTINCT t.klant_id) FROM toewijzingen t JOIN factuur_regels fr ON fr.id = t.regel_id WHERE fr.factuur_id = z.factuur_id AND t.bestemming = 'klant' AND t.status <> 'afgewezen') AS klanten,
+           s.stap
+      FROM zendingen z JOIN kwekers g ON g.id = z.kweker_id LEFT JOIN facturen f ON f.id = z.factuur_id LEFT JOIN factuur_stap s ON s.factuur_id = z.factuur_id
+     WHERE z.aanbod_id IS NULL AND (z.aankomst_werkelijk IS NULL OR z.aankomst_werkelijk > now()) AND z.aankomst_gepland BETWEEN now() - interval '6 hours' AND now() + interval '40 hours'
+     ORDER BY z.aankomst_gepland`);
+  const l = await loodsNow();
+  const per = new Map();
+  for (const p of l.partijen) {
+    const x = per.get(p.factuur_id) || { factuur_id: p.factuur_id, nummer: p.nummer, kweker: p.kweker, binnen_om: p.binnen_om, hier: 0, gereserveerd: 0, vrij: 0, planten: new Set(), klanten: new Set(), leeftijd: 'ok', aanbod_id: null };
+    x.hier += p.hier; x.gereserveerd += p.gereserveerd; x.vrij += p.vrij; x.planten.add(p.plant);
+    for (const c of p.klanten) x.klanten.add(c.klant);
+    if (p.leeftijd === 'bad' || (p.leeftijd === 'wait' && x.leeftijd === 'ok')) x.leeftijd = p.leeftijd;
+    per.set(p.factuur_id, x);
+  }
+  const fromOffer = new Map((await rows('SELECT id, factuur_id FROM aanbiedingen WHERE factuur_id = ANY($1)', [[...per.keys()]])).map(a => [a.factuur_id, a.id]));
+  const loods = [...per.values()].map(x => ({ ...x, planten: [...x.planten], klanten: [...x.klanten], aanbod_id: fromOffer.get(x.factuur_id) || null })).sort((a, b) => new Date(b.binnen_om) - new Date(a.binnen_om));
+  const facturen = await rows(`SELECT f.id, f.nummer, k.naam AS kweker, s.twijfel, s.zonder_plant FROM facturen f JOIN kwekers k ON k.id = f.kweker_id JOIN factuur_stap s ON s.factuur_id = f.id
+     WHERE NOT f.afgerond AND s.stap = 'nakijken' ORDER BY f.datum DESC LIMIT 10`);
+  res.json({ inbox, aanbod, komt: komt.map(z => ({ ...z, stuks: Number(z.stuks || 0), klanten: Number(z.klanten || 0) })), loods, loods_kpi: l.kpi, facturen });
 }));
 
 // ---------------------------------------------------------------- one invoice: the dossier
@@ -419,7 +454,17 @@ api.post('/zendingen/:id/gebeurtenis', wrap(async (req, res) => {
   const tijd = atTime(v.tijd, new Date(z.aankomst_gepland)) || new Date();
   const eta = atTime(v.eta, new Date(z.aankomst_gepland));
   await q(`INSERT INTO gebeurtenissen (zending_id, tijd, soort, plaats, eta, tekst, bron) VALUES ($1, $2, $3, $4, $5, $6, 'jan')`, [z.id, tijd, v.soort, v.soort === 'aangekomen' ? 'Campo, Nootdorp' : null, eta, v.tekst || null]);
-  if (v.soort === 'aangekomen') await q('UPDATE zendingen SET aankomst_werkelijk = $2, aankomst_verwacht = $2 WHERE id = $1', [z.id, tijd]);
+  if (v.soort === 'aangekomen') {
+    await q('UPDATE zendingen SET aankomst_werkelijk = $2, aankomst_verwacht = $2 WHERE id = $1', [z.id, tijd]);
+    if (z.aanbod_id && !z.factuur_id) {
+      const c = await pool.connect();
+      try {
+        await c.query('BEGIN');
+        await receiveOrder(c, z.id);
+        await c.query('COMMIT');
+      } catch (e) { await c.query('ROLLBACK').catch(() => {}); throw e; } finally { c.release(); }
+    }
+  }
   if (v.soort === 'vertrokken') await q('UPDATE zendingen SET vertrek_werkelijk = $2 WHERE id = $1', [z.id, tijd]);
   if (eta) await q('UPDATE zendingen SET aankomst_verwacht = $2 WHERE id = $1', [z.id, eta]);
   await log(who(req), `Zending: ${v.soort}`, 'factuur', z.factuur_id, { tijd, eta });
@@ -452,7 +497,8 @@ api.get('/inbox', wrap(async (req, res) => {
   const r = await rows(`
     SELECT b.id, b.kanaal, b.van, b.van_naam, b.onderwerp, b.tekst, b.ontvangen, b.status, b.soort, b.fout, k.naam AS kweker, k.id AS kweker_id,
            (SELECT json_agg(json_build_object('id', bs.id, 'naam', bs.naam, 'mime', bs.mime, 'grootte', bs.grootte)) FROM bestanden bs WHERE bs.bericht_id = b.id) AS bestanden,
-           (SELECT json_build_object('id', f.id, 'nummer', f.nummer) FROM facturen f WHERE f.bericht_id = b.id LIMIT 1) AS factuur
+           (SELECT json_build_object('id', f.id, 'nummer', f.nummer) FROM facturen f WHERE f.bericht_id = b.id LIMIT 1) AS factuur,
+           (SELECT a.id FROM aanbiedingen a WHERE a.bericht_id = b.id LIMIT 1) AS aanbod_id
       FROM berichten_in b LEFT JOIN kwekers k ON k.id = b.kweker_id
      WHERE b.ontvangen <= now() ORDER BY b.ontvangen DESC LIMIT 150`);
   res.json(r);
@@ -480,9 +526,10 @@ api.post('/inbox/upload', wrap(async (req, res) => {
   res.status(out.ok ? 200 : 422).json({ ...out, bericht_id: b.id });
 }));
 api.post('/inbox/plakken', wrap(async (req, res) => {
-  const v = clean(req.body || {}, { tekst: { type: 'text', required: true, max: 20000 }, van: { type: 'text', max: 200 }, kanaal: { type: 'enum', values: ['whatsapp', 'mail', 'plakken'] } });
+  const v = clean(req.body || {}, { tekst: { type: 'text', required: true, max: 20000 }, van: { type: 'text', max: 200 }, kanaal: { type: 'enum', values: ['whatsapp', 'mail', 'plakken'] }, kweker_id: { type: 'int', min: 1 } });
   const van = v.van ? (phone(v.van) || v.van) : null;
-  const b = await one(`INSERT INTO berichten_in (kanaal, extern_id, van, van_naam, tekst) VALUES ('plakken', $1, $2, $3, $4) RETURNING id`, [`plak-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, van, null, v.tekst]);
+  const g = v.kweker_id ? await one('SELECT id, naam FROM kwekers WHERE id = $1', [v.kweker_id]) : null;
+  const b = await one(`INSERT INTO berichten_in (kanaal, extern_id, van, van_naam, tekst, kweker_id) VALUES ('plakken', $1, $2, $3, $4, $5) RETURNING id`, [`plak-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, van, g ? g.naam : null, v.tekst, g ? g.id : null]);
   const out = await processMessage(b.id, { wie: who(req) });
   res.status(out.ok ? 200 : 422).json({ ...out, bericht_id: b.id });
 }));
@@ -524,6 +571,9 @@ async function upsert(table, spec, req, res, extra = {}) {
   res.json({ ok: true, id: r.id });
 }
 api.get('/kwekers', wrap(async (req, res) => res.json(await growerList())));
+api.get('/kwekers/namen', wrap(async (req, res) => res.json(await rows('SELECT id, naam, plaats FROM kwekers WHERE actief ORDER BY naam'))));
+api.get('/klanten/namen', wrap(async (req, res) => res.json(await rows('SELECT id, naam, plaats, land FROM klanten WHERE actief ORDER BY naam'))));
+api.get('/planten/namen', wrap(async (req, res) => res.json(await rows(`SELECT id, concat_ws(' ', naam, potmaat, hoogte) AS naam, verkoopprijs FROM planten WHERE actief ORDER BY naam, potmaat`))));
 api.get('/kwekers/:id', wrap(async (req, res) => { const d = await growerDetail(int(req.params.id)); if (!d) return res.status(404).json({ fout: 'Kweker niet gevonden.' }); res.json(d); }));
 api.post('/kwekers', wrap((req, res) => upsert('kwekers', KWEKER, req, res)));
 api.patch('/kwekers/:id', wrap((req, res) => upsert('kwekers', KWEKER, req, res)));
@@ -545,7 +595,9 @@ api.get('/zoek', wrap(async (req, res) => {
     UNION ALL (SELECT 'klant', id, naam, concat_ws(', ', plaats, land) FROM klanten WHERE naam ILIKE $1 OR plaats ILIKE $1 OR contact ILIKE $1 LIMIT 6)
     UNION ALL (SELECT 'plant', id, concat_ws(' ', naam, potmaat, hoogte), groep FROM planten WHERE naam ILIKE $1 OR latijn ILIKE $1 LIMIT 6)
     UNION ALL (SELECT 'factuur', f.id, concat(k.naam, ' ', f.nummer), to_char(f.datum, 'DD-MM-YYYY') FROM facturen f JOIN kwekers k ON k.id = f.kweker_id WHERE f.nummer ILIKE $1 LIMIT 6)
-    UNION ALL (SELECT 'order', ko.klant_id, concat(ko.nummer, ' · ', k.naam), to_char(ko.besteld_op, 'DD-MM-YYYY') FROM klant_orders ko JOIN klanten k ON k.id = ko.klant_id WHERE ko.nummer ILIKE $1 LIMIT 6)`, [like]);
+    UNION ALL (SELECT 'order', ko.klant_id, concat(ko.nummer, ' · ', k.naam), to_char(ko.besteld_op, 'DD-MM-YYYY') FROM klant_orders ko JOIN klanten k ON k.id = ko.klant_id WHERE ko.nummer ILIKE $1 LIMIT 6)
+    UNION ALL (SELECT 'aanbod', a.id, concat(k.naam, ' · ', coalesce(a.bestelnummer, a.nummer, 'aanbod')), to_char(a.ontvangen, 'DD-MM-YYYY') FROM aanbiedingen a JOIN kwekers k ON k.id = a.kweker_id
+                WHERE a.bestelnummer ILIKE $1 OR a.nummer ILIKE $1 OR (k.naam ILIKE $1 AND a.ontvangen > now() - interval '7 days') ORDER BY a.ontvangen DESC LIMIT 6)`, [like]);
   res.json(out);
 }));
 
@@ -558,7 +610,8 @@ api.get('/koppelingen', wrap(async (req, res) => {
      (SELECT count(*) FROM klant_orders) AS orders, (SELECT count(*) FROM plant_namen) AS plantnamen,
      (SELECT pg_size_pretty(sum(pg_total_relation_size(c.oid))) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'campo' AND c.relkind = 'r') AS grootte`);
   const host = `${req.protocol}://${req.get('host')}`;
-  res.json({ ai: aiStatus(), mail: mailStatus(), whatsapp: { ...whatsappStatus(), webhook: `${host}/api/whatsapp/webhook` }, demo, database: counts, talen: LANG_NAME });
+  const extra = await one(`SELECT (SELECT count(*) FROM aanbiedingen) AS aanbiedingen, (SELECT count(*) FROM aanbod_regels) AS aanbodregels, (SELECT count(*) FROM concepten) AS concepten`);
+  res.json({ ai: aiStatus(), mail: mailStatus(), whatsapp: { ...whatsappStatus(), webhook: `${host}/api/whatsapp/webhook` }, outlook: { ...(await outlookStatus()), terug: `${host}/api/outlook/terug` }, demo, database: { ...counts, ...extra }, talen: LANG_NAME });
 }));
 api.post('/koppelingen/ai-test', wrap(async (req, res) => res.json(await aiCheck())));
 api.post('/koppelingen/mail-nu', wrap(async (req, res) => res.json(await pollMail())));
@@ -571,11 +624,227 @@ api.post('/demo/verwijderen', wrap(async (req, res) => {
 api.get('/logboek', wrap(async (req, res) => res.json(await rows('SELECT * FROM logboek ORDER BY tijd DESC LIMIT 250'))));
 api.get('/me', (req, res) => res.json({ naam: req.user.naam }));
 
+// ---------------------------------------------------------------- offers from growers: the proposal, the calls, the order
+api.get('/aanbod', wrap(async (req, res) => res.json(await offerCards())));
+api.get('/aanbod/:id', wrap(async (req, res) => {
+  const id = int(req.params.id);
+  const d = await offerDetail(id);
+  if (!d) return res.status(404).json({ fout: 'Dit aanbod bestaat niet (meer).' });
+  d.logboek = await rows(`SELECT tijd, wie, actie, details FROM logboek WHERE object = 'aanbod' AND object_id = $1 ORDER BY tijd DESC LIMIT 40`, [id]);
+  d.outlook = await target();
+  res.json(d);
+}));
+async function fresh(res, id, extra = {}) {
+  const d = await offerDetail(id);
+  d.logboek = await rows(`SELECT tijd, wie, actie, details FROM logboek WHERE object = 'aanbod' AND object_id = $1 ORDER BY tijd DESC LIMIT 40`, [id]);
+  d.outlook = await target();
+  res.json({ ...d, ...extra });
+}
+const editable = async id => {
+  const a = await one('SELECT status FROM aanbiedingen WHERE id = $1', [id]);
+  if (!a) throw Object.assign(new Error('Dit aanbod bestaat niet (meer).'), { status: 404 });
+  if (a.status === 'besteld') throw Object.assign(new Error('Deze bestelling is al geplaatst; aanpassen gaat nu bij de kweker en de klant zelf.'), { status: 409 });
+  if (a.status === 'afgewezen') throw Object.assign(new Error('Dit aanbod is afgewezen.'), { status: 409 });
+};
+
+api.post('/aanbod/:id/gesprek', wrap(async (req, res) => {
+  const id = int(req.params.id);
+  const v = clean(req.body || {}, { klant_id: { type: 'int', required: true, min: 1 }, uitkomst: { type: 'enum', required: true, values: ['akkoord', 'nee', 'terugbellen', 'open'] }, notitie: { type: 'text', max: 500 } });
+  await callOutcome(id, v.klant_id, v.uitkomst, v.notitie, who(req));
+  const after = await afterChange(id);
+  await fresh(res, id, { outlook_gezet: after.outlook });
+}));
+api.patch('/aanbod/:id', wrap(async (req, res) => {
+  const id = int(req.params.id);
+  await editable(id);
+  const v = clean(req.body || {}, { levering: { type: 'text', max: 10 }, geldig_tot: { type: 'text', max: 40 }, hele_partij: { type: 'bool' }, notitie: { type: 'text', max: 2000 } }, { partial: true });
+  if (v.levering && !/^\d{4}-\d{2}-\d{2}$/.test(v.levering)) throw new Invalid({ levering: 'Kies een datum.' });
+  if (v.geldig_tot && Number.isNaN(+new Date(v.geldig_tot))) throw new Invalid({ geldig_tot: 'Kies een tijd.' });
+  const keys = Object.keys(v);
+  if (keys.length) await q(`UPDATE aanbiedingen SET ${keys.map((k, i) => `${k} = $${i + 2}`).join(', ')}, bijgewerkt = now() WHERE id = $1`, [id, ...keys.map(k => (k === 'geldig_tot' && v[k] ? new Date(v[k]) : v[k]))]);
+  await log(who(req), 'Aanbod aangepast', 'aanbod', id, v);
+  await afterChange(id);
+  await fresh(res, id);
+}));
+api.patch('/aanbod-regels/:id', wrap(async (req, res) => {
+  const r = await one('SELECT * FROM aanbod_regels WHERE id = $1', [int(req.params.id)]);
+  if (!r) return res.status(404).json({ fout: 'Regel niet gevonden.' });
+  await editable(r.aanbod_id);
+  const v = clean(req.body || {}, { extra: { type: 'int', min: 0, max: 999999 }, plant_id: { type: 'int', min: 1 }, prijs: { type: 'num', min: 0 } }, { partial: true });
+  if (v.extra != null && v.extra > r.aantal) throw new Invalid({ extra: `Maximaal ${r.aantal}.` });
+  if (v.plant_id) {
+    const a = await one('SELECT kweker_id FROM aanbiedingen WHERE id = $1', [r.aanbod_id]);
+    await q(`DELETE FROM aanbod_klanten WHERE regel_id = $1 AND status = 'voorstel'`, [r.id]);
+    await q(`INSERT INTO plant_namen (plant_id, kweker_id, tekst, door) VALUES ($1, $2, $3, 'jan') ON CONFLICT ((coalesce(kweker_id, 0)), (lower(tekst))) DO UPDATE SET plant_id = EXCLUDED.plant_id, geleerd = now(), door = 'jan'`, [v.plant_id, a.kweker_id, r.omschrijving]);
+  }
+  await q(`UPDATE aanbod_regels SET extra = coalesce($2, extra), plant_id = coalesce($3, plant_id), match_zekerheid = CASE WHEN $3 IS NULL THEN match_zekerheid ELSE 100 END, prijs = coalesce($4, prijs) WHERE id = $1`,
+    [r.id, v.extra ?? null, v.plant_id ?? null, v.prijs ?? null]);
+  if (v.plant_id) { const c = await pool.connect(); try { await c.query('BEGIN'); await proposeOffer(c, r.aanbod_id); await c.query('COMMIT'); } catch (e) { await c.query('ROLLBACK').catch(() => {}); throw e; } finally { c.release(); } }
+  await log(who(req), v.plant_id ? 'Plant gekozen voor aanbodregel' : 'Aanbodregel aangepast', 'aanbod', r.aanbod_id, { regel: r.regelnr, ...v });
+  await afterChange(r.aanbod_id);
+  await fresh(res, r.aanbod_id);
+}));
+api.post('/aanbod/:id/klanten', wrap(async (req, res) => {
+  const id = int(req.params.id);
+  await editable(id);
+  const v = clean(req.body || {}, { regel_id: { type: 'int', required: true, min: 1 }, klant_id: { type: 'int', required: true, min: 1 }, aantal: { type: 'int', required: true, min: 1, max: 999999 }, verkoopprijs: { type: 'num', required: true, min: 0 } });
+  const r = await one('SELECT * FROM aanbod_regels WHERE id = $1 AND aanbod_id = $2', [v.regel_id, id]);
+  if (!r) return res.status(404).json({ fout: 'Regel niet gevonden.' });
+  await q(`INSERT INTO aanbod_klanten (regel_id, klant_id, bron, aantal, verkoopprijs, score, reden, status, door) VALUES ($1, $2, 'aanbod', $3, $4, NULL, 'Door Jan toegevoegd', 'voorstel', 'jan')
+    ON CONFLICT (regel_id, klant_id) DO UPDATE SET aantal = EXCLUDED.aantal, verkoopprijs = EXCLUDED.verkoopprijs, status = 'voorstel', door = 'jan'`, [r.id, v.klant_id, v.aantal, v.verkoopprijs]);
+  await q(`UPDATE aanbiedingen SET status = CASE WHEN status = 'nieuw' THEN 'bellen' ELSE status END WHERE id = $1`, [id]);
+  await log(who(req), 'Klant toegevoegd aan aanbod', 'aanbod', id, v);
+  await afterChange(id);
+  await fresh(res, id);
+}));
+api.patch('/aanbod-klanten/:id', wrap(async (req, res) => {
+  const k = await one('SELECT ak.*, ar.aanbod_id FROM aanbod_klanten ak JOIN aanbod_regels ar ON ar.id = ak.regel_id WHERE ak.id = $1', [int(req.params.id)]);
+  if (!k) return res.status(404).json({ fout: 'Niet gevonden.' });
+  await editable(k.aanbod_id);
+  const v = clean(req.body || {}, { aantal: { type: 'int', min: 1, max: 999999 }, verkoopprijs: { type: 'num', min: 0 }, status: { type: 'enum', values: ['voorstel', 'akkoord', 'nee'] } }, { partial: true });
+  await q(`UPDATE aanbod_klanten SET aantal = coalesce($2, aantal), verkoopprijs = coalesce($3, verkoopprijs), status = coalesce($4, status), door = 'jan' WHERE id = $1`, [k.id, v.aantal ?? null, v.verkoopprijs ?? null, v.status ?? null]);
+  await log(who(req), 'Voorstel aangepast', 'aanbod', k.aanbod_id, { klant_id: k.klant_id, ...v });
+  await afterChange(k.aanbod_id);
+  await fresh(res, k.aanbod_id);
+}));
+api.delete('/aanbod-klanten/:id', wrap(async (req, res) => {
+  const k = await one('SELECT ak.*, ar.aanbod_id FROM aanbod_klanten ak JOIN aanbod_regels ar ON ar.id = ak.regel_id WHERE ak.id = $1', [int(req.params.id)]);
+  if (!k) return res.status(404).json({ fout: 'Niet gevonden.' });
+  await editable(k.aanbod_id);
+  if (k.bron === 'order') return res.status(409).json({ fout: 'Deze klant heeft het al besteld; haal het weg bij de klantorder.' });
+  await q('DELETE FROM aanbod_klanten WHERE id = $1', [k.id]);
+  await log(who(req), 'Klant uit aanbod gehaald', 'aanbod', k.aanbod_id, { klant_id: k.klant_id });
+  await afterChange(k.aanbod_id);
+  await fresh(res, k.aanbod_id);
+}));
+api.post('/aanbod/:id/opnieuw', wrap(async (req, res) => {
+  const id = int(req.params.id);
+  await editable(id);
+  dropCaches();
+  const c = await pool.connect();
+  let made = 0;
+  try { await c.query('BEGIN'); made = await proposeOffer(c, id); await c.query('COMMIT'); } catch (e) { await c.query('ROLLBACK').catch(() => {}); throw e; } finally { c.release(); }
+  await log(who(req), 'Voorstel opnieuw gemaakt', 'aanbod', id, { voorstellen: made });
+  await afterChange(id);
+  await fresh(res, id);
+}));
+api.post('/aanbod/:id/concepten', wrap(async (req, res) => {
+  const id = int(req.params.id);
+  const after = await afterChange(id);
+  await log(who(req), after.outlook && after.outlook.gezet ? 'Concepten in Outlook gezet' : 'Concepten bijgewerkt', 'aanbod', id, after.outlook ? { gezet: after.outlook.gezet, waar: after.outlook.waar } : null);
+  await fresh(res, id, { outlook_gezet: after.outlook });
+}));
+api.post('/aanbod/:id/bestellen', wrap(async (req, res) => {
+  const id = int(req.params.id);
+  const regels = Array.isArray(req.body?.regels) ? req.body.regels.map(r => ({ id: int(r.id), bestellen: int(r.bestellen) })).filter(r => r.id && r.bestellen != null && r.bestellen >= 0) : [];
+  const out = await placeOrder(id, { regels }, who(req));
+  const after = await afterChange(id);
+  await fresh(res, id, { geplaatst: out, outlook_gezet: after.outlook });
+}));
+api.post('/aanbod/:id/afwijzen', wrap(async (req, res) => {
+  const id = int(req.params.id);
+  const v = clean(req.body || {}, { reden: { type: 'text', max: 300 } });
+  await declineOffer(id, v.reden, who(req));
+  for (const c of await rows(`SELECT * FROM concepten WHERE aanbod_id = $1 AND status = 'vervallen' AND extern_id IS NOT NULL`, [id])) { await removeFromOutlook(c); await q('UPDATE concepten SET extern_id = NULL WHERE id = $1', [c.id]); }
+  await fresh(res, id);
+}));
+
+// ---------------------------------------------------------------- draft mails
+api.get('/concepten/:id', wrap(async (req, res) => {
+  const c = await one('SELECT * FROM concepten WHERE id = $1', [int(req.params.id)]);
+  if (!c) return res.status(404).json({ fout: 'Concept niet gevonden.' });
+  res.json(c);
+}));
+api.get('/concepten/:id/pdf', wrap(async (req, res) => {
+  const c = await one('SELECT * FROM concepten WHERE id = $1', [int(req.params.id)]);
+  if (!c) return res.status(404).send('Niet gevonden');
+  const pdf = await conceptPdf(c);
+  res.removeHeader('Content-Security-Policy');
+  res.set('Content-Type', 'application/pdf');
+  res.set('Content-Disposition', `inline; filename="${String(c.bijlage_naam || c.nummer + '.pdf').replace(/[^\w.\- ]/g, '_')}"`);
+  res.send(pdf);
+}));
+api.get('/concepten/:id/eml', wrap(async (req, res) => {
+  const c = await one('SELECT * FROM concepten WHERE id = $1', [int(req.params.id)]);
+  if (!c) return res.status(404).send('Niet gevonden');
+  const raw = await conceptEml(c);
+  res.set('Content-Type', 'message/rfc822');
+  res.set('Content-Disposition', `attachment; filename="${String(c.nummer || 'concept').replace(/[^\w.\- ]/g, '_')}.eml"`);
+  res.send(raw);
+}));
+api.post('/concepten/:id/outlook', wrap(async (req, res) => {
+  const id = int(req.params.id);
+  const r = await pushConcept(id);
+  if (!r.ok) return res.status(502).json({ fout: r.reden });
+  const c = await one('SELECT aanbod_id FROM concepten WHERE id = $1', [id]);
+  await log(who(req), 'Concept in Outlook gezet', 'aanbod', c.aanbod_id, { concept: id });
+  await fresh(res, c.aanbod_id);
+}));
+api.post('/concepten/:id/verstuur', wrap(async (req, res) => {
+  const c = await sendConcept(int(req.params.id), who(req));
+  await fresh(res, c.aanbod_id);
+}));
+api.patch('/concepten/:id', wrap(async (req, res) => {
+  const v = clean(req.body || {}, { status: { type: 'enum', values: ['verstuurd', 'concept'] }, aan: { type: 'email' } }, { partial: true });
+  const c = await one('SELECT * FROM concepten WHERE id = $1', [int(req.params.id)]);
+  if (!c) return res.status(404).json({ fout: 'Concept niet gevonden.' });
+  await q(`UPDATE concepten SET status = coalesce($2, status), aan = coalesce($3, aan), verstuurd_op = CASE WHEN $2 = 'verstuurd' THEN now() ELSE verstuurd_op END, bijgewerkt = now() WHERE id = $1`, [c.id, v.status ?? null, v.aan ?? null]);
+  if (v.aan && c.status === 'in_outlook') await q(`UPDATE concepten SET status = 'concept' WHERE id = $1`, [c.id]);
+  if (v.status === 'verstuurd') await log(who(req), c.soort === 'bestelling' ? 'Bestelling verstuurd' : 'Offerte verstuurd', 'aanbod', c.aanbod_id, { aan: c.aan, nummer: c.nummer, door: 'Jan (zelf gemeld)' });
+  await fresh(res, c.aanbod_id);
+}));
+
+// ---------------------------------------------------------------- Outlook
+api.get('/outlook/start', wrap(authStart));
+api.get('/outlook/terug', wrap(authBack));
+api.post('/outlook/los', wrap(async (req, res) => { await disconnect(who(req)); res.json(await outlookStatus()); }));
+api.post('/outlook/sync', wrap(async (req, res) => res.json({ verstuurd: await syncSent() })));
+api.patch('/instellingen/meldingen', wrap(async (req, res) => {
+  const v = clean(req.body || {}, { mail: { type: 'bool', required: true } });
+  await q(`INSERT INTO instellingen (sleutel, waarde) VALUES ('meldingen', $1) ON CONFLICT (sleutel) DO UPDATE SET waarde = EXCLUDED.waarde, bijgewerkt = now()`, [JSON.stringify(v)]);
+  res.json(await outlookStatus());
+}));
+
+// ---------------------------------------------------------------- the loods
+api.get('/loods', wrap(async (req, res) => res.json(await loodsNow())));
+api.get('/loods/regel/:id/kandidaten', wrap(async (req, res) => {
+  const id = int(req.params.id);
+  const l = (await loodsNow()).partijen.find(p => p.regel_id === id);
+  if (!l) return res.status(404).json({ fout: 'Deze partij staat niet (meer) in de loods.' });
+  res.json({ partij: l, ...(await restSuggestions(id, { vrij: l.vrij })) });
+}));
+api.post('/loods/regel/:id/klant', wrap(async (req, res) => {
+  const id = int(req.params.id);
+  const v = clean(req.body || {}, { klant_id: { type: 'int', required: true, min: 1 }, aantal: { type: 'int', required: true, min: 1, max: 999999 }, verkoopprijs: { type: 'num', min: 0 } });
+  const l = (await loodsNow()).partijen.find(p => p.regel_id === id);
+  if (!l) return res.status(404).json({ fout: 'Deze partij staat niet (meer) in de loods.' });
+  if (v.aantal > l.vrij) throw new Invalid({ aantal: `Er is ${l.vrij} vrij.` });
+  const c = await pool.connect();
+  try {
+    await c.query('BEGIN');
+    // first what has no destination yet, then free stock
+    let need = Math.max(0, v.aantal - l.nog_verdelen);
+    for (const t of (await c.query(`SELECT id, aantal FROM toewijzingen WHERE regel_id = $1 AND bestemming = 'voorraad' AND status = 'bevestigd' ORDER BY id DESC`, [id])).rows) {
+      if (need <= 0) break;
+      const take = Math.min(need, t.aantal);
+      if (take === t.aantal) await c.query('DELETE FROM toewijzingen WHERE id = $1', [t.id]); else await c.query('UPDATE toewijzingen SET aantal = aantal - $2 WHERE id = $1', [t.id, take]);
+      need -= take;
+    }
+    const lev = (await c.query(`SELECT id FROM leveringen WHERE klant_id = $1 AND vertrek_gepland BETWEEN now() - interval '1 hour' AND now() + interval '48 hours' AND (vertrek_werkelijk IS NULL OR vertrek_werkelijk > now()) ORDER BY vertrek_gepland LIMIT 1`, [v.klant_id])).rows[0];
+    await c.query(`INSERT INTO toewijzingen (regel_id, bestemming, klant_id, levering_id, aantal, verkoopprijs, soort, status, reden, door) VALUES ($1, 'klant', $2, $3, $4, $5, 'aanbod', 'bevestigd', 'Uit de loods aan klant gegeven', 'jan')`,
+      [id, v.klant_id, lev ? lev.id : null, v.aantal, v.verkoopprijs ?? null]);
+    await c.query('COMMIT');
+  } catch (e) { await c.query('ROLLBACK').catch(() => {}); throw e; } finally { c.release(); }
+  await log(who(req), 'Uit de loods aan klant', 'factuur', l.factuur_id, { klant_id: v.klant_id, aantal: v.aantal, plant: l.plant });
+  res.json(await loodsNow());
+}));
+
 // errors in Dutch, without stack traces
 api.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
   if (err instanceof Invalid) return res.status(400).json({ fout: err.message, velden: err.fields });
+  if (err && err.status && err.status < 500) return res.status(err.status).json({ fout: err.message });
   if (err && err.code === '23505') return res.status(409).json({ fout: 'Dit bestaat al (zelfde naam of nummer).' });
-  if (err && err.code === '23514') return res.status(400).json({ fout: err.message.startsWith('Er staan') ? err.message : 'Deze waarde past niet (controle in de database).' });
+  if (err && err.code === '23514') return res.status(400).json({ fout: /^(Er staan|De kweker biedt)/.test(err.message) ? err.message : 'Deze waarde past niet (controle in de database).' });
   if (err && err.code === '23503') return res.status(400).json({ fout: 'Dit verwijst naar iets dat niet (meer) bestaat.' });
   console.error('[api]', req.method, req.path, err);
   res.status(500).json({ fout: 'Er ging iets mis aan de kant van de server.' });

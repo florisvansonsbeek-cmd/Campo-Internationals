@@ -3,10 +3,11 @@ import './src/tz.js';
 import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { migrate, pool, one } from './src/db.js';
+import { migrate, pool } from './src/db.js';
 import { api } from './src/api.js';
 import { login, logout, requireAuth, session, loginEnabled } from './src/auth.js';
-import { seedDemo, keepDemoCurrent } from './src/seed.js';
+import { ensureDemo, keepDemoCurrent } from './src/seed.js';
+import { syncSent } from './src/outlook.js';
 import { verify as waVerify, receive as waReceive } from './src/ingest/whatsapp.js';
 import { startMailPolling } from './src/ingest/mail.js';
 import { aiCheck } from './src/ingest/ai.js';
@@ -66,16 +67,17 @@ async function boot() {
   }
   if (!dbReady) return;
   try {
-    const n = await one('SELECT count(*)::int AS n FROM kwekers');
-    if (!n.n && !/^(uit|off|nee|false|0)$/i.test(process.env.DEMO_DATA || '')) {
-      const out = await seedDemo();
-      console.log('[demo] aangemaakt', JSON.stringify(out));
+    if (!/^(uit|off|nee|false|0)$/i.test(process.env.DEMO_DATA || '')) {
+      const out = await ensureDemo();
+      if (out) console.log(out.opnieuw ? '[demo] opnieuw gemaakt' : '[demo] aangemaakt', JSON.stringify(out));
     }
     const shifted = await keepDemoCurrent();
     if (shifted) console.log(`[demo] ${shifted} dagen opgeschoven naar vandaag`);
   } catch (e) { console.error('[demo]', e.message); }
   setInterval(() => keepDemoCurrent().then(d => d && console.log(`[demo] ${d} dagen opgeschoven`)).catch(e => console.error('[demo]', e.message)), 10 * 60000).unref();
   startMailPolling();
+  // drafts Jan sent from Outlook himself are noticed every two minutes (only with the Microsoft link)
+  setInterval(() => syncSent().catch(e => console.error('[outlook]', e.message)), 120000).unref();
   if (process.env.XAI_API_KEY) aiCheck().then(r => console.log(r.ok ? `[ai] xAI bereikbaar, model ${r.model} (${r.aantal} modellen)` : `[ai] xAI niet bereikbaar: ${r.reden}`));
   else console.log('[ai] geen XAI_API_KEY: facturen worden met vaste regels gelezen');
   if (!loginEnabled()) console.warn('[desk] DESK_PASSWORD ontbreekt: inloggen staat uit');

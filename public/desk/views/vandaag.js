@@ -1,5 +1,5 @@
 // Vandaag: where every order is right now, and at what time it arrives where.
-import { api, h, icon, fTime, fNum, dayWord, rel, plural, stapChip, waLink, toast, fLong, dialog, field } from '../core.js';
+import { api, h, icon, fTime, fNum, fEur, dayWord, rel, plural, stapChip, waLink, toast, fLong, dialog, field, KETEN, RISICO } from '../core.js';
 
 const STATE_IN = { binnen: 'Binnen', onderweg: 'Onderweg', laden: 'Wordt geladen', gepland: 'Gepland' };
 const STATE_OUT = { afgeleverd: 'Afgeleverd', onderweg: 'Onderweg', wacht: 'Wacht op goederen', klaar: 'Klaar om te laden' };
@@ -116,7 +116,7 @@ function todoList(items) {
   if (!items.length) return '<p class="empty">Niets dat nu om je vraagt. Alles loopt.</p>';
   return `<ul class="todo">${items.slice(0, 9).map(a => `<li class="${a.toon === 'bad' ? 'bad' : ''}">
       ${icon(a.toon === 'bad' ? 'warn' : a.toon === 'wait' ? 'clock' : 'info', `ic ${a.toon}`)}
-      <div><b>${h(a.titel)}</b><p>${h(a.tekst)}</p></div>
+      <div><b>${h(a.titel)}</b><p>${h(a.tekst)}</p>${a.risico && a.risico !== 'laag' ? `<p class="small" style="color:var(--${a.risico === 'hoog' ? 'warn' : 'wait'})">${h(RISICO[a.risico].naam)}</p>` : ''}</div>
       <div class="acts">${a.link ? `<a class="btn btn-sm ${a.toon === 'bad' ? 'btn-bad' : 'btn-line'}" href="${a.link}">${h(a.knop || 'Openen')}</a>` : ''}${a.bellen ? `<a class="btn btn-sm btn-ghost" href="${waLink(a.bellen, 'Hoi, hoe laat zijn jullie in Nootdorp? Gr Jan')}" target="_blank" rel="noopener">${icon('chat')}App kweker</a>` : ''}</div>
     </li>`).join('')}${items.length > 9 ? `<li><span></span><a class="lnk" href="#/workflow">Nog ${items.length - 9} in de workflow</a></li>` : ''}</ul>`;
 }
@@ -130,13 +130,13 @@ export async function render() {
   const out = d.leveringen.slice().sort((a, b) => ({ wacht: 0, klaar: 1, onderweg: 2, afgeleverd: 3 }[a.state] - { wacht: 0, klaar: 1, onderweg: 2, afgeleverd: 3 }[b.state]) || new Date(a.vertrek) - new Date(b.vertrek));
   const k = d.kpi;
   return `<div class="page">
-    <div class="ph"><div><h1>Vandaag</h1><p>${h(fLong(now))}: waar elke bestelling nu is, en hoe laat hij waar aankomt. Ververst elke minuut.</p></div>
-      <div class="acts"><a class="btn btn-line" href="#/inbox">${icon('upload')}Factuur toevoegen</a><a class="btn btn-leaf" href="#/workflow">${icon('flow')}Naar de workflow</a></div></div>
-    <div class="kpis">
-      <a class="kpi" href="#in"><span>Onderweg naar Campo</span><b class="t">${k.onderweg}</b><em>${k.binnen} van ${k.vandaag} vandaag al binnen</em></a>
-      <a class="kpi${k.achter ? ' bad' : ''}" href="#in"><span>Loopt achter</span><b class="t">${k.achter}</b><em>${k.achter ? 'kweker later dan gepland' : 'alles op schema'}</em></a>
-      <a class="kpi" href="#uit"><span>Naar klanten onderweg</span><b class="t">${k.uit}</b><em>${k.afgeleverd} van ${k.leveringen} afgeleverd</em></a>
-      <a class="kpi${k.krap ? ' bad' : ''}" href="#uit"><span>Levering in gevaar</span><b class="t">${k.krap}</b><em>${k.krap ? 'wacht op een late kweker' : 'geen wagen hoeft te wachten'}</em></a>
+    <div class="ph"><div><h1>Vandaag</h1><p>${h(fLong(now))}: wat je kunt bestellen, wie je moet bellen, waar elke bestelling is en wat er in de loods staat. Ververst elke minuut.</p></div>
+      <div class="acts"><a class="btn btn-ghost" href="#/uitleg">${icon('book')}Zo werkt het</a><a class="btn btn-leaf" href="#/workflow">${icon('flow')}Naar de workflow</a></div></div>
+    <div class="kpis story-kpis">
+      <a class="kpi" href="#/workflow"><span><i class="nr">1</i>Klaar om te bestellen</span><b class="t">${k.aanbod + k.bellen_aanbod}</b><em>${k.aanbod + k.bellen_aanbod ? `${plural(k.aanbod + k.bellen_aanbod, 'mand', 'manden')}, ${fEur(k.marge)} marge als klanten ja zeggen` : 'geen open aanbod'}</em></a>
+      <a class="kpi${k.bellen ? ' act' : ''}" href="#/workflow"><span><i class="nr">2</i>Klanten bellen</span><b class="t">${k.bellen}</b><em>${k.bellen ? `voor ${plural(k.aanbod + k.bellen_aanbod, 'mand', 'manden')}` : 'niemand te bellen'}</em></a>
+      <a class="kpi${k.achter ? ' bad' : ''}" href="#in"><span><i class="nr">3</i>Onderweg naar Campo</span><b class="t">${k.onderweg}</b><em>${k.achter ? `${k.achter} ${k.achter === 1 ? 'kweker loopt' : 'kwekers lopen'} achter` : `${k.binnen} van ${k.vandaag} vandaag al binnen`}</em></a>
+      <a class="kpi" href="#/loods"><span><i class="nr">4</i>In de loods</span><b class="t">${fNum(k.loods)}</b><em>${fNum(k.loods_vrij)} vrij${k.loods_te_lang ? `, <strong class="late-t">${k.loods_te_lang} te lang</strong>` : ''}</em></a>
     </div>
     <div class="grid2">
       <div class="stack">
@@ -150,11 +150,14 @@ export async function render() {
       </div>
       <aside class="stack">
         <section class="panel" aria-labelledby="h-todo"><header><h2 id="h-todo">Wat nu om jou vraagt</h2><span class="sub">Belangrijkste bovenaan</span></header>${todoList(d.aandacht)}</section>
-        <section class="panel" aria-labelledby="h-wf"><header><h2 id="h-wf">In de workflow</h2><a class="lnk small" href="#/workflow">Open</a></header>
-          <div class="body" style="display:grid;gap:8px">
-            ${['nakijken', 'koppelen', 'rest', 'informeren'].map(s => `<a href="#/workflow" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:var(--ink)">${stapChip(s)}<b class="num">${(d.stappen[s] && d.stappen[s].n) || 0}</b></a>`).join('')}
-            <a href="#/inbox" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:var(--ink)">${stapChip('binnen')}<b class="num">${d.inbox.nieuw}</b></a>
-          </div>
+        <section class="panel" aria-labelledby="h-wf"><header><h2 id="h-wf">De keten</h2><a class="lnk small" href="#/workflow">Workflow</a></header>
+          <ol class="chain-mini">
+            <li><a href="#/workflow"><i>1</i><span>${KETEN.aanbod.naam}</span><b class="num">${k.aanbod}</b></a></li>
+            <li><a href="#/workflow"><i>2</i><span>${KETEN.bellen.naam}</span><b class="num">${k.bellen_aanbod}</b></a></li>
+            <li><a href="#/workflow"><i>3</i><span>${KETEN.besteld.naam}</span><b class="num">${k.besteld}</b></a></li>
+            <li><a href="#/loods"><i>4</i><span>${KETEN.loods.naam}</span><b class="num">${fNum(k.loods)}</b></a></li>
+            ${d.inbox.nieuw ? `<li class="in"><a href="#/inbox">${icon('inbox')}<span>Nog lezen</span><b class="num">${d.inbox.nieuw}</b></a></li>` : ''}
+          </ol>
         </section>
       </aside>
     </div>

@@ -47,12 +47,12 @@ export async function proposeForInvoice(db, factuurId, { klantRefs = {} } = {}) 
 }
 
 // ranked options for the rest of one invoice line
-export async function restSuggestions(regelId) {
+export async function restSuggestions(regelId, { vrij = null } = {}) {
   const line = await one(`SELECT fr.*, f.datum, f.kweker_id, p.naam, p.potmaat, p.hoogte, p.per_laag, p.verkoopprijs AS lijstprijs, p.eenheid
     FROM factuur_regels fr JOIN facturen f ON f.id = fr.factuur_id JOIN planten p ON p.id = fr.plant_id WHERE fr.id = $1`, [regelId]);
   if (!line) return null;
   const used = await one(`SELECT coalesce(sum(aantal), 0) AS n FROM toewijzingen WHERE regel_id = $1 AND status <> 'afgewezen'`, [regelId]);
-  const rest = line.aantal - Number(used.n);
+  const rest = vrij != null ? vrij : line.aantal - Number(used.n);
   const plants = await rows('SELECT id, naam, potmaat, hoogte FROM planten');
   const fam = familyKey(line), col = colorOf(line);
   const famIds = plants.filter(p => familyKey(p) === fam).map(p => p.id);

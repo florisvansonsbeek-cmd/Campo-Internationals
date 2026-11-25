@@ -17,6 +17,7 @@
     "express": "^5.1.0",
     "imapflow": "^1.0.190",
     "mailparser": "^3.7.4",
+    "nodemailer": "^7.0.13",
     "pdf-lib": "^1.17.1",
     "pg": "^8.16.0",
     "unpdf": "^1.0.6"

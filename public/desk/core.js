@@ -81,6 +81,12 @@ const P = {
   plus: '<path d="M12 5v14M5 12h14"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
   db: '<ellipse cx="12" cy="6" rx="7" ry="2.8"/><path d="M5 6v12c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8V6"/><path d="M5 12c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8"/>',
+  basket: '<path d="M3.5 9.5h17l-1.8 9.2a1.5 1.5 0 0 1-1.5 1.3H6.8a1.5 1.5 0 0 1-1.5-1.3z"/><path d="M8 9.5l3-5M16 9.5l-3-5"/><path d="M9.5 13v3.5M14.5 13v3.5"/>',
+  shed: '<path d="M3 20V9.5L12 4l9 5.5V20"/><path d="M7 20v-7h10v7"/><path d="M7 16.5h10"/>',
+  send: '<path d="M4 12l16-8-6 16-2.5-6.5z"/><path d="M11.5 13.5L20 4"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  book: '<path d="M5 4.5h9a3 3 0 0 1 3 3V20H8a3 3 0 0 1-3-3z"/><path d="M17 7.5h2V20h-2"/><path d="M8.5 8.5h5M8.5 12h5"/>',
+  shield: '<path d="M12 3.5l7 2.8v5.4c0 4.3-3 7.6-7 8.8-4-1.2-7-4.5-7-8.8V6.3z"/>',
 };
 export const icon = (name, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>`;
 export const MARK = '<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 16h26M16 3c4 4 5.6 8.4 5.6 13S20 25 16 29M16 3c-4 4-5.6 8.4-5.6 13S12 25 16 29" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".55"/><path d="M16 22c0-6 3.5-10 9-11-.5 6-4 10-9 11z" fill="currentColor"/></svg>';
@@ -90,10 +96,19 @@ export const STAP = {
   binnen: { naam: 'Binnen', uitleg: 'Via mail, WhatsApp of upload; nog niet gelezen', toon: 'info' },
   nakijken: { naam: 'Nakijken', uitleg: 'De desk twijfelt over een regel', toon: 'wait' },
   koppelen: { naam: 'Koppelen', uitleg: 'Planten staan al bij klanten; bevestigen', toon: 'info' },
-  rest: { naam: 'Rest verdelen', uitleg: 'Wat over is: aanbieden, voorraad of retour', toon: 'brass' },
+  rest: { naam: 'Vrij in de loods', uitleg: 'Wat over is: aanbieden vanuit de loods', toon: 'brass' },
   informeren: { naam: 'Klanten informeren', uitleg: 'Bericht per klant klaarzetten en sturen', toon: 'ok' },
   klaar: { naam: 'Klaar', uitleg: 'Alles heeft een plek en is gemeld', toon: 'ok' },
 };
+// the chain from a grower's offer to the loods; numbered, because it is a real sequence
+export const KETEN = {
+  aanbod: { nr: 1, naam: 'Aanbod', uitleg: 'Gelezen, gekoppeld aan klanten, risico gewogen', toon: 'info' },
+  bellen: { nr: 2, naam: 'Bellen', uitleg: 'Klanten akkoord vragen, offerte versturen', toon: 'wait' },
+  besteld: { nr: 3, naam: 'Besteld', uitleg: 'Bij de kweker besteld; de wagen komt eraan', toon: 'brass' },
+  loods: { nr: 4, naam: 'In de loods', uitleg: 'Binnen; klaar voor de wagens naar de klanten', toon: 'ok' },
+};
+export const RISICO = { laag: { naam: 'Laag risico', toon: 'ok' }, middel: { naam: 'Let op', toon: 'wait' }, hoog: { naam: 'Hoog risico', toon: 'bad' } };
+export const risicoChip = r => { const x = r && RISICO[r.niveau || r]; return x ? `<span class="risk ${x.toon}"><i aria-hidden="true"></i>${h(x.naam)}</span>` : ''; };
 export const stapChip = s => { const x = STAP[s] || { naam: s, toon: '' }; return `<span class="chip ${x.toon}">${x.toon === 'ok' && s === 'klaar' ? icon('check') : ''}${h(x.naam)}</span>`; };
 export const kanaalIcon = k => (k === 'whatsapp' ? icon('chat') : k === 'mail' ? icon('mail') : k === 'upload' ? icon('upload') : k === 'plakken' ? icon('paste') : icon('file'));
 export const kanaalNaam = k => ({ whatsapp: 'WhatsApp', mail: 'Mail', upload: 'Upload', plakken: 'Geplakt', telefoon: 'Telefoon', demo: 'Demo' }[k] || k);

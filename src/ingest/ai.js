@@ -38,26 +38,28 @@ const SYSTEM = `Je leest berichten en documenten die kwekers sturen aan Campo In
 Geef uitsluitend één JSON-object terug, zonder uitleg eromheen. Verzin niets: wat niet in het bericht staat, wordt null.
 Schema:
 {
-  "soort": "factuur" | "pakbon" | "bevestiging" | "tijd" | "overig",
+  "soort": "factuur" | "pakbon" | "bevestiging" | "aanbod" | "tijd" | "overig",
   "leverancier": { "naam": string|null, "email": string|null, "telefoon": string|null, "plaats": string|null },
   "factuurnummer": string|null,
   "datum": "JJJJ-MM-DD"|null,
   "vervaldatum": "JJJJ-MM-DD"|null,
   "totaal_excl": number|null,
   "iban": string|null,
-  "regels": [ { "aantal": number, "omschrijving": string, "prijs": number, "bedrag": number|null, "referentie": string|null } ],
+  "regels": [ { "aantal": number, "omschrijving": string, "prijs": number, "bedrag": number|null, "referentie": string|null, "minimum": number|null } ],
+  "aanbod": { "referentie": string|null, "geldig_tot": "JJJJ-MM-DD HH:MM"|null, "levering": "JJJJ-MM-DD"|null, "hele_partij": boolean } | null,
   "tijd": { "vertrek": "HH:MM"|null, "eta": "HH:MM"|null, "vertraging": boolean, "reden": string|null } | null,
   "waarschuwingen": [string]
 }
 Regels: "omschrijving" precies zoals op het document (plantnaam, potmaat, hoogte, kleur). "prijs" is de prijs per stuk of steel; reken een prijs per tray om als het aantal per tray erbij staat, anders zet je de trayprijs en noem je het in "waarschuwingen". "referentie" is een klantnaam of ordernummer dat bij de regel staat.
+Een aanbod is geen factuur: de kweker biedt planten aan die Campo nog kan kopen ("aanbod", "aanbieding", "offerte", "beschikbaar", "heb nog", "kan leveren", "deze week", "Angebot", "verfügbar", "availability"). Dan is soort "aanbod", staat in "regels" wat er aangeboden wordt (aantal = beschikbaar aantal, "minimum" = minimale afname als die genoemd wordt), en vul je "aanbod" in: tot wanneer het geldt, op welke dag de kweker kan leveren, en of alles samen afgenomen moet worden ("hele partij", "alles of niets", "alleen compleet"). Rekenen met "vandaag", "morgen" of een weekdag doe je vanaf de ontvangstdatum die erbij staat. Bij een factuur is "aanbod" null.
 Bij een bericht over tijden ("vertrokken om 6:50, rond 9:15 bij jullie") is soort "tijd" en vul je "tijd" in.
 Zet in "waarschuwingen" alles wat Jan moet weten: druk om snel te betalen, een gewijzigd rekeningnummer, bedragen die niet optellen, onleesbare delen.`;
 
-export async function aiRead({ kanaal, van, onderwerp, tekst, bijlagen = [] }) {
+export async function aiRead({ kanaal, van, onderwerp, tekst, bijlagen = [], ontvangen = null }) {
   if (!process.env.XAI_API_KEY) return null;
   const list = await listModels().catch(e => { lastError = e.message; return []; });
   const model = pickModel(list);
-  const parts = [{ type: 'text', text: `Kanaal: ${kanaal}\nAfzender: ${van || 'onbekend'}\nOnderwerp: ${onderwerp || '-'}\n\nBericht:\n${(tekst || '').slice(0, 12000)}` }];
+  const parts = [{ type: 'text', text: `Kanaal: ${kanaal}\nAfzender: ${van || 'onbekend'}\nOntvangen: ${new Date(ontvangen || Date.now()).toLocaleString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}\nOnderwerp: ${onderwerp || '-'}\n\nBericht:\n${(tekst || '').slice(0, 12000)}` }];
   for (const b of bijlagen) {
     if (b.tekst) parts.push({ type: 'text', text: `\n\nBijlage ${b.naam} (tekst uit de pdf, cellen gescheiden door |):\n${b.tekst.slice(0, 20000)}` });
     else if (b.image) parts.push({ type: 'image_url', image_url: { url: `data:${b.mime};base64,${b.image.toString('base64')}`, detail: 'high' } });
