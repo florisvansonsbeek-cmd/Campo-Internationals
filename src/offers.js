@@ -135,7 +135,7 @@ async function buyers(db, line, levering, aanbodId, ctx) {
     const ratio = ctx.ratio.get(h.klant_id) || 1;
     const prijs = r2(h.prijs_exact ? Number(h.prijs_exact) : line.lijstprijs ? Number(line.lijstprijs) * ratio : Number(line.prijs) * 1.35);
     const why = [];
-    why.push(`Kocht ${line.naam.replace(/\s(wit|roze|paars|blauw|geel|oranje|rood)$/i, '')} ${keer}× dit jaar${ritme ? `, ongeveer elke ${ritme} dagen` : ''}${dagen != null ? `; laatst ${dagen === 0 ? 'vandaag' : dagen === 1 ? 'gisteren' : `${dagen} dagen geleden`}` : ''}`);
+    why.push(`Kocht ${line.naam.replace(/\s(wit|roze|paars|blauw|geel|oranje|rood)$/i, '')} ${keer}× dit jaar${ritme ? `, ongeveer elke ${ritme} dagen` : ''}${dagen == null ? '' : dagen < 0 ? `; krijgt er ${dagen === -1 ? 'morgen' : `over ${-dagen} dagen`} al een levering van` : `; laatst ${dagen === 0 ? 'vandaag' : dagen === 1 ? 'gisteren' : `${dagen} dagen geleden`}`}`);
     if (col && exact >= 2) why.push(`neemt ${col} vaker`);
     if (acc.ja + acc.nee >= 2) why.push(`zei ja op ${acc.ja} van ${acc.ja + acc.nee} aanbiedingen`);
     if (busy.has(h.klant_id)) why.push('heeft al een ander aanbod voor deze plant openstaan');

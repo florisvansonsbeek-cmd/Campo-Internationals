@@ -16,7 +16,7 @@ function rng(seed) {
 }
 
 // raise this when the demo world changes shape; an all-demo database is then made again on start
-export const DEMO_VERSION = 2;
+export const DEMO_VERSION = 3;
 
 export async function seedDemo({ days = 450, seed = 20261125, now = new Date() } = {}) {
   const r = rng(seed);

@@ -626,3 +626,6 @@ table.loods-tb td{vertical-align:middle}
 /* loods table on a phone: the arrival column makes room */
 @media (max-width:640px){.loods-tb th:nth-child(5),.loods-tb td:nth-child(5){display:none}}
 .kpi em .late-t{color:var(--warn);font-weight:600}
+/* tables in a panel line up with the panel heading */
+.panel .tbwrap table.tb th:first-child,.panel .tbwrap table.tb td:first-child{padding-left:18px}
+.panel .tbwrap table.tb th:last-child,.panel .tbwrap table.tb td:last-child{padding-right:18px}

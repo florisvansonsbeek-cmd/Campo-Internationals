@@ -104,7 +104,7 @@ export async function restSuggestions(regelId, { vrij = null } = {}) {
     const prijs = Math.round(((h && h.prijs_exact ? Number(h.prijs_exact) : h && h.prijs ? Number(h.prijs) : Number(line.lijstprijs)) * 0.95) * 100) / 100;
     const why = [];
     if (k.later) why.push(`Heeft al besteld voor ${new Date(k.later.gewenst + 'T12:00:00').toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'short' })}; kan nu al mee`);
-    if (keer) why.push(`Kreeg deze plant ${keer}× in een jaar${ritme ? `, ongeveer elke ${ritme} dagen` : ''}${dagen != null ? `; laatste keer ${dagen === 0 ? 'vandaag' : dagen === 1 ? 'gisteren' : `${dagen} dagen geleden`}` : ''}`);
+    if (keer) why.push(`Kreeg deze plant ${keer}× in een jaar${ritme ? `, ongeveer elke ${ritme} dagen` : ''}${dagen == null ? '' : dagen < 0 ? `; krijgt er ${dagen === -1 ? 'morgen' : `over ${-dagen} dagen`} al een levering van` : `; laatste keer ${dagen === 0 ? 'vandaag' : dagen === 1 ? 'gisteren' : `${dagen} dagen geleden`}`}`);
     if (k.wagen) why.push(`Wagen naar ${k.plaats} vertrekt ${new Date(k.wagen.vertrek).toLocaleString('nl-NL', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}: kan zonder extra rit mee`);
     if (col && !exactKeer && otherCols >= 3) why.push(`Koopt deze plant wel, maar nooit in ${col}`);
     else if (col && exactKeer >= 3) why.push(`Neemt ${col} vaker: ${exactKeer}× dit jaar`);
