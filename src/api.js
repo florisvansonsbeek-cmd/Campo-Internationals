@@ -15,6 +15,7 @@ import { conceptPdf, conceptEml } from './drafts.js';
 import { pushOffer, pushConcept, sendConcept, outlookStatus, disconnect, removeFromOutlook, syncSent, authStart, authBack, target } from './outlook.js';
 import { afterChange, afterOffer } from './pipeline.js';
 import { loodsNow } from './loods.js';
+import { zendingState, leveringState, eventsFor, flowNow, orderNow } from './stroom.js';
 
 export const api = express.Router();
 const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -54,34 +55,6 @@ function clean(body, spec, { partial = false } = {}) {
     }
   }
   if (Object.keys(bad).length) throw new Invalid(bad);
-  return out;
-}
-
-// ---------------------------------------------------------------- state of a truck or a delivery, as of now
-function latestEta(events, now) {
-  const withEta = events.filter(e => e.eta && new Date(e.tijd) <= now).sort((a, b) => new Date(b.tijd) - new Date(a.tijd));
-  return withEta[0] ? new Date(withEta[0].eta) : null;
-}
-function zendingState(z, events, now) {
-  const arrived = z.aankomst_werkelijk && new Date(z.aankomst_werkelijk) <= now;
-  const departed = z.vertrek_werkelijk && new Date(z.vertrek_werkelijk) <= now;
-  const loading = events.some(e => e.soort === 'geladen' && new Date(e.tijd) <= now);
-  const plan = new Date(z.aankomst_gepland);
-  let eta = arrived ? new Date(z.aankomst_werkelijk) : (latestEta(events, now) || (z.aankomst_verwacht && !arrived ? new Date(z.aankomst_verwacht) : null) || plan);
-  const silentLate = !arrived && now > new Date(eta.getTime() + 10 * MIN);
-  if (silentLate) eta = new Date(now.getTime() + 15 * MIN);
-  const delay = Math.round((eta - plan) / MIN);
-  const state = arrived ? 'binnen' : departed ? 'onderweg' : loading ? 'laden' : 'gepland';
-  const dep = departed ? new Date(z.vertrek_werkelijk) : z.vertrek_gepland ? new Date(z.vertrek_gepland) : new Date(plan.getTime() - 60 * MIN);
-  const progress = arrived ? 1 : departed ? Math.max(0.03, Math.min(0.97, (now - dep) / Math.max(MIN, eta - dep))) : 0;
-  return { state, eta: eta.toISOString(), delay, silentLate, progress, vertrek: dep.toISOString() };
-}
-
-async function eventsFor(col, ids, now) {
-  if (!ids.length) return {};
-  const r = await rows(`SELECT id, ${col} AS ref, tijd, soort, plaats, eta, tekst, bron FROM gebeurtenissen WHERE ${col} = ANY($1) AND tijd <= $2 ORDER BY tijd`, [ids, now]);
-  const out = {};
-  for (const e of r) (out[e.ref] = out[e.ref] || []).push(e);
   return out;
 }
 
@@ -148,26 +121,15 @@ api.get('/vandaag', wrap(async (req, res) => {
   const zById = Object.fromEntries(zOut.map(z => [z.id, z]));
   const lOut = ls.map(l => {
     const ev = lEv[l.id] || [];
-    const arrived = l.aankomst_werkelijk && new Date(l.aankomst_werkelijk) <= now;
-    const departed = l.vertrek_werkelijk && new Date(l.vertrek_werkelijk) <= now;
     const waits = feeds.filter(f => f.levering_id === l.id).map(f => zById[f.zending_id]).filter(Boolean);
-    const pending = waits.filter(z => z.state !== 'binnen');
-    const lastIn = pending.reduce((m, z) => Math.max(m, +new Date(z.eta)), 0);
-    let depExp = departed ? new Date(l.vertrek_werkelijk) : new Date(Math.max(+new Date(l.vertrek_gepland), lastIn ? lastIn + 45 * MIN : 0));
-    if (!departed && depExp < now) depExp = new Date(now.getTime() + 10 * MIN);
-    const shift = departed ? (new Date(l.vertrek_werkelijk) - new Date(l.vertrek_gepland)) : (depExp - new Date(l.vertrek_gepland));
-    let eta = arrived ? new Date(l.aankomst_werkelijk) : (latestEta(ev, now) || new Date(+new Date(l.aankomst_gepland) + Math.max(0, shift)));
-    const delay = Math.round((eta - new Date(l.aankomst_gepland)) / MIN);
-    const state = arrived ? 'afgeleverd' : departed ? 'onderweg' : pending.length ? 'wacht' : 'klaar';
+    const st = leveringState(l, ev, waits, now);
     const g = goods.filter(x => x.levering_id === l.id);
     const lijst = (g.length ? g : orderGoods.filter(x => x.levering_id === l.id)).map(x => ({ plant: x.naam, maat: [x.potmaat, x.hoogte].filter(Boolean).join(' '), aantal: Number(x.aantal), eenheid: x.eenheid, kweker: x.kweker || null }));
-    const dep = departed ? new Date(l.vertrek_werkelijk) : depExp;
-    const progress = arrived ? 1 : departed ? Math.max(0.03, Math.min(0.97, (now - dep) / Math.max(MIN, eta - dep))) : 0;
     return {
       id: l.id, klant_id: l.klant_id, klant: l.klant, plaats: l.plaats, land: l.land, kanaal: l.kanaal, order: l.order_nummer, vervoerder: l.vervoerder, levervenster: l.levervenster,
-      vertrek_gepland: l.vertrek_gepland, vertrek: dep.toISOString(), aankomst_gepland: l.aankomst_gepland, eta: eta.toISOString(), delay, state, progress,
-      wacht_op: pending.map(z => ({ id: z.id, kweker: z.kweker, eta: z.eta, delay: z.delay })), van: waits.map(z => z.kweker),
-      krap: !departed && shift > 10 * MIN, goederen: lijst, gebeurtenissen: ev.slice(-4),
+      vertrek_gepland: l.vertrek_gepland, vertrek: st.vertrek, aankomst_gepland: l.aankomst_gepland, eta: st.eta, delay: st.delay, state: st.state, progress: st.progress,
+      wacht_op: waits.filter(z => z.state !== 'binnen').map(z => ({ id: z.id, kweker: z.kweker, eta: z.eta, delay: z.delay })), van: waits.map(z => z.kweker),
+      krap: st.krap, goederen: lijst, gebeurtenissen: ev.slice(-4),
     };
   });
 
@@ -236,6 +198,15 @@ api.get('/vandaag', wrap(async (req, res) => {
 }));
 const hm = d => new Date(d).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
 const cachedCustomers = customerStats;
+
+// ---------------------------------------------------------------- the flow: grower, loods, customers, on one page
+api.get('/stroom', wrap(async (req, res) => res.json(await flowNow())));
+api.get('/bestelling/:id', wrap(async (req, res) => {
+  const id = int(req.params.id);
+  const d = id ? await orderNow(id) : null;
+  if (!d) return res.status(404).json({ fout: 'Deze bestelling bestaat niet (meer).' });
+  res.json(d);
+}));
 
 // ---------------------------------------------------------------- the workflow: from a grower's offer to the loods
 api.get('/workflow', wrap(async (req, res) => {

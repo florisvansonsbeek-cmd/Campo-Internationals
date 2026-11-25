@@ -12,15 +12,17 @@ import * as koppelingen from './views/koppelingen.js';
 import * as aanbod from './views/aanbod.js';
 import * as loods from './views/loods.js';
 import * as uitleg from './views/uitleg.js';
+import * as bestelling from './views/bestelling.js';
 
 const app = document.getElementById('app');
 let me = null, badge = { inbox: 0, werk: 0 };
 
 const ROUTES = [
   { re: /^vandaag$/, nav: 'vandaag', title: 'Vandaag', view: vandaag.render, actions: vandaag.actions, every: vandaag.refreshEvery },
-  { re: /^workflow$/, nav: 'workflow', title: 'Workflow', view: workflow.render, actions: workflow.actions, every: workflow.refreshEvery },
+  { re: /^workflow$/, nav: 'workflow', title: 'Workflow', view: workflow.render, actions: workflow.actions, mount: workflow.mount, every: workflow.refreshEvery },
   { re: /^aanbod\/(\d+)$/, keys: ['id'], nav: 'workflow', title: 'Aanbod', view: aanbod.render, actions: aanbod.actions },
-  { re: /^loods$/, nav: 'loods', title: 'Loods', view: loods.render, actions: loods.actions, every: loods.refreshEvery },
+  { re: /^bestelling\/(\d+)$/, keys: ['id'], nav: 'workflow', title: 'Bestelling', view: bestelling.render, actions: bestelling.actions, mount: bestelling.mount, every: bestelling.refreshEvery },
+  { re: /^loods$/, nav: 'loods', title: 'Loods', view: loods.render, actions: loods.actions, mount: loods.mount, every: loods.refreshEvery },
   { re: /^uitleg$/, nav: 'uitleg', title: 'Zo werkt het', view: uitleg.render, actions: uitleg.actions },
   { re: /^factuur\/(\d+)$/, keys: ['id'], nav: 'workflow', title: 'Factuur', view: factuur.render, actions: factuur.actions, change: factuur.onChange },
   { re: /^inbox(?:\/(\d+))?$/, keys: ['id'], nav: 'inbox', title: 'Inbox', view: inbox.render, actions: inbox.actions, mount: inbox.mount },

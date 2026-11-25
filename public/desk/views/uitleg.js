@@ -7,17 +7,17 @@ export async function render() {
   const outlookNow = o.doel === 'microsoft' ? `gekoppeld met ${o.account}` : o.doel === 'imap' ? `concepten in de map Concepten van ${o.account}` : 'Outlook nog niet gekoppeld; elke mail opent met één klik';
   const steps = [
     { t: 'Het aanbod komt binnen', p: 'Een kweker stuurt via WhatsApp of mail wat hij heeft: een mand met verschillende planten. De desk leest het bericht, ook een pdf of een foto, en zet elke plant met aantal, prijs en levertijd in de database. Kent de desk een plant of kweker nog niet, dan vraagt hij het één keer en onthoudt het.',
-      waar: [['#/workflow', 'Workflow, stap 1'], ['#/inbox', 'Inbox']], nu: `${plural(kpi.aanbod + kpi.bellen_aanbod, 'mand', 'manden')} klaar om te bestellen` },
+      waar: [['#/workflow', 'Workflow: direct te bestellen'], ['#/inbox', 'Inbox']], nu: `${plural(kpi.aanbod + kpi.bellen_aanbod, 'mand', 'manden')} klaar om te bestellen` },
     { t: 'De mand wordt gekoppeld aan klanten', p: 'Voor elke plant zoekt de desk wie hem nodig heeft: klanten die er al om vroegen, klanten die deze plant vaak kopen en eraan toe zijn, en hoe vaak ze ja zeggen op een aanbod. Zo ontstaat een bestelvoorstel: wat je inkoopt, voor wie, tegen welke prijs en marge, en wat er overblijft.',
-      waar: [['#/workflow', 'Een kaart openen'], ['#/klanten', 'Klanten']], nu: kpi.marge ? `${fEur(kpi.marge)} marge in de open manden` : null },
+      waar: [['#/workflow', 'Een mand openen'], ['#/klanten', 'Klanten']], nu: kpi.marge ? `${fEur(kpi.marge)} marge in de open manden` : null },
     { t: 'Elke bestelling krijgt een risico', p: 'De desk weegt wat mis kan gaan. Komt deze kweker vaak te laat of levert hij te weinig? Is de prijs hoger dan normaal? Heeft een klant een betaalachterstand, of zit hij aan zijn kredietlimiet? Blijft er iets over dat snel bederft? Groen, oranje of rood, altijd met de reden erbij.',
       waar: [['#/kwekers', 'Kwekers'], ['#/klanten', 'Klanten']], nu: null },
     { t: 'Jij krijgt een melding, de concepten staan klaar', p: 'Zodra het voorstel klaar is, staat het bovenaan Vandaag en krijg je een mail (als Outlook gekoppeld is). De bestelling voor de kweker en een offerte per klant staan klaar als concept, met pdf en in de taal van de klant. Met Outlook gekoppeld staan ze daar bij Concepten.',
       waar: [['#/koppelingen', 'Koppelingen']], nu: outlookNow },
     { t: 'Bellen, en zelf versturen', p: 'Je belt de klant. Zegt hij ja, dan tik je op Akkoord en verstuur je de offerte. Nee of later bellen is ook één tik. Als iedereen gebeld is, plaats je de bestelling: de desk maakt de klantorders en plant de wagens naar de klanten.',
-      waar: [['#/workflow', 'Workflow, stap 2']], nu: kpi.bellen ? `${plural(kpi.bellen, 'klant', 'klanten')} te bellen` : 'Niemand te bellen' },
-    { t: 'Onderweg, de loods in, naar de klant', p: 'De desk volgt de wagen van de kweker tot hij binnen is. In de loods zie je per plant wat klaarstaat voor welke klant en welke wagen, wat nog vrij is om te verkopen en wat te lang staat. Daarna volgt de desk de wagens naar de klanten.',
-      waar: [['#/vandaag', 'Vandaag'], ['#/loods', 'Loods']], nu: `${fNum(kpi.loods)} stuks in de loods, ${fNum(kpi.loods_vrij)} vrij` },
+      waar: [['#/workflow', 'Workflow: direct te bestellen']], nu: kpi.bellen ? `${plural(kpi.bellen, 'klant', 'klanten')} te bellen` : 'Niemand te bellen' },
+    { t: 'Onderweg, de loods in, naar de klant', p: 'In de Workflow staat elke bestelling als één lijn: van de kweker naar jouw loods, en van daar naar elke klant. Je ziet hoever hij waarschijnlijk is. Groen is op tijd, oranje is krap, rood betekent dat een levering in gevaar is. Klik erop voor alle tijden, wat erin zit en wie je moet bellen. Bovenaan staat wat in de loods nog geen klant heeft.',
+      waar: [['#/workflow', 'Workflow: van kweker naar klant'], ['#/loods', 'Loods']], nu: `${fNum(kpi.loods)} stuks in de loods, ${fNum(kpi.loods_vrij)} vrij` },
   ];
   return `<div class="page story">
     <div class="ph"><div><h1>Zo werkt de desk</h1><p>Van het aanbod van een kweker tot de planten bij de klant. De desk leest, koppelt, rekent en zet klaar. Jij belt, beslist en verstuurt.</p></div></div>

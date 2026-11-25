@@ -1,7 +1,7 @@
 // The loods: what is in the warehouse now, who it is waiting for, and what is still free to sell.
 import { api, h, icon, fTime, fNum, fEur, fPrice, dayWord, rel, plural, toast, dialog, field } from '../core.js';
 
-let last = null;
+let last = null, offerNow = null;
 const when = v => (dayWord(v) === 'vandaag' ? fTime(v) : `${dayWord(v)} ${fTime(v)}`);
 const age = (u, groep) => {
   if (u < 1) return 'net binnen';
@@ -36,6 +36,7 @@ export async function render(params, query) {
   last = d;
   const k = d.kpi;
   const filter = query.get('toon') || 'alles';
+  offerNow = query.get('aanbieden');
   const free = d.partijen.filter(p => p.vrij > 0).sort((a, b) => (b.leeftijd === 'bad') - (a.leeftijd === 'bad') || (b.leeftijd === 'wait') - (a.leeftijd === 'wait') || b.vrij * b.prijs - a.vrij * a.prijs);
   const plants = d.planten.filter(p => filter === 'vrij' ? p.vrij > 0 : filter === 'klanten' ? p.gereserveerd > 0 : true);
   return `<div class="page">
@@ -93,4 +94,12 @@ export const actions = {
     });
   },
 };
+// opened from the workflow with ?aanbieden=<lot>: show who could take it straight away
+export function mount(ctx) {
+  if (!offerNow) return;
+  const id = offerNow;
+  offerNow = null;
+  history.replaceState(null, '', '#/loods');
+  actions.aanbieden({ dataset: { id } }, ctx).catch(e => toast(e.message));
+}
 export const refreshEvery = 120000;
