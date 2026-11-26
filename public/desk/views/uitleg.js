@@ -16,7 +16,7 @@ export async function render() {
       waar: [['#/koppelingen', 'Koppelingen']], nu: outlookNow },
     { t: 'Bellen, en zelf versturen', p: 'Je belt de klant. Zegt hij ja, dan tik je op Akkoord en verstuur je de offerte. Nee of later bellen is ook één tik. Als iedereen gebeld is, plaats je de bestelling: de desk maakt de klantorders en plant de wagens naar de klanten.',
       waar: [['#/workflow', 'Workflow: direct te bestellen']], nu: kpi.bellen ? `${plural(kpi.bellen, 'klant', 'klanten')} te bellen` : 'Niemand te bellen' },
-    { t: 'Onderweg, de loods in, naar de klant', p: 'De Workflow laat de dag in één beeld zien: links de kwekers, in het midden jouw loods, rechts de klanten. Daaronder staat per bestelling hoever hij waarschijnlijk is. Groen is op tijd, oranje krap, rood: een levering is in gevaar. Bij Vandaag zie je per wagen wanneer hij ongeveer komt en gaat, met de agenda voor de week en de maand. Staat er iets vrij in de loods, dan zegt de desk op welke wagen het zo bij kan.',
+    { t: 'Onderweg, de loods in, naar de klant', p: 'In de Workflow staat elke bestelling als één lijn: van de kweker naar jouw loods, en van daar naar elke klant. Je ziet hoever hij waarschijnlijk is. Groen is op tijd, oranje is krap, rood betekent dat een levering in gevaar is. Klik erop voor alle tijden, wat erin zit en wie je moet bellen. Bovenaan staat wat in de loods nog geen klant heeft. Bij Vandaag zie je per wagen wanneer hij ongeveer komt en gaat, met de agenda voor de week en de maand.',
       waar: [['#/workflow', 'Workflow: van kweker naar klant'], ['#/vandaag', 'Vandaag: vrachtwagens en agenda'], ['#/loods', 'Loods']], nu: `${fNum(kpi.loods)} stuks in de loods, ${fNum(kpi.loods_vrij)} vrij` },
   ];
   return `<div class="page story">

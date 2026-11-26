@@ -3,7 +3,7 @@
 // Vandaag and the workflow both use the truck states below, so they always tell the same story.
 import { rows, one } from './db.js';
 import { offerCards } from './offers.js';
-import { erbijBoard } from './erbij.js';
+import { loodsNow } from './loods.js';
 
 const MIN = 6e4;
 const RANK = { bad: 0, wait: 1, ok: 2, done: 3 };
@@ -241,13 +241,16 @@ export async function flowNow() {
       : c.gekoppeld_pct < 100 ? `${c.gekoppeld_pct}% heeft een klant` : `hoog risico${c.risico && c.risico.kop && c.risico.kop[0] ? `: ${lcTitle(c.risico.kop[0])}` : ''}`,
   })).sort((a, b) => (a.stap === 'verlopen') - (b.stap === 'verlopen') || b.gekoppeld_pct - a.gekoppeld_pct);
 
-  // what is in the loods without a customer, each lot with the trucks it could go along on
-  const board = await erbijBoard({ hours: 36 });
-  const wagens = board.wagens.map(w => ({ levering_id: w.levering_id, klant: w.klant, plaats: w.plaats, vertrek: w.vertrek, past: w.past.length }));
+  // what is in the loods without a customer
+  const loods = await loodsNow();
+  const free = loods.partijen.filter(p => p.vrij > 0)
+    .sort((a, b) => RANK[a.leeftijd === 'ok' ? 'ok' : a.leeftijd] - RANK[b.leeftijd === 'ok' ? 'ok' : b.leeftijd] || b.vrij * b.prijs - a.vrij * a.prijs)
+    .map(p => ({ regel_id: p.regel_id, plant_id: p.plant_id, plant: p.plant, maat: p.maat, eenheid: p.eenheid, kweker: p.kweker, binnen_om: p.binnen_om, uren: p.uren, vrij: p.vrij, waarde: Math.round(p.vrij * p.prijs), leeftijd: p.leeftijd }));
+
   return {
     nu: now.toISOString(),
     direct, uitzoeken,
-    vrij: { ...board.vrij, partijen: board.partijen, wagens },
+    vrij: { stuks: loods.kpi.vrij, waarde: loods.kpi.vrij_waarde, te_lang: loods.kpi.te_lang, partijen: free },
     banen, klaar,
     telling: { bad: banen.filter(x => x.toon === 'bad').length, wait: banen.filter(x => x.toon === 'wait').length, ok: banen.filter(x => x.toon === 'ok').length, klaar: klaar.length },
   };
