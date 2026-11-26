@@ -9,9 +9,9 @@ export async function render() {
     { t: 'Het aanbod komt binnen', p: 'Een kweker stuurt via WhatsApp of mail wat hij heeft: een mand met verschillende planten. De desk leest het bericht, ook een pdf of een foto, en zet elke plant met aantal, prijs en levertijd in de database. Kent de desk een plant of kweker nog niet, dan vraagt hij het één keer en onthoudt het.',
       waar: [['#/workflow', 'Workflow: direct te bestellen'], ['#/inbox', 'Inbox']], nu: `${plural(kpi.aanbod + kpi.bellen_aanbod, 'mand', 'manden')} klaar om te bestellen` },
     { t: 'De mand wordt gekoppeld aan klanten', p: 'Voor elke plant zoekt de desk wie hem nodig heeft: klanten die er al om vroegen, klanten die deze plant vaak kopen en eraan toe zijn, en hoe vaak ze ja zeggen op een aanbod. Zo ontstaat een bestelvoorstel: wat je inkoopt, voor wie, tegen welke prijs en marge, en wat er overblijft.',
-      waar: [['#/workflow', 'Een mand openen'], ['#/klanten', 'Klanten']], nu: kpi.marge ? `${fEur(kpi.marge)} marge in de open manden` : null },
+      waar: [['#/workflow', 'Een mand openen'], ['#/relaties?kant=klanten', 'Kwekers en klanten']], nu: kpi.marge ? `${fEur(kpi.marge)} marge in de open manden` : null },
     { t: 'Elke bestelling krijgt een risico', p: 'De desk weegt wat mis kan gaan. Komt deze kweker vaak te laat of levert hij te weinig? Is de prijs hoger dan normaal? Heeft een klant een betaalachterstand, of zit hij aan zijn kredietlimiet? Blijft er iets over dat snel bederft? Groen, oranje of rood, altijd met de reden erbij.',
-      waar: [['#/kwekers', 'Kwekers'], ['#/klanten', 'Klanten']], nu: null },
+      waar: [['#/relaties?kant=kwekers', 'Kwekers en klanten: belemmeringen']], nu: null },
     { t: 'Jij krijgt een melding, de concepten staan klaar', p: 'Zodra het voorstel klaar is, staat het bovenaan Vandaag en krijg je een mail (als Outlook gekoppeld is). De bestelling voor de kweker en een offerte per klant staan klaar als concept, met pdf en in de taal van de klant. Met Outlook gekoppeld staan ze daar bij Concepten.',
       waar: [['#/koppelingen', 'Koppelingen']], nu: outlookNow },
     { t: 'Bellen, en zelf versturen', p: 'Je belt de klant. Zegt hij ja, dan tik je op Akkoord en verstuur je de offerte. Nee of later bellen is ook één tik. Als iedereen gebeld is, plaats je de bestelling: de desk maakt de klantorders en plant de wagens naar de klanten.',
@@ -32,8 +32,9 @@ export async function render() {
           <div class="body"><p>Bestellen, mailen en betalen. Elke mail die de deur uitgaat, verstuur jij. De desk maakt alleen concepten.</p></div></section>
         <section class="panel"><header><h2>Wat de desk bijhoudt</h2></header>
           <ul class="body plainlist">
-            <li><a href="#/kwekers"><b>Kwekers</b></a>: hoe stipt en compleet ze leveren, de kwaliteit, of de prijs klopt, en hoe elk aanbod afliep.</li>
-            <li><a href="#/klanten"><b>Klanten</b></a>: wat ze kopen en hoe vaak, omzet en marge, betaalgedrag, en hoe vaak ze ja zeggen op een aanbod.</li>
+            <li><a href="#/relaties?kant=kwekers"><b>Kwekers en klanten</b></a>: met een schuif wissel je tussen klanten en kwekers. Per partij de gezondheid en wat het samenwerken in de weg zit: bezorgen, betalen, bestellen, compleet leveren, kwaliteit of prijs.</li>
+            <li><a href="#/relaties?kant=kwekers"><b>Een kweker</b></a>: hoe stipt en compleet hij levert, de kwaliteit, of de prijs klopt, en hoe elk aanbod afliep.</li>
+            <li><a href="#/relaties?kant=klanten"><b>Een klant</b></a>: wat hij koopt en hoe vaak, omzet en marge, betaalgedrag, en hoe vaak hij ja zegt op een aanbod.</li>
             <li><a href="#/planten"><b>Planten</b></a>: de prijs per kweker door het jaar, en wie wat koopt.</li>
           </ul></section>
         <section class="panel"><header><h2>Wat nog gekoppeld kan worden</h2></header>

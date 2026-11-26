@@ -1,36 +1,9 @@
-// Kwekers: who delivers what, how reliably, at what price, and how it went every single time.
+// One grower: who delivers what, how reliably, at what price, what stands in the way, and how it went every single time.
 import { api, h, icon, fTime, fNum, fEur, fPrice, fPct, fDate, fDay, dayWord, plural, COUNTRY, DOW, dialog, field, toast, waLink, stapChip } from '../core.js';
-import { spark, columns, lines } from '../charts.js';
+import { columns, lines } from '../charts.js';
+import { obstaclePanel } from '../belemmeringen.js';
 
-let sort = { key: 'score', dir: -1 }, q = '';
-const scoreBar = v => (v == null ? '<span class="faint">nieuw</span>' : `<span class="bar ${v < 70 ? 'lo' : v < 82 ? 'mid' : ''}"><i><span style="width:${v}%"></span></i><b>${v}</b></span>`);
 const MONTH = m => new Date(m + '-15').toLocaleDateString('nl-NL', { month: 'short' }).replace('.', '');
-
-export async function renderList() {
-  const list = await api('/kwekers');
-  const shown = list.filter(g => !q || `${g.naam} ${g.plaats} ${g.specialiteit || ''}`.toLowerCase().includes(q.toLowerCase()))
-    .sort((a, b) => { const x = a[sort.key], y = b[sort.key]; if (x == null) return 1; if (y == null) return -1; return (typeof x === 'string' ? x.localeCompare(y) : x - y) * sort.dir; });
-  const th = (k, l, r = false) => `<th class="sort${r ? ' r' : ''}" data-act="sort" data-k="${k}" ${sort.key === k ? `aria-sort="${sort.dir > 0 ? 'ascending' : 'descending'}"` : ''}>${l}</th>`;
-  const totaal = list.reduce((s, g) => s + g.inkoop, 0);
-  return `<div class="page">
-    <div class="ph"><div><h1>Kwekers</h1><p>${plural(list.length, 'kweker', 'kwekers')}, ${fEur(totaal)} inkoop in twaalf maanden. De score telt op tijd (40%), compleet geleverd (25%), kwaliteit (20%) en prijs zoals afgesproken (15%), elke levering opnieuw.</p></div>
-      <div class="acts"><button class="btn btn-leaf" data-act="nieuw">${icon('plus')}Kweker toevoegen</button></div></div>
-    <div class="tools"><input type="search" placeholder="Zoek op naam, plaats of soort" value="${h(q)}" data-input="q" aria-label="Zoek kwekers"></div>
-    <section class="panel"><div class="tbwrap"><table class="tb" style="min-width:1000px">
-      <thead><tr><th style="padding-left:16px">Kweker</th>${th('score', 'Score')}${th('op_tijd', 'Op tijd', true)}${th('gem_te_laat', 'Te laat', true)}${th('compleet', 'Compleet', true)}${th('kwaliteit', 'Kwaliteit', true)}${th('prijsindex', 'Prijs t.o.v. markt', true)}${th('inkoop', 'Inkoop 12 mnd', true)}<th>12 weken</th>${th('laatste', 'Laatste')}</tr></thead>
-      <tbody>${shown.map(g => `<tr class="click" data-href="#/kweker/${g.id}">
-        <td style="padding-left:16px"><a href="#/kweker/${g.id}">${h(g.naam)}</a><div class="as">${h(g.plaats || '')}, ${h(COUNTRY[g.land] || g.land)}${g.specialiteit ? ` · ${h(g.specialiteit)}` : ''}</div></td>
-        <td>${scoreBar(g.score)}</td>
-        <td class="r num">${g.op_tijd == null ? '–' : `${g.op_tijd}%`}</td>
-        <td class="r num">${g.gem_te_laat == null ? '–' : `${g.gem_te_laat} min`}</td>
-        <td class="r num">${g.compleet == null ? '–' : fPct(g.compleet)}</td>
-        <td class="r num">${g.facturen ? `${g.kwaliteit}× <span class="faint">van ${g.facturen}</span>` : '–'}</td>
-        <td class="r num">${g.prijsindex == null ? '–' : `<span class="${g.prijsindex <= 97 ? 'up' : g.prijsindex >= 103 ? 'down' : ''}">${g.prijsindex > 100 ? '+' : ''}${fPct(g.prijsindex - 100)}</span>`}</td>
-        <td class="r num">${fEur(g.inkoop)}</td>
-        <td>${spark(g.weken)}</td>
-        <td class="nowrap">${g.laatste ? dayWord(g.laatste) : '–'}</td></tr>`).join('')}</tbody></table></div></section>
-  </div>`;
-}
 
 export async function renderDetail(params) {
   const g = await api(`/kwekers/${params.id}`);
@@ -44,7 +17,7 @@ export async function renderDetail(params) {
   });
   const late = g.history.filter(x => x.laat != null);
   return `<div class="page">
-    <a class="back" href="#/kwekers">${icon('back')}Kwekers</a>
+    <a class="back" href="#/relaties?kant=kwekers">${icon('back')}Kwekers en klanten</a>
     <div class="prof"><div><h1>${h(g.naam)}</h1>
       <div class="sub"><span>${h(g.plaats || '')}, ${h(COUNTRY[g.land] || g.land)}</span>${g.contact ? `<span>${h(g.contact)}</span>` : ''}${g.whatsapp ? `<a href="${waLink(g.whatsapp, '')}" target="_blank" rel="noopener">${icon('chat')}${h(g.whatsapp)}</a>` : ''}${g.email ? `<a href="mailto:${h(g.email)}">${h(g.email)}</a>` : ''}${g.bron === 'demo' ? '<span class="chip">demo</span>' : ''}${!g.actief ? '<span class="chip bad">niet actief</span>' : ''}</div>
       <div class="sub">${g.specialiteit ? `<span>${h(g.specialiteit)}</span>` : ''}${g.vervoer ? `<span>${icon('truck')} ${h(g.vervoer)}</span>` : ''}${g.laadtijd ? `<span>laadt ${h(g.laadtijd)}, ${g.reistijd_min} min naar Nootdorp</span>` : ''}${g.levert_op ? `<span>levert ${g.levert_op.map(d => DOW[d]).join(', ')}</span>` : ''}</div></div>
@@ -59,6 +32,7 @@ export async function renderDetail(params) {
     </dl>
     <div class="grid2">
       <div class="stack">
+        ${obstaclePanel(g.belemmeringen, 'kweker')}
         <section class="panel"><header><h2>Wat de desk ziet</h2></header><div class="body"><ul class="insights">${g.inzichten.map(i => `<li class="${i.toon}">${icon(i.toon === 'ok' ? 'check' : i.toon === 'bad' ? 'warn' : i.toon === 'wait' ? 'clock' : 'info')}<span>${h(i.tekst)}</span></li>`).join('')}</ul></div></section>
         <section class="panel"><header><h2>Hoe ging het iedere keer</h2><span class="sub">Laatste ${g.history.length} leveringen: gepland, werkelijk en wat er niet klopte</span></header>
           <div class="tbwrap"><table class="tb"><thead><tr><th style="padding-left:16px">Dag</th><th>Factuur</th><th class="r">Gepland</th><th class="r">Binnen</th><th>Wat</th><th>Bijzonderheden</th></tr></thead><tbody>
@@ -96,8 +70,8 @@ function form(g = {}) {
 }
 const payload = v => ({ ...v, reistijd_min: v.reistijd_min === '' ? null : v.reistijd_min, levert_op: v.levert_op ? v.levert_op : null });
 
+// adding a grower starts on the Kwekers en klanten page (views/relaties.js)
 export const listActions = {
-  sort(el, ctx) { const k = el.dataset.k; sort = { key: k, dir: sort.key === k ? -sort.dir : (k === 'naam' ? 1 : -1) }; ctx.refresh(); },
   nieuw(el, ctx) { dialog({ title: 'Kweker toevoegen', ok: 'Toevoegen', body: form(), onOk: async v => { const r = await api('/kwekers', { method: 'POST', body: payload(v) }); toast('Kweker toegevoegd.'); location.hash = `#/kweker/${r.id}`; } }); },
 };
 export const detailActions = {
@@ -107,4 +81,3 @@ export const detailActions = {
     dialog({ title: 'Gegevens van de kweker', body: form(g), onOk: async v => { await api(`/kwekers/${g.id}`, { method: 'PATCH', body: payload(v) }); toast('Opgeslagen.'); ctx.refresh(); } });
   },
 };
-export function onInput(e, ctx) { if (e.target.dataset.input === 'q') { q = e.target.value; ctx.refreshSoon(); } }

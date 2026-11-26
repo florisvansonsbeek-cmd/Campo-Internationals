@@ -7,6 +7,7 @@ import * as factuur from './views/factuur.js';
 import * as inbox from './views/inbox.js';
 import * as kwekers from './views/kwekers.js';
 import * as klanten from './views/klanten.js';
+import * as relaties from './views/relaties.js';
 import * as planten from './views/planten.js';
 import * as koppelingen from './views/koppelingen.js';
 import * as aanbod from './views/aanbod.js';
@@ -30,17 +31,18 @@ const ROUTES = [
   { re: /^uitleg$/, nav: 'uitleg', title: 'Zo werkt het', view: uitleg.render, actions: uitleg.actions },
   { re: /^factuur\/(\d+)$/, keys: ['id'], nav: 'workflow', title: 'Factuur', view: factuur.render, actions: factuur.actions, change: factuur.onChange },
   { re: /^inbox(?:\/(\d+))?$/, keys: ['id'], nav: 'inbox', title: 'Inbox', view: inbox.render, actions: inbox.actions, mount: inbox.mount },
-  { re: /^kwekers$/, nav: 'kwekers', title: 'Kwekers', view: kwekers.renderList, actions: kwekers.listActions, input: kwekers.onInput },
-  { re: /^kweker\/(\d+)$/, keys: ['id'], nav: 'kwekers', title: 'Kweker', view: kwekers.renderDetail, actions: kwekers.detailActions },
-  { re: /^klanten$/, nav: 'klanten', title: 'Klanten', view: klanten.renderList, actions: klanten.listActions, input: klanten.onInput },
-  { re: /^klant\/(\d+)$/, keys: ['id'], nav: 'klanten', title: 'Klant', view: klanten.renderDetail, actions: klanten.detailActions },
+  { re: /^relaties$/, nav: 'relaties', title: 'Kwekers en klanten', view: relaties.render, actions: relaties.actions, input: relaties.onInput },
+  { re: /^kwekers$/, nav: 'relaties', title: 'Kwekers en klanten', view: (p, q) => relaties.render({ kant: 'kwekers' }, q), actions: relaties.actions, input: relaties.onInput },
+  { re: /^klanten$/, nav: 'relaties', title: 'Kwekers en klanten', view: (p, q) => relaties.render({ kant: 'klanten' }, q), actions: relaties.actions, input: relaties.onInput },
+  { re: /^kweker\/(\d+)$/, keys: ['id'], nav: 'relaties', title: 'Kweker', view: kwekers.renderDetail, actions: kwekers.detailActions },
+  { re: /^klant\/(\d+)$/, keys: ['id'], nav: 'relaties', title: 'Klant', view: klanten.renderDetail, actions: klanten.detailActions },
   { re: /^planten$/, nav: 'planten', title: 'Planten', view: planten.renderList, actions: planten.listActions, input: planten.onInput },
   { re: /^plant\/(\d+)$/, keys: ['id'], nav: 'planten', title: 'Plant', view: planten.renderDetail, actions: planten.detailActions },
   { re: /^koppelingen$/, nav: 'koppelingen', title: 'Koppelingen', view: koppelingen.render, actions: koppelingen.actions, change: koppelingen.onChange },
 ];
 const NAV = [
   ['vandaag', 'Vandaag', 'today'], ['workflow', 'Workflow', 'flow'], ['loods', 'Loods', 'shed'], ['inbox', 'Inbox', 'inbox'],
-  ['kwekers', 'Kwekers', 'grower'], ['klanten', 'Klanten', 'customer'], ['planten', 'Planten', 'plant'], ['koppelingen', 'Koppelingen', 'plug'], ['uitleg', 'Zo werkt het', 'book'],
+  ['relaties', 'Kwekers en klanten', 'rel', 'Relaties'], ['planten', 'Planten', 'plant'], ['koppelingen', 'Koppelingen', 'plug'], ['uitleg', 'Zo werkt het', 'book'],
 ];
 
 function parse() {
@@ -92,7 +94,7 @@ function shell() {
         <div class="sep"></div><p class="note">De desk leest, vergelijkt en zet klaar. Jan bestelt, keurt goed, betaalt en verstuurt.</p><p class="note"><a href="/">Naar de website</a></p></aside>
       <main id="main" tabindex="-1"></main>
     </div>
-    <nav class="tabs-m" aria-label="Desk">${NAV.slice(0, 6).map(([k, l, ic]) => `<a href="#/${k}" data-nav="${k}">${icon(ic)}${l}${k === 'inbox' || k === 'workflow' ? `<span class="pill-n" data-badge="${k}" hidden></span>` : ''}</a>`).join('')}</nav>`;
+    <nav class="tabs-m" aria-label="Desk">${NAV.slice(0, 6).map(([k, l, ic, short]) => `<a href="#/${k}" data-nav="${k}">${icon(ic)}${short || l}${k === 'inbox' || k === 'workflow' ? `<span class="pill-n" data-badge="${k}" hidden></span>` : ''}</a>`).join('')}</nav>`;
   tick(); setInterval(tick, 15000);
   setupSearch();
   updateBadges();

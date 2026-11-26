@@ -956,3 +956,42 @@ table.loods-tb td{vertical-align:middle}
   .ag-foot .ck{margin-left:0}
   .grid-f{grid-template-columns:minmax(0,1fr)}
 }
+
+/* ---------- Kwekers en klanten: one page, a slide between the two, health and what stands in the way ---------- */
+.rel-top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-bottom:14px}
+.rel-top input[type=search]{max-width:320px}
+.slide{position:relative;isolation:isolate;display:inline-grid;grid-template-columns:1fr 1fr;padding:4px;background:var(--paper-2);border-radius:999px}
+.slide a{position:relative;z-index:1;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:6px 22px;border-radius:999px;font-weight:600;font-size:15px;color:var(--ink-2);text-decoration:none;transition:color .2s}
+.slide a svg{width:18px;height:18px}
+.slide a small{font-size:12.5px;font-weight:600;opacity:.75}
+.slide a:focus-visible{outline:2px solid var(--leaf);outline-offset:2px}
+.slide-thumb{position:absolute;z-index:0;top:4px;bottom:4px;left:4px;width:calc(50% - 4px);border-radius:999px;background:var(--forest);box-shadow:0 1px 3px rgba(16,41,30,.25);transition:transform .25s cubic-bezier(.3,.7,.2,1)}
+.slide[data-k="kwekers"] .slide-thumb{transform:translateX(100%)}
+.slide[data-k="klanten"] a[data-k="klanten"],.slide[data-k="kwekers"] a[data-k="kwekers"]{color:#fff}
+.rel-kpis button.kpi{border:0;text-align:left;font:inherit;cursor:pointer}
+.rel-kpis button.kpi:hover{background:var(--paper)}
+.rel-kpis button.kpi[aria-pressed=true]{box-shadow:inset 0 -3px 0 var(--forest)}
+.rel-kpis .kpi.ok b{color:var(--leaf)}
+.rel-kpis .kpi.wait b{color:var(--wait)}
+.rel-kpis .kpi.bad b{color:var(--warn)}
+.top-obs{list-style:none;margin:0;padding:0}
+.top-obs li{display:grid;grid-template-columns:minmax(160px,240px) minmax(0,1fr);gap:4px 16px;align-items:baseline;padding:10px 18px;border-top:1px solid var(--line);font-size:14px;line-height:1.45}
+.top-obs p{margin-top:4px;color:var(--ink-2)}
+.top-obs .obs{max-width:none}
+.top-obs li:first-child{border-top:0}
+.top-obs a{font-weight:600;color:var(--ink);text-decoration:none}
+.top-obs a:hover{text-decoration:underline}
+.rel-tools{margin-top:16px}
+.rel-tb tr.has-bad td:first-child{box-shadow:inset 3px 0 0 var(--t-bad)}
+.obs{display:flex;flex-wrap:wrap;gap:4px;max-width:340px}
+.obs .chip{cursor:help}
+.obs-more{font-size:12.5px;font-weight:600;color:var(--ink-3);align-self:center}
+.obs-none{font-size:13px;font-weight:600;color:var(--leaf)}
+.obs-panel .insights b{font-weight:700}
+@media (max-width:760px){
+  .slide{width:100%}
+  .slide a{padding:6px 10px}
+  .rel-top input[type=search]{max-width:none;width:100%}
+  .rel-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .top-obs li{grid-template-columns:minmax(0,1fr);padding:10px 14px}
+}

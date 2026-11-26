@@ -93,8 +93,26 @@ function shapeGrower(g) {
   };
 }
 
+// how the last deliveries went, and how often a late truck came without a message beforehand
+async function growerDelivery(id = null) {
+  const r = await rows(`
+    WITH z AS (
+      SELECT z.id, z.kweker_id, extract(epoch FROM (z.aankomst_werkelijk - z.aankomst_gepland)) / 60 AS laat,
+             row_number() OVER (PARTITION BY z.kweker_id ORDER BY z.aankomst_gepland DESC) AS rn,
+             EXISTS (SELECT 1 FROM gebeurtenissen e WHERE e.zending_id = z.id AND e.soort IN ('vertraging', 'eta') AND e.tijd < z.aankomst_gepland) AS gemeld
+        FROM zendingen z
+       WHERE z.aankomst_werkelijk <= now() AND z.aankomst_gepland > now() - interval '365 days'${id ? ' AND z.kweker_id = $1' : ''}
+    )
+    SELECT kweker_id, count(*) FILTER (WHERE laat > 30) AS laat_n, count(*) FILTER (WHERE laat > 30 AND NOT gemeld) AS stil_n,
+           count(*) FILTER (WHERE rn <= 5) AS recent_n, count(*) FILTER (WHERE rn <= 5 AND laat > 15) AS recent_laat
+      FROM z GROUP BY kweker_id`, id ? [id] : []);
+  return Object.fromEntries(r.map(x => [x.kweker_id, { laat_n: Number(x.laat_n), stil_n: Number(x.stil_n), recent_n: Number(x.recent_n), recent_laat: Number(x.recent_laat) }]));
+}
+
 export async function growerList() {
   const list = (await rows(GROWER_STATS + ' ORDER BY k.naam')).map(shapeGrower);
+  const extra = await growerDelivery();
+  for (const g of list) g.belemmeringen = obstaclesGrower(g, extra[g.id]);
   // twelve weeks of deliveries per grower, for a small spark line
   const weeks = await rows(`SELECT f.kweker_id, floor((current_date - f.datum) / 7)::int AS w, sum(fr.bedrag) AS v
     FROM facturen f JOIN factuur_regels fr ON fr.factuur_id = f.id WHERE f.datum > current_date - 84 GROUP BY 1, 2`);
@@ -150,7 +168,8 @@ export async function growerDetail(id) {
      GROUP BY k.id ORDER BY sum(t.aantal * coalesce(t.verkoopprijs, 0)) DESC LIMIT 12`, [id]);
   const berichten = await rows(`SELECT id, kanaal, onderwerp, left(tekst, 220) AS tekst, ontvangen, soort, status FROM berichten_in WHERE kweker_id = $1 AND ontvangen <= now() ORDER BY ontvangen DESC LIMIT 15`, [id]);
   const namen = await rows(`SELECT pn.tekst, p.naam, p.potmaat, p.hoogte, pn.door FROM plant_namen pn JOIN planten p ON p.id = pn.plant_id WHERE pn.kweker_id = $1 ORDER BY pn.geleerd DESC LIMIT 40`, [id]);
-  return { ...base, history: history.map(h => ({ ...h, laat: h.laat == null ? null : Number(h.laat) })), assortiment, prijsreeks, maanden, weekdagen, klanten, berichten, namen, inzichten: growerInsights(base, { maanden, weekdagen, assortiment, history }) };
+  const extra = (await growerDelivery(base.id))[base.id];
+  return { ...base, history: history.map(h => ({ ...h, laat: h.laat == null ? null : Number(h.laat) })), assortiment, prijsreeks, maanden, weekdagen, klanten, berichten, namen, inzichten: growerInsights(base, { maanden, weekdagen, assortiment, history }), belemmeringen: obstaclesGrower(base, extra) };
 }
 
 const DAGEN = ['', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag'];
@@ -273,7 +292,7 @@ export async function customerList() {
      FROM toewijzingen t JOIN factuur_regels fr ON fr.id = t.regel_id JOIN facturen f ON f.id = fr.factuur_id JOIN planten p ON p.id = fr.plant_id
     WHERE t.bestemming = 'klant' AND f.datum > current_date - 365 GROUP BY t.klant_id, p.id ORDER BY t.klant_id, sum(t.aantal * t.verkoopprijs) DESC`);
   const topBy = Object.fromEntries(tops.map(t => [t.klant_id, `${t.naam.replace(/\s(wit|roze|paars|blauw|geel|oranje|rood)$/, '')}${t.potmaat ? ' ' + t.potmaat : ''}`]));
-  for (const c of list) { c.maanden = byK[c.id] || Array(12).fill(0); c.top = topBy[c.id] || null; }
+  for (const c of list) { c.maanden = byK[c.id] || Array(12).fill(0); c.top = topBy[c.id] || null; c.belemmeringen = obstaclesCustomer(c); }
   return list;
 }
 
@@ -333,6 +352,7 @@ export async function customerDetail(id) {
   const families = Object.values(fam).sort((a, b) => b.omzet - a.omzet).map(f => ({ ...f, aandeel: totaal ? Math.round(f.omzet / totaal * 100) : 0 }));
   const result = { ...c, planten, families, maanden, weekdagen, orders: orders.map(o => ({ ...o, laat: o.laat == null ? null : Number(o.laat) })), kwekers, facturen, berichten, lopend, aanbod: aanbod[0] };
   result.inzichten = customerInsights(result);
+  result.belemmeringen = obstaclesCustomer(result);
   return result;
 }
 
@@ -362,6 +382,74 @@ function customerInsights(c) {
   const wd = c.weekdagen.slice().sort((a, b) => b.n - a.n)[0];
   if (wd && c.orders_12m >= 6 && wd.n / c.orders_12m >= 0.4) out.push({ toon: 'info', tekst: `Bestelt meestal op ${DAG[wd.dag]} (${Math.round(wd.n / c.orders_12m * 100)}% van de bestellingen).` });
   return out;
+}
+
+// ---------------------------------------------------------------- what stands in the way of working together
+// Each obstacle has a kind (soort: bezorgen, betalen, bestellen, compleet, kwaliteit, prijs, contact), a tone
+// (bad: serious, wait: keep in mind), a few words for a chip (kort) and one sentence with the numbers (tekst).
+const DAGK = ['', 'ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'];
+const dur = m => (m >= 90 ? `${Math.round(m / 60)} uur` : `${m} min`);
+const daysList = (arr, names) => { const a = arr.map(d => names[d]); return a.length > 1 ? `${a.slice(0, -1).join(', ')} en ${a[a.length - 1]}` : a[0]; };
+const comma = v => String(v).replace('.', ',');
+const severity = o => (o.toon === 'bad' ? 0 : 1);
+
+// "di–vr 06:00–09:00" -> a window of 3 hours from 06:00; "di en vr vóór 07:00" -> before 07:00; "in overleg" -> nothing
+export function deliveryWindow(text) {
+  if (!text) return null;
+  const t = [...String(text).matchAll(/(\d{1,2})[:.](\d{2})/g)].map(m => ({ min: Number(m[1]) * 60 + Number(m[2]), txt: `${m[1].padStart(2, '0')}:${m[2]}` }));
+  if (t.length >= 2) return { start: t[0].min, end: t[1].min, width: (t[1].min - t[0].min) / 60, text: `${t[0].txt}–${t[1].txt}` };
+  if (t.length === 1 && /v[óo]{1,2}r/i.test(text)) return { before: t[0].min, text: t[0].txt };
+  return null;
+}
+
+export function obstaclesCustomer(c) {
+  if (!c.actief) return [];
+  const out = [];
+  const add = (soort, toon, kort, tekst) => out.push({ soort, toon, kort, tekst });
+  const far = c.reistijd_min >= 720;
+  const road = far ? `, ${dur(c.reistijd_min)} rijden vanaf Nootdorp` : '';
+  // paying
+  if (c.kredietlimiet && c.open_bedrag > c.kredietlimiet) add('betalen', 'bad', 'Boven kredietlimiet', `Er staat ${eur(c.open_bedrag)} open bij een kredietlimiet van ${eur(c.kredietlimiet)}. Eerst betalen, dan weer leveren.`);
+  else if (c.kredietlimiet && c.open_bedrag > 0.9 * c.kredietlimiet) add('betalen', 'wait', 'Bijna aan kredietlimiet', `${eur(c.open_bedrag)} open van de ${eur(c.kredietlimiet)} kredietlimiet (${Math.round(c.open_bedrag / c.kredietlimiet * 100)}%).`);
+  if (c.over_tijd >= 1000) add('betalen', c.over_tijd >= 5000 ? 'bad' : 'wait', `${eur(c.over_tijd)} over tijd`, `${eur(c.over_tijd)} is niet op tijd betaald en staat nog open.`);
+  if (c.betaal_dagen != null && c.betaal_dagen > 10) add('betalen', c.betaal_dagen > 18 ? 'bad' : 'wait', `Betaalt ${Math.round(c.betaal_dagen)} d te laat`, `Betaalt gemiddeld ${Math.round(c.betaal_dagen)} dagen na de vervaldatum, bij een betaaltermijn van ${c.betaaltermijn} dagen.`);
+  // delivering
+  if (c.op_tijd != null && c.leveringen >= 5 && c.op_tijd < 70) add('bezorgen', c.op_tijd < 60 ? 'bad' : 'wait', `${c.op_tijd}% op tijd geleverd`, `Campo leverde hier in twaalf maanden ${c.op_tijd}% op tijd${road}. Vaak door een kweker die te laat was.`);
+  const w = deliveryWindow(c.levervenster);
+  if (w && w.width != null && w.width <= 2 && (far || w.start <= 6 * 60)) add('bezorgen', 'wait', `Smal venster ${w.text}`, `Levering alleen tussen ${w.text}${road}. Een kweker die te laat is of een wagen die later vertrekt, haalt dat niet.`);
+  else if (w && w.before != null && w.before <= 7 * 60) add('bezorgen', 'wait', `Vóór ${w.text} binnen`, `Moet vóór ${w.text} binnen zijn${road}: de wagen moet de avond ervoor geladen zijn.`);
+  if (Array.isArray(c.leverdagen) && c.leverdagen.length === 1 && (far || (c.op_tijd != null && c.op_tijd < 80))) add('bezorgen', 'wait', `Alleen op ${DAGK[c.leverdagen[0]]}`, `Neemt alleen op ${DAG[c.leverdagen[0]]} levering aan${road}: een gemiste wagen schuift een week op.`);
+  // ordering
+  if (c.segment === 'slapend') add('bestellen', 'bad', `Bestelt ${c.te_laat_dagen} d later dan normaal`, `Bestelt normaal elke ${c.ritme} dagen; de laatste bestelling is ${c.dagen_sinds} dagen geleden.`);
+  else if (c.trend != null && c.trend <= -18) add('bestellen', 'wait', `Omzet ${c.trend}%`, `Omzet laatste 90 dagen ${c.trend}% ten opzichte van ${c.trend_basis === 'jaar' ? 'dezelfde periode vorig jaar' : 'de 90 dagen ervoor'}.`);
+  // margin and contact
+  if (c.marge_pct != null && c.omzet_12m > 0 && c.marge_pct < 15) add('prijs', 'wait', `Marge ${comma(c.marge_pct)}%`, `Maar ${comma(c.marge_pct)}% marge op ${eur(c.omzet_12m)} omzet in twaalf maanden.`);
+  if (!c.whatsapp && !c.email) add('contact', 'wait', 'Geen WhatsApp of e-mail', 'Er staat geen WhatsApp-nummer of e-mailadres: alleen bellen kan.');
+  return out.sort((a, b) => severity(a) - severity(b));
+}
+
+export function obstaclesGrower(g, x = {}) {
+  if (!g.actief) return [];
+  const out = [];
+  const add = (soort, toon, kort, tekst) => out.push({ soort, toon, kort, tekst });
+  // delivering
+  if (g.leveringen >= 5 && g.op_tijd != null && g.op_tijd < 85) add('bezorgen', g.op_tijd < 72 ? 'bad' : 'wait', `${g.op_tijd}% op tijd`, `${g.op_tijd}% van de leveringen kwam op tijd binnen; als het misgaat gemiddeld ${g.gem_te_laat} minuten te laat.`);
+  if (x && x.recent_n >= 5 && x.recent_laat >= 3) add('bezorgen', 'bad', `${x.recent_laat} van de laatste 5 te laat`, `Van de laatste vijf leveringen kwamen er ${x.recent_laat} te laat binnen: slechter dan het jaargemiddelde.`);
+  if (Array.isArray(g.levert_op) && g.levert_op.length && g.levert_op.length <= 2) add('bezorgen', 'wait', `Levert alleen ${daysList(g.levert_op, DAGK)}`, `Levert alleen op ${daysList(g.levert_op, DAG)}: bestel ruim op tijd.`);
+  if (g.reistijd_min >= 480) add('bezorgen', 'wait', `${dur(g.reistijd_min)} onderweg`, `De planten komen van ver (${g.vervoer || 'eigen vervoer'}, ongeveer ${dur(g.reistijd_min)}): een vertraging raakt alle klanten op die wagen.`);
+  // complete and quality
+  if (g.facturen >= 5) {
+    const m = g.minder / g.facturen, q = g.kwaliteit / g.facturen;
+    if (m >= 0.12) add('compleet', m >= 0.2 ? 'bad' : 'wait', 'Levert vaak minder', `Bij ${g.minder} van de ${g.facturen} leveringen kwam er minder dan besteld (${Math.round(m * 100)}%).`);
+    if (q >= 0.06 && g.kwaliteit >= 2) add('kwaliteit', q >= 0.1 ? 'bad' : 'wait', `Schade of kwaliteit ${g.kwaliteit}×`, `${g.kwaliteit} van de ${g.facturen} leveringen hadden schade of slechte kwaliteit.`);
+    if (g.prijsafwijking >= 3 && g.prijsafwijking / g.facturen >= 0.1) add('prijs', 'wait', `Factuur wijkt ${g.prijsafwijking}× af`, `${g.prijsafwijking} van de ${g.facturen} facturen hadden een andere prijs dan afgesproken; samen ${eur(g.afwijking_bedrag)} aan afwijkingen dit jaar.`);
+  }
+  if (g.prijsindex != null && g.prijsindex >= 104) add('prijs', 'wait', `${Math.round(g.prijsindex - 100)}% boven de markt`, `Gemiddeld ${Math.round(g.prijsindex - 100)}% duurder dan andere kwekers voor dezelfde planten.`);
+  if (g.open_afwijkingen >= 2) add('prijs', 'wait', `${g.open_afwijkingen} afwijkingen open`, `${g.open_afwijkingen} afwijkingen staan nog open: een credit of nalevering.`);
+  // contact
+  if (x && x.laat_n >= 3 && x.stil_n / x.laat_n >= 0.5) add('contact', 'wait', 'Meldt vertraging vaak niet', `Van de ${x.laat_n} keer dat de wagen meer dan een half uur te laat was, kwam er ${x.stil_n} keer vooraf geen bericht.`);
+  if (!g.whatsapp && !g.email) add('contact', 'wait', 'Geen WhatsApp of e-mail', 'Er staat geen WhatsApp-nummer of e-mailadres: alleen bellen kan.');
+  return out.sort((a, b) => severity(a) - severity(b));
 }
 
 // ---------------------------------------------------------------- plants

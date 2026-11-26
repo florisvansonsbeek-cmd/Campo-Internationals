@@ -1,42 +1,11 @@
-// Klanten: every customer analysed from what they actually ordered, received and paid.
+// One customer, analysed from what they actually ordered, received and paid, and what stands in the way of working together.
 import { api, h, icon, fTime, fNum, fEur, fPrice, fPct, fDate, fDay, dayWord, plural, COUNTRY, LANG, DOW, dialog, field, toast, waLink, kanaalNaam } from '../core.js';
-import { spark, stacked, hbars, columns } from '../charts.js';
+import { stacked, hbars, columns } from '../charts.js';
+import { obstaclePanel } from '../belemmeringen.js';
 
 const SEG = { kern: ['Kern', 'ok'], groeiend: ['Groeiend', 'ok'], stabiel: ['Stabiel', ''], dalend: ['Dalend', 'wait'], slapend: ['Bestelt later dan normaal', 'bad'], nieuw: ['Nieuw', 'info'], gestopt: ['Gestopt', ''] };
 const segChip = s => `<span class="chip seg-chip ${SEG[s]?.[1] || ''}">${h(SEG[s]?.[0] || s)}</span>`;
-let sort = { key: 'omzet_12m', dir: -1 }, q = '', seg = 'alle';
 const MONTH = m => new Date(m + '-15').toLocaleDateString('nl-NL', { month: 'short' }).replace('.', '');
-const health = v => `<span class="bar ${v < 45 ? 'lo' : v < 65 ? 'mid' : ''}" title="Gezondheid ${v} van 100"><i><span style="width:${v}%"></span></i><b>${v}</b></span>`;
-
-export async function renderList(params, query) {
-  if (query && query.get('segment')) seg = query.get('segment');
-  const list = await api('/klanten');
-  const counts = { alle: list.filter(c => c.actief).length };
-  for (const c of list) counts[c.segment] = (counts[c.segment] || 0) + 1;
-  const shown = list.filter(c => (seg === 'alle' ? c.actief : c.segment === seg) && (!q || `${c.naam} ${c.plaats} ${c.contact || ''} ${c.top || ''}`.toLowerCase().includes(q.toLowerCase())))
-    .sort((a, b) => { const x = a[sort.key], y = b[sort.key]; if (x == null) return 1; if (y == null) return -1; return (typeof x === 'string' ? x.localeCompare(y) : x - y) * sort.dir; });
-  const th = (k, l, r = false) => `<th class="sort${r ? ' r' : ''}" data-act="sort" data-k="${k}" ${sort.key === k ? `aria-sort="${sort.dir > 0 ? 'ascending' : 'descending'}"` : ''}>${l}</th>`;
-  const omzet = list.reduce((s, c) => s + c.omzet_12m, 0), marge = list.reduce((s, c) => s + c.marge_12m, 0);
-  return `<div class="page">
-    <div class="ph"><div><h1>Klanten</h1><p>${plural(counts.alle, 'actieve klant', 'actieve klanten')}, ${fEur(omzet)} omzet en ${fEur(marge)} marge in twaalf maanden. Ritme, groei, betaalgedrag en wat ze kopen, uit de leveringen zelf.</p></div>
-      <div class="acts"><button class="btn btn-leaf" data-act="nieuw">${icon('plus')}Klant toevoegen</button></div></div>
-    <div class="tools"><div class="seg" role="group" aria-label="Segment">${['alle', 'kern', 'groeiend', 'stabiel', 'dalend', 'slapend', 'nieuw', 'gestopt'].filter(s => s === 'alle' || counts[s]).map(s => `<button type="button" data-act="seg" data-s="${s}" aria-pressed="${seg === s}">${s === 'alle' ? 'Alle actieve' : h(SEG[s][0])}<small>${counts[s] || 0}</small></button>`).join('')}</div>
-      <input type="search" placeholder="Zoek klant, plaats of plant" value="${h(q)}" data-input="q" aria-label="Zoek klanten"></div>
-    <section class="panel"><div class="tbwrap"><table class="tb" style="min-width:1120px">
-      <thead><tr><th style="padding-left:16px">Klant</th><th>Hoe het gaat</th>${th('gezondheid', 'Gezondheid')}${th('omzet_12m', 'Omzet 12 mnd', true)}${th('trend', 'Trend', true)}${th('marge_pct', 'Marge', true)}${th('ritme', 'Ritme', true)}${th('dagen_sinds', 'Laatste', true)}${th('betaal_dagen', 'Betaalt', true)}<th>12 maanden</th></tr></thead>
-      <tbody>${shown.map(c => `<tr class="click" data-href="#/klant/${c.id}">
-        <td style="padding-left:16px"><a href="#/klant/${c.id}">${h(c.naam)}</a><div class="as">${h(c.plaats)}, ${h(COUNTRY[c.land] || c.land)} · ${h(c.soort)}${c.top ? ` · vooral ${h(c.top)}` : ''}</div></td>
-        <td>${segChip(c.segment)}</td>
-        <td>${health(c.gezondheid)}</td>
-        <td class="r num">${fEur(c.omzet_12m)}</td>
-        <td class="r num">${c.trend == null ? '–' : `<span class="${c.trend >= 10 ? 'up' : c.trend <= -10 ? 'down' : ''}">${c.trend > 0 ? '+' : ''}${c.trend}%</span>`}</td>
-        <td class="r num">${c.marge_pct == null ? '–' : fPct(c.marge_pct)}</td>
-        <td class="r num">${c.ritme ? `elke ${c.ritme} d` : '–'}</td>
-        <td class="r num">${c.dagen_sinds == null ? '–' : `${c.dagen_sinds} d`}${c.te_laat_dagen > 3 && c.actief ? ` <span class="late">+${c.te_laat_dagen}</span>` : ''}</td>
-        <td class="r num">${c.betaal_dagen == null ? '–' : c.betaal_dagen > 3 ? `<span class="down">${Math.round(c.betaal_dagen)} d laat</span>` : 'op tijd'}${c.over_tijd ? `<div class="as" style="color:var(--warn)">${fEur(c.over_tijd)} over tijd</div>` : ''}</td>
-        <td>${spark(c.maanden)}</td></tr>`).join('')}</tbody></table></div></section>
-  </div>`;
-}
 
 export async function renderDetail(params) {
   const c = await api(`/klanten/${params.id}`);
@@ -44,7 +13,7 @@ export async function renderDetail(params) {
   const wd = [1, 2, 3, 4, 5, 6, 7].map(d => ({ label: DOW[d], value: Number((c.weekdagen.find(w => w.dag === d) || {}).n || 0), tip: `${(c.weekdagen.find(w => w.dag === d) || {}).n || 0} bestellingen` }));
   const open = c.facturen.filter(f => !f.betaald_op);
   return `<div class="page">
-    <a class="back" href="#/klanten">${icon('back')}Klanten</a>
+    <a class="back" href="#/relaties?kant=klanten">${icon('back')}Kwekers en klanten</a>
     <div class="prof"><div><h1>${h(c.naam)}</h1>
       <div class="sub"><span>${h(c.soort)} in ${h(c.plaats)}, ${h(COUNTRY[c.land] || c.land)}</span>${c.contact ? `<span>${h(c.contact)}</span>` : ''}${c.whatsapp ? `<a href="${waLink(c.whatsapp, '')}" target="_blank" rel="noopener">${icon('chat')}${h(c.whatsapp)}</a>` : ''}${c.email ? `<a href="mailto:${h(c.email)}">${h(c.email)}</a>` : ''}</div>
       <div class="sub"><span>${h(LANG[c.taal] || c.taal)}, liefst via ${h(kanaalNaam(c.kanaal))}</span>${c.levervenster ? `<span>${icon('truck')} ${h(c.levervenster)}</span>` : ''}<span>klant sinds ${c.klant_sinds || '–'}</span><span>betaaltermijn ${c.betaaltermijn} dagen</span>${segChip(c.segment)}${c.bron === 'demo' ? '<span class="chip">demo</span>' : ''}</div>
@@ -61,6 +30,7 @@ export async function renderDetail(params) {
     </dl>
     <div class="grid2">
       <div class="stack">
+        ${obstaclePanel(c.belemmeringen, 'klant')}
         <section class="panel"><header><h2>Wat de desk ziet</h2></header><div class="body"><ul class="insights">${c.inzichten.map(i => `<li class="${i.toon}">${icon(i.toon === 'ok' ? 'check' : i.toon === 'bad' ? 'warn' : i.toon === 'wait' ? 'clock' : 'info')}<span>${h(i.tekst)}</span></li>`).join('')}</ul></div></section>
         ${c.lopend.length ? `<section class="panel"><header><h2>Nu onderweg in de workflow</h2></header><div class="tbwrap"><table class="tb"><tbody>${c.lopend.map(l => `<tr class="click" data-href="#/factuur/${l.factuur_id}"><td style="padding-left:16px"><a href="#/factuur/${l.factuur_id}">${h(l.kweker)} ${h(l.nummer)}</a></td><td>${fNum(l.aantal)} × ${h(l.plant)} ${h(l.potmaat || '')}</td><td>${l.status === 'voorstel' ? '<span class="chip info">voorstel</span>' : '<span class="chip ok">bevestigd</span>'}${l.soort === 'aanbod' ? ' <span class="chip brass">aanbod</span>' : ''}</td></tr>`).join('')}</tbody></table></div></section>` : ''}
         <section class="panel"><header><h2>Bestellingen</h2><span class="sub">Laatste ${c.orders.length}, met hoe de levering ging</span></header><div class="tbwrap"><table class="tb"><thead><tr><th style="padding-left:16px">Besteld</th><th>Order</th><th>Wat</th><th class="r">Waarde</th><th class="r">Afgeleverd</th></tr></thead><tbody>
@@ -101,9 +71,8 @@ function form(c = {}) {
 }
 const payload = v => { const o = { ...v }; for (const k of ['reistijd_min', 'betaaltermijn', 'kredietlimiet']) if (o[k] === '') o[k] = null; return o; };
 
+// adding a customer starts on the Kwekers en klanten page (views/relaties.js)
 export const listActions = {
-  sort(el, ctx) { const k = el.dataset.k; sort = { key: k, dir: sort.key === k ? -sort.dir : -1 }; ctx.refresh(); },
-  seg(el, ctx) { seg = el.dataset.s; if (location.hash.includes('?')) location.hash = '#/klanten'; else ctx.refresh(); },
   nieuw() { dialog({ title: 'Klant toevoegen', ok: 'Toevoegen', body: form(), onOk: async v => { const r = await api('/klanten', { method: 'POST', body: payload(v) }); toast('Klant toegevoegd.'); location.hash = `#/klant/${r.id}`; } }); },
 };
 export const detailActions = {
@@ -112,4 +81,3 @@ export const detailActions = {
     dialog({ title: 'Gegevens van de klant', body: form(c), onOk: async v => { await api(`/klanten/${c.id}`, { method: 'PATCH', body: payload(v) }); toast('Opgeslagen.'); ctx.refresh(); } });
   },
 };
-export function onInput(e, ctx) { if (e.target.dataset.input === 'q') { q = e.target.value; ctx.refreshSoon(); } }
