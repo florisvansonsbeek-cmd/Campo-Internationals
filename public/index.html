@@ -7,7 +7,29 @@
 <title>Campo International</title>
 <meta name="description" content="Campo International, wholesale in pot plants and cut flowers from Nootdorp, the Netherlands.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="preload" as="image" type="image/avif" imagesrcset="/img/kas-480.avif 480w, /img/kas-760.avif 760w, /img/kas-1100.avif 1100w" imagesizes="(max-width: 900px) 86vw, 440px">
+<script>
+/* The picture on the right of the front page changes with every visit: three photographs and two drawings,
+   in turn. ?beeld=kas, kiem, bollen, kaart or lijn shows one on purpose. */
+(function () {
+  var L = ['kas', 'kiem', 'bollen', 'kaart', 'lijn'], i, m = /[?&]beeld=([a-z]+)/.exec(location.search);
+  try {
+    if (m && L.indexOf(m[1]) >= 0) i = L.indexOf(m[1]);
+    else {
+      i = (parseInt(localStorage.getItem('campo.beeld'), 10) + 1) % L.length;
+      if (!(i >= 0)) i = Math.floor(Math.random() * L.length);
+      localStorage.setItem('campo.beeld', String(i));
+    }
+  } catch (e) { i = Math.floor(Math.random() * L.length); }
+  document.documentElement.setAttribute('data-beeld', L[i]);
+  if (L[i] === 'lijn' || (location.hash && location.hash !== '#/' && location.hash !== '#')) return;
+  var ws = L[i] === 'kaart' ? [480, 760, 1000] : [480, 760, 1100];
+  var l = document.createElement('link');
+  l.rel = 'preload'; l.as = 'image'; l.type = 'image/avif';
+  l.setAttribute('imagesrcset', ws.map(function (w) { return '/img/' + L[i] + '-' + w + '.avif ' + w + 'w'; }).join(', '));
+  l.setAttribute('imagesizes', L[i] === 'kaart' ? '(max-width: 900px) 78vw, 400px' : '(max-width: 900px) 86vw, 440px');
+  document.head.appendChild(l);
+})();
+</script>
 <style>
 /* Fonts are embedded, so the page loads nothing from Google or any other host.
    Cormorant Garamond (c) The Cormorant Project Authors; Source Sans 3 (c) Adobe. Both under the SIL Open Font License 1.1. */
@@ -157,10 +179,30 @@ p,dl,dd{margin:0}
 .hero-facts > div{background:var(--sheet);padding:12px 16px}
 .hero-facts dt,.visit-facts dt,.cust-sum dt{font:600 11px/1.3 var(--font-ui);letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3)}
 .hero-facts dd{margin-top:5px;font-weight:600;line-height:1.35}
-/* a greenhouse full of flowering cyclamen, seen through an arched window that stands on the line under the hero */
-.plate{align-self:end;justify-self:center;width:min(100%,440px,calc(72vh * 11 / 14));position:relative;margin:0}
-.plate picture{display:block;aspect-ratio:11/14;border-radius:999px 999px 0 0;overflow:hidden;background:var(--sage);animation:grow .9s cubic-bezier(.2,.7,.2,1) both}
-.plate img{display:block;width:100%;height:100%;object-fit:cover}
+/* the picture on the right of the hero, a different one with every visit:
+   a photograph in an arched window standing on the line under the hero, or a drawing in the place of the old globe */
+.plate{position:relative;margin:0;animation:grow .9s cubic-bezier(.2,.7,.2,1) both}
+.plate.arch{align-self:end;justify-self:center;width:min(100%,440px,calc(72vh * 11 / 14))}
+.plate.arch picture{display:block;aspect-ratio:11/14;border-radius:999px 999px 0 0;overflow:hidden;background:var(--sage)}
+.plate.arch img{display:block;width:100%;height:100%;object-fit:cover}
+.plate.round,.plate.drawn{align-self:end;justify-self:end;width:min(100%,470px);aspect-ratio:1/1;margin-bottom:clamp(20px,3vw,44px)}
+.plate.round picture{position:absolute;inset:7.2%;border-radius:50%;overflow:hidden;background:var(--sage)}
+.plate.round picture img{display:block;width:100%;height:100%;object-fit:cover}
+.plate .hero-art{position:absolute;inset:0;display:block;width:100%;height:100%;overflow:visible}
+.hero-art .g-rim{fill:none;stroke:var(--leaf);stroke-opacity:.4;stroke-width:1.4}
+.hero-art .g-ring{fill:none;stroke:var(--leaf);stroke-opacity:.15;stroke-width:1}
+.hero-art .g-halo{fill:var(--sprout);fill-opacity:.2}
+.hero-art .g-dot{fill:var(--sprout);stroke:var(--sheet);stroke-width:2}
+.hero-art text{paint-order:stroke;stroke:var(--sheet);stroke-width:4px;stroke-linejoin:round}
+.hero-art .g-name{font:600 12.5px var(--font-ui);letter-spacing:.24em;fill:var(--forest)}
+.hero-art .g-coord{font:400 12px var(--font-ui);letter-spacing:.04em;fill:var(--ink-3)}
+.kas-art .k-plane{fill:url(#kas-fill);fill-opacity:.62;stroke:none}
+.kas-art .k-back{fill:none;stroke:var(--leaf);stroke-opacity:.1;stroke-width:1}
+.kas-art .k-grid{fill:none;stroke:var(--leaf);stroke-opacity:.16;stroke-width:1}
+.kas-art .k-main{fill:none;stroke:var(--leaf);stroke-opacity:.32;stroke-width:1.2}
+.kas-art .k-rim{fill:none;stroke:var(--leaf);stroke-opacity:.45;stroke-width:1.4;stroke-linejoin:round}
+.kas-art .k-plant{fill:var(--sprout);fill-opacity:.24}
+.kas-art .k-bloom{fill:#d0457f;fill-opacity:.32}
 @keyframes grow{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 
 /* sections */
@@ -257,7 +299,8 @@ p,dl,dd{margin:0}
 @media (max-width:900px){
   .hero-in{grid-template-columns:minmax(0,1fr);gap:8px}
   .hero-copy{padding-bottom:16px}
-  .plate{width:min(86%,380px);justify-self:center}
+  .plate.arch{width:min(86%,380px);justify-self:center}
+  .plate.round,.plate.drawn{width:min(100%,360px);justify-self:center;margin-bottom:24px}
   .flow{grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 24px}
   .flow li::before{right:0}
   .doors{grid-template-columns:minmax(0,1fr)}
@@ -1363,6 +1406,11 @@ const TX = {
   weekN: { en: 'Week {n}', nl: 'Week {n}', de: 'KW {n}', fr: 'Semaine {n}', es: 'Semana {n}', it: 'Settimana {n}', pl: 'Tydzień {n}' },
   factSeason: { en: 'In season', nl: 'In het seizoen', de: 'In Saison', fr: 'De saison', es: 'De temporada', it: 'Di stagione', pl: 'W sezonie' },
   yearRound: { en: 'The year-round range', nl: 'Het vaste assortiment', de: 'Das Ganzjahressortiment', fr: 'La gamme permanente', es: 'El surtido de todo el año', it: 'L’assortimento di tutto l’anno', pl: 'Asortyment całoroczny' },
+  kiemAlt: { en: 'A young seedling with two leaves in the soil', nl: 'Een jong plantje met twee blaadjes in de aarde', de: 'Ein junger Keimling mit zwei Blättern in der Erde', fr: 'Une jeune pousse à deux feuilles dans la terre', es: 'Un brote joven con dos hojas en la tierra', it: 'Un giovane germoglio con due foglie nella terra', pl: 'Młoda siewka z dwoma listkami w ziemi' },
+  bollenAlt: { en: 'A bulb field with rows of red and yellow tulips and a windmill on the horizon', nl: 'Een bollenveld met rijen rode en gele tulpen en een molen aan de horizon', de: 'Ein Tulpenfeld mit Reihen roter und gelber Tulpen und einer Windmühle am Horizont', fr: 'Un champ de tulipes rouges et jaunes, avec un moulin à l’horizon', es: 'Un campo de tulipanes rojos y amarillos con un molino en el horizonte', it: 'Un campo di tulipani rossi e gialli con un mulino all’orizzonte', pl: 'Pole tulipanów w czerwone i żółte rzędy, z wiatrakiem na horyzoncie' },
+  mapAria: { en: 'Watercolour map of Campo’s warehouse in Nootdorp, with Nootdorp marked', nl: 'Waterverfkaart van de loods van Campo in Nootdorp, met Nootdorp gemarkeerd', de: 'Aquarellkarte der Halle von Campo in Nootdorp, Nootdorp markiert', fr: 'Carte à l’aquarelle de l’entrepôt Campo à Nootdorp, avec Nootdorp indiqué', es: 'Mapa en acuarela del almacén de Campo en Nootdorp, con Nootdorp marcado', it: 'Mappa ad acquerello del magazzino Campo a Nootdorp, con Nootdorp segnato', pl: 'Akwarelowa mapa magazynu Campo w Nootdorp z zaznaczonym Nootdorp' },
+  kasArtAria: { en: 'Line drawing of a glasshouse in the Westland', nl: 'Lijntekening van een glazen kas in het Westland', de: 'Strichzeichnung eines Gewächshauses im Westland', fr: 'Dessin au trait d’une serre du Westland', es: 'Dibujo lineal de un invernadero en el Westland', it: 'Disegno al tratto di una serra nel Westland', pl: 'Rysunek szklarni w Westlandzie' },
+  kasSub: { en: 'Our growers’ glasshouses', nl: 'Kassen van onze kwekers', de: 'Gewächshäuser unserer Erzeuger', fr: 'Les serres de nos producteurs', es: 'Los invernaderos de nuestros productores', it: 'Le serre dei nostri produttori', pl: 'Szklarnie naszych producentów' },
   kasAlt: { en: 'Rows of flowering cyclamen in a glasshouse', nl: 'Rijen bloeiende cyclamen in een kas', de: 'Reihen blühender Alpenveilchen im Gewächshaus', fr: 'Rangées de cyclamens en fleurs dans une serre', es: 'Hileras de ciclámenes en flor en un invernadero', it: 'File di ciclamini in fiore in una serra', pl: 'Rzędy kwitnących cyklamenów w szklarni' },
   globeAria: { en: 'A globe with Nootdorp marked', nl: 'Een wereldbol met Nootdorp gemarkeerd', de: 'Ein Globus, auf dem Nootdorp markiert ist', fr: 'Un globe où Nootdorp est indiqué', es: 'Un globo terráqueo con Nootdorp señalado', it: 'Un globo con Nootdorp in evidenza', pl: 'Globus z zaznaczonym Nootdorp' },
   factOffice: { en: 'Office', nl: 'Kantoor', de: 'Büro', fr: 'Bureau', es: 'Oficina', it: 'Sede', pl: 'Biuro' },
@@ -1587,11 +1635,65 @@ function rangeCard(k) {
   </li>`;
 }
 
-/* the front page shows a greenhouse full of flowers, through an arched window standing on the line under the hero */
+/* The picture on the right of the hero changes with every visit (see the script in <head>): three photographs in
+   an arched window, a round watercolour map with Nootdorp marked, or a line drawing of a glasshouse. The two drawings
+   follow the old globe: thin lines, a soft fill, a dot with a name. The photographs are made by scripts/art/*.py. */
+const HERO_ART = ['kas', 'kiem', 'bollen', 'kaart', 'lijn'].includes(document.documentElement.dataset.beeld) ? document.documentElement.dataset.beeld : 'kas';
+function heroPicture(name, widths, sizes, alt) {
+  const set = ext => widths.map(w => `/img/${name}-${w}.${ext} ${w}w`).join(', ');
+  return `<picture><source type="image/avif" srcset="${set('avif')}" sizes="${sizes}"><source type="image/webp" srcset="${set('webp')}" sizes="${sizes}"><img src="/img/${name}-760.webp" width="${widths[widths.length - 1]}" height="${name === 'kaart' ? widths[widths.length - 1] : 1400}" alt="${alt}" fetchpriority="high" decoding="async"></picture>`;
+}
+const marker = (x, y, name, sub) => `<circle class="g-halo" cx="${x}" cy="${y}" r="14"/><circle class="g-dot" cx="${x}" cy="${y}" r="5.5"/>
+    <text class="g-name" x="${x + 18}" y="${y - 3}">${name}</text><text class="g-coord" x="${x + 18}" y="${y + 14}">${sub}</text>`;
+function mapArt() {
+  return `<div class="plate round">${heroPicture('kaart', [480, 760, 1000], '(max-width: 900px) 78vw, 400px', '')}
+    <svg class="hero-art" viewBox="0 0 500 500" role="img" aria-label="${t('mapAria')}">
+      <circle class="g-ring" cx="250" cy="250" r="232"/><circle class="g-rim" cx="250" cy="250" r="214"/>
+      ${marker(250, 197, 'NOOTDORP', '52°03′N · 4°24′E')}
+    </svg></div>`;
+}
+function kasLineArt() {
+  // a Venlo glasshouse in isometric view: ridges along its length, glass bars, plants on the benches inside
+  const L = 10, D = 6, Hw = 2.3, hr = 0.55, k = 30, c = Math.cos(Math.PI / 6);
+  const P = (x, y, z) => [(x - y) * c * k, ((x + y) * 0.5 - z) * k];
+  const f = v => v.toFixed(1);
+  const seg = (a, b) => { const p = P(...a), q = P(...b); return `M${f(p[0])} ${f(p[1])}L${f(q[0])} ${f(q[1])}`; };
+  const poly = pts => 'M' + pts.map(p => P(...p).map(f).join(' ')).join('L') + 'Z';
+  let back = '', grid = '', main = '', rim = '', planes = '', plants = '', blooms = '';
+  back += seg([0, 0, 0], [L, 0, 0]) + seg([0, 0, 0], [0, D, 0]) + seg([0, 0, 0], [0, 0, Hw]) + seg([L, 0, 0], [L, 0, Hw]) + seg([0, D, 0], [0, D, Hw]);
+  for (let x = 1; x < L; x += 1) back += seg([x, 0, 0], [x, 0, Hw]);
+  for (let y = 0.35; y < D - 0.2; y += 0.55) {
+    for (let x = 0.45; x < L - 0.2; x += 0.5) {
+      const [px, py] = P(x, y, 0.75), r = 2.4;
+      const dot = `M${f(px - r)} ${f(py)}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0`;
+      if ((Math.round(x * 2) + Math.round(y * 3)) % 7 === 0) blooms += dot; else plants += dot;
+    }
+  }
+  for (let r = 0; r < D; r++) {
+    planes += `<path class="k-plane" d="${poly([[0, r, Hw], [L, r, Hw], [L, r + 0.5, Hw + hr], [0, r + 0.5, Hw + hr]])}"/><path class="k-plane" d="${poly([[0, r + 0.5, Hw + hr], [L, r + 0.5, Hw + hr], [L, r + 1, Hw], [0, r + 1, Hw]])}"/>`;
+    main += seg([0, r + 0.5, Hw + hr], [L, r + 0.5, Hw + hr]) + seg([0, r, Hw], [L, r, Hw]);
+    for (let x = 0.5; x < L; x += 0.5) grid += seg([x, r, Hw], [x, r + 0.5, Hw + hr]) + seg([x, r + 0.5, Hw + hr], [x, r + 1, Hw]);
+    rim += seg([L, r, Hw], [L, r + 0.5, Hw + hr]) + seg([L, r + 0.5, Hw + hr], [L, r + 1, Hw]) + seg([0, r, Hw], [0, r + 0.5, Hw + hr]) + seg([0, r + 0.5, Hw + hr], [0, r + 1, Hw]);
+  }
+  main += seg([0, D, Hw], [L, D, Hw]);
+  for (let y = 0.5; y < D; y += 0.5) grid += seg([L, y, 0], [L, y, Hw]);
+  for (let x = 0.5; x < L; x += 0.5) grid += seg([x, D, 0], [x, D, Hw]);
+  grid += seg([L, 0, 0.6], [L, D, 0.6]) + seg([0, D, 0.6], [L, D, 0.6]);
+  rim += seg([0, D, 0], [L, D, 0]) + seg([L, D, 0], [L, 0, 0]) + seg([L, 0, 0], [L, 0, Hw]) + seg([L, D, 0], [L, D, Hw]) + seg([0, D, 0], [0, D, Hw]) + seg([L, 0, Hw], [L, D, Hw]);
+  rim += seg([L, 2.6, 0], [L, 2.6, 1.7]) + seg([L, 2.6, 1.7], [L, 3.4, 1.7]) + seg([L, 3.4, 1.7], [L, 3.4, 0]);
+  const [mx, my] = P(6.5, 2.5, Hw + hr);
+  return `<div class="plate drawn"><svg class="hero-art kas-art" viewBox="-176 -150 456 456" role="img" aria-label="${t('kasArtAria')}">
+    <defs><linearGradient id="kas-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--sheet)"/><stop offset="1" style="stop-color:var(--sage)"/></linearGradient></defs>
+    <path class="k-back" d="${back}"/><path class="k-plant" d="${plants}"/><path class="k-bloom" d="${blooms}"/>
+    ${planes}<path class="k-grid" d="${grid}"/><path class="k-main" d="${main}"/><path class="k-rim" d="${rim}"/>
+    ${marker(+f(mx), +f(my), 'WESTLAND', t('kasSub'))}
+  </svg></div>`;
+}
 function plantArt() {
-  const set = ext => [480, 760, 1100].map(w => `/img/kas-${w}.${ext} ${w}w`).join(', ');
-  const sizes = '(max-width: 900px) 86vw, 440px';
-  return `<picture><source type="image/avif" srcset="${set('avif')}" sizes="${sizes}"><source type="image/webp" srcset="${set('webp')}" sizes="${sizes}"><img src="/img/kas-760.webp" width="1100" height="1400" alt="${t('kasAlt')}" fetchpriority="high" decoding="async"></picture>`;
+  if (HERO_ART === 'kaart') return mapArt();
+  if (HERO_ART === 'lijn') return kasLineArt();
+  const alt = { kas: 'kasAlt', kiem: 'kiemAlt', bollen: 'bollenAlt' }[HERO_ART];
+  return `<div class="plate arch">${heroPicture(HERO_ART, [480, 760, 1100], '(max-width: 900px) 86vw, 440px', t(alt))}</div>`;
 }
 
 function viewHome() {
@@ -1614,7 +1716,7 @@ function viewHome() {
           <div><dt>${t('factOffice')}</dt><dd>${CO.town}</dd></div>
         </dl>
       </div>
-      <div class="plate">${plantArt()}</div>
+      ${plantArt()}
     </div>
   </section>
 
