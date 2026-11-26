@@ -1,6 +1,6 @@
 // One order in its own tab: the route with every time on it, each customer it goes to,
 // what is on the truck, what was heard about it, and who to call.
-import { api, h, icon, fTime, fNum, fEur, fPrice, dayWord, plural, waLink, COUNTRY } from '../core.js';
+import { api, h, icon, fTime, fNum, fEur, fPrice, dayWord, plural, waLink, COUNTRY, toast, dialog, field } from '../core.js';
 import { laneHtml, when, dur, cap, TONE, stageText } from '../lane.js';
 
 let shown = null;
@@ -38,6 +38,7 @@ function custCard(k, focus) {
   const gone = k.state === 'onderweg' || k.state === 'afgeleverd';
   return `<article class="ocust t-${k.toon}${focus === k.levering_id ? ' focus' : ''}" id="lev-${k.levering_id}">
     <header><h3><a href="#/klant/${k.klant_id}">${h(k.klant)}</a></h3><span class="st t-${k.toon}"><i aria-hidden="true"></i>${TONE[k.toon]}</span></header>
+    <p class="small"><a class="lnk" href="#/wagen/${k.levering_id}" target="_blank" rel="noopener">${icon('truck')}Open de wagen naar ${h(k.klant)}</a></p>
     <p class="sub">${h(k.plaats || '')}${k.land ? `, ${h(COUNTRY[k.land] || k.land)}` : ''}${k.order ? ` · order ${h(k.order)}` : ''}${k.levervenster ? ` · levert ${h(k.levervenster)}` : ''}</p>
     <ul class="goods">${k.planten.map(p => `<li><b class="num">${fNum(p.aantal)}</b> × ${h(p.naam)} <span class="faint">${h(p.maat)}</span>${p.voorstel ? ' <span class="chip info">voorstel</span>' : ''}</li>`).join('')}</ul>
     <dl class="times">
@@ -90,7 +91,7 @@ export async function render(params, query) {
   return `<div class="page order-page">
     <a class="back" href="#/workflow">${icon('back')}Workflow</a>
     <div class="ph"><div><h1>${h(b.kweker)} naar ${plural(b.klanten.length, 'klant', 'klanten')}</h1><p>${h(sub)}</p></div>
-      <div class="acts">${phone ? `<a class="btn btn-line" href="${tel(phone)}">${icon('phone')}Bel ${h(k.contact ? k.contact.split(' ')[0] : 'de kweker')}</a>` : ''}${k.whatsapp ? `<a class="btn btn-ghost" href="${waLink(k.whatsapp, 'Hoi, hoe laat zijn jullie in Nootdorp? Gr Jan')}" target="_blank" rel="noopener">${icon('chat')}Vraag de tijd</a>` : ''}</div></div>
+      <div class="acts">${b.in.state !== 'binnen' ? `<button class="btn btn-leaf" data-act="z-binnen" data-id="${b.id}">${icon('check')}Is binnen</button><button class="btn btn-line" data-act="z-eta" data-id="${b.id}">Nieuwe tijd</button>` : ''}${phone ? `<a class="btn btn-line" href="${tel(phone)}">${icon('phone')}Bel ${h(k.contact ? k.contact.split(' ')[0] : 'de kweker')}</a>` : ''}${k.whatsapp ? `<a class="btn btn-ghost" href="${waLink(k.whatsapp, b.in.state === 'gepland' || b.in.state === 'laden' ? 'Hoi, kunnen jullie op de wagen naar Nootdorp nog iets bijladen? Groet, Jan' : 'Hoi, hoe laat zijn jullie in Nootdorp? Gr Jan')}" target="_blank" rel="noopener">${icon('chat')}${b.in.state === 'gepland' || b.in.state === 'laden' ? 'Kan er nog iets bij?' : 'Vraag de tijd'}</a>` : ''}</div></div>
     <div class="ostatus t-${b.toon}"><span class="st t-${b.toon}"><i aria-hidden="true"></i>${TONE[b.toon]}</span><p><b>${h(stageText(b))}.</b>${b.reden ? ` ${h(cap(b.reden))}.` : b.toon === 'ok' ? ' Alles komt waarschijnlijk op tijd aan.' : ''}</p></div>
     <section class="panel lane-solo" aria-label="De route in één beeld">${laneHtml(b, { link: false })}</section>
     <div class="grid2">
@@ -111,5 +112,11 @@ export function mount() {
   const el = document.getElementById(`lev-${shown.focus}`);
   if (el) setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
 }
-export const actions = {};
+export const actions = {
+  async 'z-binnen'(el, ctx) { await api(`/zendingen/${el.dataset.id}/gebeurtenis`, { method: 'POST', body: { soort: 'aangekomen' } }); toast('Gemeld: binnen.'); ctx.refresh(); },
+  'z-eta'(el, ctx) {
+    dialog({ title: 'Nieuwe verwachte tijd', ok: 'Opslaan', body: `${field('eta', 'Verwacht in Nootdorp om', '', { type: 'time' })}${field('tekst', 'Waarom (optioneel)', '', { hint: 'Bijvoorbeeld: file op de A4, later geladen' })}`,
+      onOk: async v => { await api(`/zendingen/${el.dataset.id}/gebeurtenis`, { method: 'POST', body: { soort: 'eta', eta: v.eta, tekst: v.tekst ? `${v.tekst} (nieuwe tijd ${v.eta})` : `Nieuwe tijd ${v.eta}` } }); toast('Tijd bijgewerkt.'); ctx.refresh(); } });
+  },
+};
 export const refreshEvery = 60000;

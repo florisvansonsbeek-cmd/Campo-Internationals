@@ -56,6 +56,8 @@ const P = {
   today: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   flow: '<rect x="3" y="5" width="5" height="14" rx="1"/><rect x="10" y="5" width="5" height="9" rx="1"/><rect x="17" y="5" width="4" height="6" rx="1"/>',
   inbox: '<path d="M3 13l2.5-7h13L21 13v6H3z"/><path d="M3 13h5l1.5 2.5h5L16 13h5"/>',
+  in: '<path d="M12 3.5v10"/><path d="M8 9.5l4 4 4-4"/><path d="M4 14.5v5h16v-5"/>',
+  uit: '<path d="M12 13.5v-10"/><path d="M8 7.5l4-4 4 4"/><path d="M4 14.5v5h16v-5"/>',
   grower: '<path d="M12 21V11"/><path d="M12 11c0-4 3-6.5 7-6.5 0 4-3 6.5-7 6.5z"/><path d="M12 14c0-3-2.4-5-5.5-5 0 3 2.4 5 5.5 5z"/><path d="M6 21h12"/>',
   customer: '<circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c.6-3.6 3.4-6 7-6s6.4 2.4 7 6"/>',
   plant: '<path d="M8 21h8l1-6H7z"/><path d="M12 15V9"/><path d="M12 9c0-3 2-5 5-5 0 3-2 5-5 5z"/><path d="M12 11c0-2.5-1.8-4-4.2-4 0 2.4 1.8 4 4.2 4z"/>',

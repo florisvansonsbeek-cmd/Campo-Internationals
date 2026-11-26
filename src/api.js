@@ -16,6 +16,8 @@ import { pushOffer, pushConcept, sendConcept, outlookStatus, disconnect, removeF
 import { afterChange, afterOffer } from './pipeline.js';
 import { loodsNow } from './loods.js';
 import { zendingState, leveringState, eventsFor, flowNow, orderNow } from './stroom.js';
+import { agenda, trucksOn, wagenNow, ymd } from './agenda.js';
+import { giveFromLoods } from './erbij.js';
 
 export const api = express.Router();
 const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -206,6 +208,30 @@ api.get('/bestelling/:id', wrap(async (req, res) => {
   const d = id ? await orderNow(id) : null;
   if (!d) return res.status(404).json({ fout: 'Deze bestelling bestaat niet (meer).' });
   res.json(d);
+}));
+
+// ---------------------------------------------------------------- the agenda, the trucks of a day, one customer's truck
+const isDay = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(new Date(`${v}T12:00:00`).getTime());
+api.get('/agenda', wrap(async (req, res) => {
+  const van = isDay(req.query.van) ? req.query.van : ymd(new Date());
+  const tot = isDay(req.query.tot) ? req.query.tot : van;
+  if (tot < van || (new Date(`${tot}T12:00:00`) - new Date(`${van}T12:00:00`)) / 864e5 > 45) throw new Invalid({ tot: 'Kies hoogstens zes weken.' });
+  res.json(await agenda(van, tot));
+}));
+api.get('/wagens', wrap(async (req, res) => res.json(await trucksOn(isDay(req.query.dag) ? req.query.dag : ymd(new Date())))));
+api.get('/wagen/:id', wrap(async (req, res) => {
+  const id = int(req.params.id);
+  const d = id ? await wagenNow(id) : null;
+  if (!d) return res.status(404).json({ fout: 'Deze wagen bestaat niet (meer).' });
+  res.json(d);
+}));
+// put something from the loods on a truck that leaves anyway
+api.post('/wagen/:id/erbij', wrap(async (req, res) => {
+  const id = int(req.params.id);
+  const v = clean(req.body || {}, { regel_id: { type: 'int', required: true, min: 1 }, aantal: { type: 'int', required: true, min: 1, max: 999999 }, verkoopprijs: { type: 'num', min: 0 } });
+  const r = await giveFromLoods(v.regel_id, { levering_id: id, aantal: v.aantal, verkoopprijs: v.verkoopprijs ?? null });
+  await log(who(req), 'Uit de loods erbij op een wagen', 'factuur', r.partij.factuur_id, { levering_id: id, klant_id: r.klant_id, aantal: v.aantal, plant: r.partij.plant });
+  res.json({ ok: true, levering_id: r.levering_id });
 }));
 
 // ---------------------------------------------------------------- the workflow: from a grower's offer to the loods
@@ -786,27 +812,9 @@ api.get('/loods/regel/:id/kandidaten', wrap(async (req, res) => {
 }));
 api.post('/loods/regel/:id/klant', wrap(async (req, res) => {
   const id = int(req.params.id);
-  const v = clean(req.body || {}, { klant_id: { type: 'int', required: true, min: 1 }, aantal: { type: 'int', required: true, min: 1, max: 999999 }, verkoopprijs: { type: 'num', min: 0 } });
-  const l = (await loodsNow()).partijen.find(p => p.regel_id === id);
-  if (!l) return res.status(404).json({ fout: 'Deze partij staat niet (meer) in de loods.' });
-  if (v.aantal > l.vrij) throw new Invalid({ aantal: `Er is ${l.vrij} vrij.` });
-  const c = await pool.connect();
-  try {
-    await c.query('BEGIN');
-    // first what has no destination yet, then free stock
-    let need = Math.max(0, v.aantal - l.nog_verdelen);
-    for (const t of (await c.query(`SELECT id, aantal FROM toewijzingen WHERE regel_id = $1 AND bestemming = 'voorraad' AND status = 'bevestigd' ORDER BY id DESC`, [id])).rows) {
-      if (need <= 0) break;
-      const take = Math.min(need, t.aantal);
-      if (take === t.aantal) await c.query('DELETE FROM toewijzingen WHERE id = $1', [t.id]); else await c.query('UPDATE toewijzingen SET aantal = aantal - $2 WHERE id = $1', [t.id, take]);
-      need -= take;
-    }
-    const lev = (await c.query(`SELECT id FROM leveringen WHERE klant_id = $1 AND vertrek_gepland BETWEEN now() - interval '1 hour' AND now() + interval '48 hours' AND (vertrek_werkelijk IS NULL OR vertrek_werkelijk > now()) ORDER BY vertrek_gepland LIMIT 1`, [v.klant_id])).rows[0];
-    await c.query(`INSERT INTO toewijzingen (regel_id, bestemming, klant_id, levering_id, aantal, verkoopprijs, soort, status, reden, door) VALUES ($1, 'klant', $2, $3, $4, $5, 'aanbod', 'bevestigd', 'Uit de loods aan klant gegeven', 'jan')`,
-      [id, v.klant_id, lev ? lev.id : null, v.aantal, v.verkoopprijs ?? null]);
-    await c.query('COMMIT');
-  } catch (e) { await c.query('ROLLBACK').catch(() => {}); throw e; } finally { c.release(); }
-  await log(who(req), 'Uit de loods aan klant', 'factuur', l.factuur_id, { klant_id: v.klant_id, aantal: v.aantal, plant: l.plant });
+  const v = clean(req.body || {}, { klant_id: { type: 'int', required: true, min: 1 }, aantal: { type: 'int', required: true, min: 1, max: 999999 }, verkoopprijs: { type: 'num', min: 0 }, levering_id: { type: 'int', min: 1 } });
+  const r = await giveFromLoods(id, { klant_id: v.klant_id, aantal: v.aantal, verkoopprijs: v.verkoopprijs ?? null, levering_id: v.levering_id || null });
+  await log(who(req), 'Uit de loods aan klant', 'factuur', r.partij.factuur_id, { klant_id: r.klant_id, levering_id: r.levering_id, aantal: v.aantal, plant: r.partij.plant });
   res.json(await loodsNow());
 }));
 

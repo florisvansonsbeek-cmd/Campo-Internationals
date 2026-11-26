@@ -13,6 +13,8 @@ import * as aanbod from './views/aanbod.js';
 import * as loods from './views/loods.js';
 import * as uitleg from './views/uitleg.js';
 import * as bestelling from './views/bestelling.js';
+import * as wagen from './views/wagen.js';
+import * as agendaPage from './agenda.js';
 
 const app = document.getElementById('app');
 let me = null, badge = { inbox: 0, werk: 0 };
@@ -21,6 +23,8 @@ const ROUTES = [
   { re: /^vandaag$/, nav: 'vandaag', title: 'Vandaag', view: vandaag.render, actions: vandaag.actions, every: vandaag.refreshEvery },
   { re: /^workflow$/, nav: 'workflow', title: 'Workflow', view: workflow.render, actions: workflow.actions, mount: workflow.mount, every: workflow.refreshEvery },
   { re: /^aanbod\/(\d+)$/, keys: ['id'], nav: 'workflow', title: 'Aanbod', view: aanbod.render, actions: aanbod.actions },
+  { re: /^wagen\/(\d+)$/, keys: ['id'], nav: 'vandaag', title: 'Wagen', view: wagen.render, actions: wagen.actions, every: wagen.refreshEvery },
+  { re: /^agenda$/, nav: 'vandaag', title: 'Agenda', view: agendaPage.render, actions: agendaPage.actions, every: agendaPage.refreshEvery },
   { re: /^bestelling\/(\d+)$/, keys: ['id'], nav: 'workflow', title: 'Bestelling', view: bestelling.render, actions: bestelling.actions, mount: bestelling.mount, every: bestelling.refreshEvery },
   { re: /^loods$/, nav: 'loods', title: 'Loods', view: loods.render, actions: loods.actions, mount: loods.mount, every: loods.refreshEvery },
   { re: /^uitleg$/, nav: 'uitleg', title: 'Zo werkt het', view: uitleg.render, actions: uitleg.actions },

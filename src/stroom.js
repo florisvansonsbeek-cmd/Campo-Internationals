@@ -3,7 +3,7 @@
 // Vandaag and the workflow both use the truck states below, so they always tell the same story.
 import { rows, one } from './db.js';
 import { offerCards } from './offers.js';
-import { loodsNow } from './loods.js';
+import { erbijBoard } from './erbij.js';
 
 const MIN = 6e4;
 const RANK = { bad: 0, wait: 1, ok: 2, done: 3 };
@@ -185,6 +185,27 @@ async function assemble(zids, lids, al, now) {
   });
 }
 
+// ---------------------------------------------------------------- truck states for any set of trucks
+// Grower trucks (zids) and customer trucks (lids), each with its tone; a customer truck knows the grower trucks it waits for.
+export async function statesFor(zids, lids, now = new Date()) {
+  const al = lids.length ? await allocations([], lids) : [];
+  const allZ = uniq([...zids, ...al.map(a => a.zending_id)]);
+  const zs = allZ.length ? await rows('SELECT z.*, g.naam AS kweker FROM zendingen z JOIN kwekers g ON g.id = z.kweker_id WHERE z.id = ANY($1)', [allZ]) : [];
+  const ls = lids.length ? await rows('SELECT l.*, k.levervenster FROM leveringen l JOIN klanten k ON k.id = l.klant_id WHERE l.id = ANY($1)', [lids]) : [];
+  const zEv = await eventsFor('zending_id', allZ, now), lEv = await eventsFor('levering_id', lids, now);
+  const z = new Map(), l = new Map(), feeders = new Map();
+  for (const r of zs) { const st = { id: r.id, kweker: r.kweker, ...zendingState(r, zEv[r.id] || [], now) }; z.set(r.id, { ...st, ...inboundTone(st), gebeurtenissen: zEv[r.id] || [] }); }
+  for (const a of al) { if (!feeders.has(a.levering_id)) feeders.set(a.levering_id, new Set()); feeders.get(a.levering_id).add(a.zending_id); }
+  for (const r of ls) {
+    const waits = [...(feeders.get(r.id) || [])].map(id => z.get(id)).filter(Boolean);
+    const st = leveringState(r, lEv[r.id] || [], waits, now);
+    const b = { ...st, gepland: r.aankomst_gepland, levervenster: r.levervenster };
+    l.set(r.id, { ...st, ...deliveryTone(b, waits), wacht_op: waits.map(w => ({ id: w.id, kweker: w.kweker, state: w.state, eta: w.eta, delay: w.delay, toon: w.toon })), gebeurtenissen: lEv[r.id] || [] });
+  }
+  return { z, l, al };
+}
+export { allocations };
+
 // ---------------------------------------------------------------- the workflow page
 export async function flowNow() {
   const now = new Date();
@@ -220,16 +241,13 @@ export async function flowNow() {
       : c.gekoppeld_pct < 100 ? `${c.gekoppeld_pct}% heeft een klant` : `hoog risico${c.risico && c.risico.kop && c.risico.kop[0] ? `: ${lcTitle(c.risico.kop[0])}` : ''}`,
   })).sort((a, b) => (a.stap === 'verlopen') - (b.stap === 'verlopen') || b.gekoppeld_pct - a.gekoppeld_pct);
 
-  // what is in the loods without a customer
-  const loods = await loodsNow();
-  const free = loods.partijen.filter(p => p.vrij > 0)
-    .sort((a, b) => RANK[a.leeftijd === 'ok' ? 'ok' : a.leeftijd] - RANK[b.leeftijd === 'ok' ? 'ok' : b.leeftijd] || b.vrij * b.prijs - a.vrij * a.prijs)
-    .map(p => ({ regel_id: p.regel_id, plant_id: p.plant_id, plant: p.plant, maat: p.maat, eenheid: p.eenheid, kweker: p.kweker, binnen_om: p.binnen_om, uren: p.uren, vrij: p.vrij, waarde: Math.round(p.vrij * p.prijs), leeftijd: p.leeftijd }));
-
+  // what is in the loods without a customer, each lot with the trucks it could go along on
+  const board = await erbijBoard({ hours: 36 });
+  const wagens = board.wagens.map(w => ({ levering_id: w.levering_id, klant: w.klant, plaats: w.plaats, vertrek: w.vertrek, past: w.past.length }));
   return {
     nu: now.toISOString(),
     direct, uitzoeken,
-    vrij: { stuks: loods.kpi.vrij, waarde: loods.kpi.vrij_waarde, te_lang: loods.kpi.te_lang, partijen: free },
+    vrij: { ...board.vrij, partijen: board.partijen, wagens },
     banen, klaar,
     telling: { bad: banen.filter(x => x.toon === 'bad').length, wait: banen.filter(x => x.toon === 'wait').length, ok: banen.filter(x => x.toon === 'ok').length, klaar: klaar.length },
   };
