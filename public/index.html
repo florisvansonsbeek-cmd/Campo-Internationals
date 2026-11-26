@@ -7,7 +7,34 @@
 <title>Campo International</title>
 <meta name="description" content="Campo International, wholesale in pot plants and cut flowers from Nootdorp, the Netherlands.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="preload" as="image" type="image/avif" imagesrcset="/img/plant-480.avif 480w, /img/plant-760.avif 760w, /img/plant-1100.avif 1100w, /img/plant-1600.avif 1600w" imagesizes="(max-width: 900px) 78vw, 500px">
+<script>
+/* The front page has three designs that take turns: every visit shows the next one.
+   ?ontwerp=kiem, ?ontwerp=kaart or ?ontwerp=raster shows one on purpose. */
+(function () {
+  var L = ['kiem', 'kaart', 'raster'], d, m = /[?&]ontwerp=(kiem|kaart|raster)\b/.exec(location.search);
+  try {
+    if (m) d = m[1];
+    else {
+      var i = (parseInt(localStorage.getItem('campo.ontwerp'), 10) + 1) % 3;
+      if (!(i >= 0)) i = Math.floor(Math.random() * 3);
+      localStorage.setItem('campo.ontwerp', String(i));
+      d = L[i];
+    }
+  } catch (e) { d = L[Math.floor(Math.random() * 3)]; }
+  document.documentElement.setAttribute('data-ontwerp', d);
+  if (location.hash && location.hash !== '#/' && location.hash !== '#') return;
+  var set = function (n, ws) { return ws.map(function (w) { return '/img/' + n + '-' + w + '.avif ' + w + 'w'; }).join(', '); };
+  var P = {
+    kiem: [set('kiem', [760, 1100, 1600, 2400]), '(max-width: 760px) 240vw, 100vw'],
+    kaart: [set('kaart', [700, 1000, 1400, 2000]), '(max-width: 900px) 100vw, 640px'],
+    raster: [set('kas-tegel', [600, 900]), '(max-width: 760px) 100vw, 384px']
+  }[d];
+  var l = document.createElement('link');
+  l.rel = 'preload'; l.as = 'image'; l.type = 'image/avif';
+  l.setAttribute('imagesrcset', P[0]); l.setAttribute('imagesizes', P[1]);
+  document.head.appendChild(l);
+})();
+</script>
 <style>
 /* Fonts are embedded, so the page loads nothing from Google or any other host.
    Cormorant Garamond (c) The Cormorant Project Authors; Source Sans 3 (c) Adobe. Both under the SIL Open Font License 1.1. */
@@ -19,6 +46,11 @@
 @font-face{font-family:"Source Sans 3";font-style:normal;font-weight:700;font-display:swap;src:url(/fonts/source-sans-3-700-latin.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 @font-face{font-family:"Source Sans 3";font-style:normal;font-weight:400;font-display:swap;src:url(/fonts/source-sans-3-400-latin-ext.woff2) format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
 @font-face{font-family:"Source Sans 3";font-style:normal;font-weight:600;font-display:swap;src:url(/fonts/source-sans-3-600-latin-ext.woff2) format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+/* Bricolage Grotesque (c) The Bricolage Grotesque Project Authors; Instrument Sans (c) The Instrument Sans Project Authors. Both under the SIL Open Font License 1.1. */
+@font-face{font-family:"Bricolage Grotesque";font-style:normal;font-weight:800;font-display:swap;src:url(/fonts/bricolage-grotesque-latin-800-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Bricolage Grotesque";font-style:normal;font-weight:800;font-display:swap;src:url(/fonts/bricolage-grotesque-latin-ext-800-normal.woff2) format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Instrument Sans";font-style:normal;font-weight:700;font-display:swap;src:url(/fonts/instrument-sans-latin-700-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Instrument Sans";font-style:normal;font-weight:700;font-display:swap;src:url(/fonts/instrument-sans-latin-ext-700-normal.woff2) format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
 /* Layout: a quiet paper page with an ink header, one serif headline and hairline grids. The desk inside keeps the same paper, ink, leaf and brass, with hairline-ruled panels. One deliberate light theme. */
 :root{
   --ink:#15201a;
@@ -146,22 +178,11 @@ p,dl,dd{margin:0}
 .go{margin-top:auto;padding-top:10px;font-weight:600;color:var(--leaf);text-decoration:none;width:fit-content}
 .go:hover{text-decoration:underline}
 
-/* front page: the hero, with the plants growing up from its bottom edge */
-.hero{background:linear-gradient(180deg,var(--sheet) 0%,var(--paper) 100%);border-bottom:1px solid var(--sage-2)}
-.hero-in{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(28px,4vw,56px);align-items:end;padding-top:clamp(40px,6vw,72px)}
-.hero-copy{align-self:center;padding-bottom:clamp(40px,6vw,72px)}
-.hero h1{font:500 clamp(44px,4.9vw,68px)/1 var(--font-display);letter-spacing:-.012em;margin-top:20px;color:var(--forest);text-wrap:wrap}
-.hero h1 em{display:block;font-style:italic;color:var(--leaf);text-wrap:balance}
-.hero h1.long{font-size:clamp(40px,4.4vw,60px)}
-.hero-facts{display:grid;grid-template-columns:auto minmax(0,1.6fr) auto;gap:1px;background:var(--line);border:1px solid var(--line);margin-top:40px;max-width:40rem}
+/* the week, the season and the office, under the hero text */
+.hero-facts{display:grid;grid-template-columns:auto minmax(0,1.6fr) auto;gap:1px;background:var(--line);border:1px solid var(--line);margin-top:36px;max-width:40rem}
 .hero-facts > div{background:var(--sheet);padding:12px 16px}
 .hero-facts dt,.visit-facts dt,.cust-sum dt{font:600 11px/1.3 var(--font-ui);letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3)}
 .hero-facts dd{margin-top:5px;font-weight:600;line-height:1.35}
-/* the plant: a cut-out Monstera whose pot stands on the line under the hero */
-.plate{align-self:end;justify-self:center;width:min(100%,500px,calc(74vh / 1.314));position:relative;margin:0}
-.plate picture,.plate img{display:block;width:100%;height:auto}
-.plate img{margin-bottom:-2.5%;animation:grow .9s cubic-bezier(.2,.7,.2,1) both}
-@keyframes grow{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 
 /* sections */
 .sec{padding-block:clamp(56px,8vw,100px)}
@@ -255,9 +276,6 @@ p,dl,dd{margin:0}
   .foot-in{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media (max-width:900px){
-  .hero-in{grid-template-columns:minmax(0,1fr);gap:8px}
-  .hero-copy{padding-bottom:16px}
-  .plate{width:min(86%,380px);justify-self:center}
   .flow{grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 24px}
   .flow li::before{right:0}
   .doors{grid-template-columns:minmax(0,1fr)}
@@ -395,6 +413,155 @@ p,dl,dd{margin:0}
 /* toast */
 .toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:120;background:var(--ink);color:var(--on-ink);padding:11px 18px;font-size:15px;width:max-content;max-width:min(92vw,560px);box-shadow:var(--shadow)}
 .toast{background:var(--forest)}
+
+/* ================= three front-page designs, chosen per visit on <html data-ontwerp> ================= */
+:root{--k-font:"Bricolage Grotesque",var(--font-ui);--r-font:"Instrument Sans",var(--font-ui);--k-moss:#1b301b;--k-green:#4f8a30;--k-green-2:#3d7024;--r-green:#467d32;--r-square:#5b8c3e}
+
+/* the header: in Kiem and Raster the order button is a solid green block in the top right corner */
+.site-top.block .top-cta{align-self:stretch;margin-block:-13px;min-height:72px;padding-inline:clamp(18px,2.2vw,30px);background:var(--k-green);color:#fff;font-size:15px}
+.site-top.block .top-cta:hover{background:var(--k-green-2)}
+[data-ontwerp="raster"] .site-top.block .top-cta{background:var(--r-square)}
+[data-ontwerp="raster"] .site-top.block .top-cta:hover{background:var(--r-green)}
+[data-ontwerp="raster"] .site-top{background:#fff;border-bottom-color:#fff}
+.r-hero{padding-top:clamp(4px,1vw,14px)}
+.site-top.over{position:absolute;top:0;left:0;right:0;z-index:3;background:transparent;border:0;color:#fff}
+.site-top.over .top-nav a{color:rgba(255,255,255,.9)}
+.site-top.over .top-nav a:hover,.site-top.over .top-nav a[aria-current="page"]{color:#fff}
+.site-top.over .wm-txt b{color:#fff}
+.site-top.over .wm-txt i{color:rgba(255,255,255,.82)}
+.site-top.over .lang summary{background:rgba(12,24,12,.18);border-color:rgba(255,255,255,.5);color:#fff}
+.site-top.over .lang summary:hover,.site-top.over .lang[open] summary{border-color:#fff}
+.site-top.over :focus-visible{outline-color:#fff}
+.site-top.over .lang summary svg{color:#fff}
+.btn-white{background:#fff;color:var(--k-moss)}
+.btn-white:hover{background:#e8f0e1}
+.btn-ghost{background:transparent;border-color:rgba(255,255,255,.72);color:#fff}
+.btn-ghost:hover{border-color:#fff;background:rgba(255,255,255,.08)}
+
+/* ---- Kiem: a seedling in soft focus, the name in big white letters with a leaf on the C ---- */
+.k-hero{position:relative;isolation:isolate;display:flex;flex-direction:column;min-height:clamp(620px,100svh,940px);color:#fff;background:var(--k-moss);overflow:hidden}
+.k-bg{display:block;position:absolute;inset:0;z-index:-2}
+.k-bg img{display:block;width:100%;height:100%;object-fit:cover;object-position:24% 68%}
+.k-hero::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,rgba(12,24,12,.46) 0,rgba(12,24,12,0) 160px),linear-gradient(90deg,rgba(12,24,12,0) 42%,rgba(12,24,12,.2))}
+.k-hero > .wrap{width:100%}
+.k-in{flex:1;display:grid;align-content:center;justify-items:end;padding-top:clamp(100px,15vh,156px);padding-bottom:clamp(40px,7vh,80px)}
+.k-word{position:relative;margin:0 -.035em 0 0;font:800 clamp(88px,13vw,200px)/.84 var(--k-font);letter-spacing:-.05em;color:#fff;text-shadow:0 2px 36px rgba(10,24,10,.16);user-select:none}
+.k-leaf{position:absolute;left:-.09em;top:-.27em;width:.55em;height:auto;transform:rotate(-6deg);filter:drop-shadow(0 12px 14px rgba(0,0,0,.3));animation:k-leaf 1.1s cubic-bezier(.2,.7,.2,1) .2s both}
+@keyframes k-leaf{from{opacity:0;transform:translate(-18px,-26px) rotate(-26deg)}to{opacity:1;transform:rotate(-6deg)}}
+.k-copy{max-width:32rem;margin-top:clamp(24px,4.5vh,44px);padding-right:20px;border-right:2px solid rgba(255,255,255,.88);text-align:right}
+.k-copy h1{font:800 clamp(22px,2.05vw,29px)/1.16 var(--k-font);letter-spacing:-.012em;color:#fff;text-wrap:balance}
+.k-copy p{margin-top:12px;font-size:16px;line-height:1.6;color:rgba(255,255,255,.9);text-wrap:pretty}
+.k-copy .actions{justify-content:flex-end;margin-top:24px}
+.k-facts{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px 30px;padding-bottom:26px;font-size:14.5px;line-height:1.4;color:rgba(255,255,255,.9)}
+.k-facts div{display:flex;gap:7px;align-items:baseline}
+.k-facts dt{color:rgba(255,255,255,.72)}
+.k-facts dt::after{content:":"}
+.k-facts dd{font-weight:600;color:#fff}
+
+[data-ontwerp="kiem"] .kicker{color:var(--k-green)}
+[data-ontwerp="kiem"] .kicker::before{background:var(--k-green)}
+[data-ontwerp="kiem"] .btn-leaf{background:var(--k-green)}
+[data-ontwerp="kiem"] .btn-leaf:hover{background:var(--k-green-2)}
+[data-ontwerp="kiem"] .s-head h2,[data-ontwerp="kiem"] .door h2,[data-ontwerp="kiem"] .page-hero h1,[data-ontwerp="kiem"] .visit h2{font-family:var(--k-font);font-weight:800;letter-spacing:-.035em;color:var(--k-moss)}
+[data-ontwerp="kiem"] .s-head h2{font-size:clamp(30px,3.7vw,48px);line-height:1.02}
+[data-ontwerp="kiem"] .door h2{font-size:clamp(24px,2.5vw,31px)}
+[data-ontwerp="kiem"] .pcard h3,[data-ontwerp="kiem"] .flow h3,[data-ontwerp="kiem"] .docs h2{font-family:var(--k-font);font-weight:800;font-size:20px;line-height:1.15;letter-spacing:-.02em;color:var(--k-moss)}
+[data-ontwerp="kiem"] .pcard{border:0;background:#f1f4ed}
+[data-ontwerp="kiem"] .pcard-art{background:#e3ead9}
+[data-ontwerp="kiem"] .season i.on{background:var(--k-green)}
+[data-ontwerp="kiem"] .badge{background:var(--k-green)}
+[data-ontwerp="kiem"] .sec-flow{background:var(--k-moss);border:0;color:#fff}
+[data-ontwerp="kiem"] .sec-flow .s-head h2,[data-ontwerp="kiem"] .sec-flow .flow h3{color:#fff}
+[data-ontwerp="kiem"] .sec-flow .kicker{color:#a9d47f}
+[data-ontwerp="kiem"] .sec-flow .kicker::before{background:#a9d47f}
+[data-ontwerp="kiem"] .sec-flow .s-head > p:not(.kicker),[data-ontwerp="kiem"] .sec-flow .flow p{color:rgba(255,255,255,.78)}
+[data-ontwerp="kiem"] .sec-flow .flow li::before{background:rgba(255,255,255,.22)}
+[data-ontwerp="kiem"] .sec-flow .flow-n{background:var(--k-green)}
+[data-ontwerp="kiem"] .door{border:0;background:#f1f4ed}
+
+/* ---- Kaart: a watercolour plan of the warehouse, with the route of the trucks ---- */
+.m-hero{background:var(--paper);border-bottom:1px solid var(--sage-2)}
+.m-hero{overflow:hidden}
+.m-in{display:grid;grid-template-columns:minmax(0,.78fr) minmax(0,1.22fr);gap:clamp(28px,4vw,56px);align-items:center;padding-block:clamp(32px,4.5vw,56px)}
+.m-copy h1{font:500 clamp(38px,3.5vw,50px)/1.02 var(--font-display);letter-spacing:-.012em;margin-top:18px;color:var(--forest);text-wrap:wrap}
+.m-copy h1 em{display:block;font-style:italic;color:var(--leaf);text-wrap:balance}
+.m-copy .hero-facts{grid-template-columns:auto minmax(0,1fr)}
+.m-copy .hero-facts > div:nth-child(2){grid-column:span 2;order:3}
+.m-map{position:relative;margin:0 min(0px,calc((1152px - 100vw) / 2 - clamp(16px,4vw,32px))) 0 0;aspect-ratio:4/3;background:#f7f6f2;box-shadow:0 1px 2px rgba(20,40,25,.08),0 26px 48px -18px rgba(20,40,25,.3)}
+.m-map picture,.m-map img{display:block;width:100%;height:100%}
+.m-lab{position:absolute;transform:translate(-50%,-50%);padding:2px 9px 4px;background:rgba(250,250,246,.94);border:1px solid rgba(40,56,44,.3);font:italic 500 clamp(14px,1.4vw,19px)/1.15 var(--font-display);color:#202c25;white-space:nowrap;pointer-events:none}
+.m-route{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.m-route path{fill:none;stroke:#26342b;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.m-route .m-r{stroke-dasharray:1;stroke-dashoffset:1;animation:m-draw 1.3s cubic-bezier(.3,.6,.2,1) .35s forwards}
+.m-route .m-h{opacity:0;animation:m-show .3s ease 1.5s forwards}
+@keyframes m-draw{to{stroke-dashoffset:0}}
+@keyframes m-show{to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.m-route .m-r{stroke-dashoffset:0}.m-route .m-h{opacity:1}}
+[data-ontwerp="kaart"] .sec-flow .flow li::before{background:none;height:0;border-top:2px dashed #9bb39a}
+
+/* ---- Raster: photographs and text in a checkerboard ---- */
+.r-hero{background:#fff;padding-bottom:clamp(36px,5vw,64px)}
+.r-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:minmax(clamp(260px,25vw,340px),auto)}
+.r-img{position:relative;margin:0;overflow:hidden;background:#e8ece4}
+.r-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.r-txt{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:clamp(22px,3vw,40px) clamp(18px,2.6vw,36px)}
+.r-txt h1{font:700 clamp(23px,2.2vw,31px)/1.12 var(--r-font);letter-spacing:-.02em;color:var(--r-green);text-wrap:balance}
+.r-txt h2{font:700 clamp(19px,1.6vw,22px)/1.2 var(--r-font);letter-spacing:-.01em;color:var(--r-green)}
+.r-txt p{font-size:15px;line-height:1.62;color:#3a423c;max-width:23rem;text-wrap:pretty}
+.r-txt .actions{justify-content:center;margin-top:4px}
+.r-go{font-weight:600;color:var(--r-green);text-decoration:none;border-bottom:1.5px solid currentColor;padding-bottom:1px}
+.r-go:hover{color:#2f5e22}
+.r-facts{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 32px;margin-top:22px;font-size:14px;color:#4a524c}
+.r-facts div{display:flex;gap:7px;align-items:baseline}
+.r-facts dt::after{content:":"}
+.r-facts dd{font-weight:600;color:var(--ink)}
+[data-ontwerp="raster"] .kicker{color:var(--r-green)}
+[data-ontwerp="raster"] .kicker::before{background:var(--r-square)}
+[data-ontwerp="raster"] .btn-leaf{background:var(--r-green)}
+[data-ontwerp="raster"] .btn-leaf:hover{background:#2f5e22}
+[data-ontwerp="raster"] .s-head h2,[data-ontwerp="raster"] .door h2,[data-ontwerp="raster"] .page-hero h1,[data-ontwerp="raster"] .visit h2{font-family:var(--r-font);font-weight:700;letter-spacing:-.025em;color:var(--r-green)}
+[data-ontwerp="raster"] .s-head h2{font-size:clamp(28px,3.2vw,42px);line-height:1.08}
+[data-ontwerp="raster"] .door h2{font-size:clamp(23px,2.3vw,29px)}
+[data-ontwerp="raster"] .pcard h3,[data-ontwerp="raster"] .flow h3,[data-ontwerp="raster"] .docs h2{font-family:var(--r-font);font-weight:700;font-size:19px;line-height:1.2;letter-spacing:-.01em;color:var(--ink)}
+[data-ontwerp="raster"] .sec-range,[data-ontwerp="raster"] .sec-doors{background:#fff}
+[data-ontwerp="raster"] .sec-flow{background:#f3f6f0;border-color:#e3e9de}
+[data-ontwerp="raster"] .season i.on{background:var(--r-square)}
+[data-ontwerp="raster"] .badge{background:var(--r-green)}
+[data-ontwerp="raster"] .flow-n{background:var(--r-square)}
+
+/* the footer switch between the designs */
+.ontwerp{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
+.ontwerp > span{margin-right:4px}
+.ontwerp button{min-height:30px;padding:3px 11px;border:1px solid rgba(244,245,240,.34);background:transparent;color:var(--on-ink-2);font:600 13px/1.2 var(--font-ui);cursor:pointer}
+.ontwerp button:hover{color:#fff;border-color:rgba(244,245,240,.75)}
+.ontwerp button[aria-pressed="true"]{background:var(--on-ink);border-color:var(--on-ink);color:var(--forest)}
+.ontwerp small{flex-basis:100%;font-size:12.5px;color:rgba(244,245,240,.6)}
+
+@media (max-width:1060px) and (min-width:761px){
+  .r-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .r-range{order:3}.r-kiem{order:4}.r-kaart{order:5}.r-grow{order:6}
+}
+@media (max-width:900px){
+  .m-in{grid-template-columns:minmax(0,1fr)}
+  .m-map{margin-inline:calc(-1 * clamp(16px,4vw,32px))}
+}
+@media (max-width:760px){
+  .site-top.block .top-cta{align-self:center;margin-block:0;min-height:40px}
+  .k-hero{display:block;min-height:0}
+  .k-bg{position:relative;inset:auto;z-index:0;height:clamp(470px,76svh,640px);background:#1e351d}
+  .k-bg img{position:absolute;left:0;right:0;bottom:0;height:80%;object-position:7% 100%}
+  .k-bg::after{content:"";position:absolute;left:0;right:0;top:20%;height:24%;background:linear-gradient(#1e351d,rgba(30,53,29,0))}
+  .k-hero::before{display:none}
+  .k-in{display:block;padding-block:0}
+  .k-word{position:absolute;top:clamp(116px,17svh,140px);left:50%;transform:translateX(-50%);margin:0;font-size:min(22vw,110px);z-index:1}
+  .k-copy{max-width:none;margin:0;padding:26px 0 6px 16px;border-right:0;border-left:2px solid rgba(255,255,255,.88);text-align:left}
+  .k-copy .actions{justify-content:flex-start}
+  .k-facts{justify-content:flex-start;padding:18px 0 30px}
+  .m-lab{font-size:12.5px;padding:1px 6px 2px}
+  .r-grid{grid-template-columns:minmax(0,1fr);grid-auto-rows:auto}
+  .r-img{aspect-ratio:4/3}
+  .r-txt{padding:30px 8px 34px}
+}
 </style>
 </head>
 <body>
@@ -1346,7 +1513,7 @@ const TX = {
   language: { en: 'Language', nl: 'Taal', de: 'Sprache', fr: 'Langue', es: 'Idioma', it: 'Lingua', pl: 'Język' },
   home: { en: 'home', nl: 'home', de: 'Startseite', fr: 'accueil', es: 'inicio', it: 'home', pl: 'strona główna' },
 
-  since: { en: 'Nootdorp · since 1982', nl: 'Nootdorp · sinds 1982', de: 'Nootdorp · seit 1982', fr: 'Nootdorp · depuis 1982', es: 'Nootdorp · desde 1982', it: 'Nootdorp · dal 1982', pl: 'Nootdorp · od 1982' },
+  since: { en: 'In Nootdorp since 1982', nl: 'Sinds 1982 in Nootdorp', de: 'Seit 1982 in Nootdorp', fr: 'À Nootdorp depuis 1982', es: 'En Nootdorp desde 1982', it: 'A Nootdorp dal 1982', pl: 'W Nootdorp od 1982 roku' },
   h1a: { en: 'Flowers and plants,', nl: 'Bloemen en planten,', de: 'Blumen und Pflanzen,', fr: 'Fleurs et plantes,', es: 'Flores y plantas,', it: 'Fiori e piante,', pl: 'Kwiaty i rośliny,' },
   h1b: { en: 'from grower to trade.', nl: 'van kweker tot vakhandel.', de: 'vom Erzeuger zum Fachhandel.', fr: 'du producteur aux professionnels.', es: 'del productor al profesional.', it: 'dal produttore ai professionisti.', pl: 'od producenta do handlu.' },
   lede: {
@@ -1363,7 +1530,45 @@ const TX = {
   weekN: { en: 'Week {n}', nl: 'Week {n}', de: 'KW {n}', fr: 'Semaine {n}', es: 'Semana {n}', it: 'Settimana {n}', pl: 'Tydzień {n}' },
   factSeason: { en: 'In season', nl: 'In het seizoen', de: 'In Saison', fr: 'De saison', es: 'De temporada', it: 'Di stagione', pl: 'W sezonie' },
   yearRound: { en: 'The year-round range', nl: 'Het vaste assortiment', de: 'Das Ganzjahressortiment', fr: 'La gamme permanente', es: 'El surtido de todo el año', it: 'L’assortimento di tutto l’anno', pl: 'Asortyment całoroczny' },
-  plantAlt: { en: 'A Monstera in a stone pot', nl: 'Een Monstera in een stenen pot', de: 'Eine Monstera im Steintopf', fr: 'Un Monstera dans un pot en pierre', es: 'Una Monstera en una maceta de piedra', it: 'Una Monstera in un vaso di pietra', pl: 'Monstera w kamiennej doniczce' },
+  mapLoods: { en: 'Campo’s warehouse', nl: 'Loods van Campo', de: 'Halle von Campo', fr: 'Entrepôt Campo', es: 'Almacén de Campo', it: 'Magazzino Campo', pl: 'Magazyn Campo' },
+  mapKas: { en: 'Growers’ glasshouses', nl: 'Kassen van kwekers', de: 'Gewächshäuser der Erzeuger', fr: 'Serres des producteurs', es: 'Invernaderos de productores', it: 'Serre dei produttori', pl: 'Szklarnie producentów' },
+  mapIn: { en: 'From the grower', nl: 'Van de kweker', de: 'Vom Erzeuger', fr: 'Du producteur', es: 'Del productor', it: 'Dal produttore', pl: 'Od producenta' },
+  mapOut: { en: 'To the customer', nl: 'Naar de klant', de: 'Zum Kunden', fr: 'Vers le client', es: 'Hacia el cliente', it: 'Al cliente', pl: 'Do klienta' },
+  mapAlt: {
+    en: 'Watercolour plan of Campo’s warehouse in Nootdorp seen from above: trucks at the loading docks, with glasshouses, water basins and fields around it.',
+    nl: 'Waterverftekening van de loods van Campo in Nootdorp, van bovenaf: vrachtwagens aan de laaddeuren, met kassen, waterbassins en weilanden eromheen.',
+    de: 'Aquarellplan der Halle von Campo in Nootdorp von oben: Lkw an den Ladetoren, ringsum Gewächshäuser, Wasserbecken und Wiesen.',
+    fr: 'Plan à l’aquarelle de l’entrepôt Campo à Nootdorp vu du ciel : camions aux quais de chargement, entourés de serres, de bassins et de prés.',
+    es: 'Plano en acuarela del almacén de Campo en Nootdorp visto desde arriba: camiones en los muelles de carga, con invernaderos, balsas y prados alrededor.',
+    it: 'Pianta ad acquerello del magazzino Campo a Nootdorp vista dall’alto: camion alle baie di carico, con serre, vasche d’acqua e prati tutt’intorno.',
+    pl: 'Akwarelowy plan magazynu Campo w Nootdorp z góry: ciężarówki przy rampach, a wokół szklarnie, zbiorniki wody i łąki.',
+  },
+  kasAlt: { en: 'Rows of flowering cyclamen in a glasshouse', nl: 'Rijen bloeiende cyclamen in een kas', de: 'Reihen blühender Alpenveilchen im Gewächshaus', fr: 'Rangées de cyclamens en fleurs dans une serre', es: 'Hileras de ciclámenes en flor en un invernadero', it: 'File di ciclamini in fiore in una serra', pl: 'Rzędy kwitnących cyklamenów w szklarni' },
+  kiemAlt: { en: 'A young seedling with two leaves in the soil', nl: 'Een jong plantje met twee blaadjes in de aarde', de: 'Ein junger Keimling mit zwei Blättern in der Erde', fr: 'Une jeune pousse à deux feuilles dans la terre', es: 'Un brote joven con dos hojas en la tierra', it: 'Un giovane germoglio con due foglie nella terra', pl: 'Młoda siewka z dwoma listkami w ziemi' },
+  rLede: {
+    en: 'Wholesale pot plants and cut flowers. We buy from growers and supply the trade all over the world.',
+    nl: 'Groothandel in potplanten en snijbloemen. Wij kopen in bij kwekers en leveren aan de vakhandel over de hele wereld.',
+    de: 'Großhandel für Topfpflanzen und Schnittblumen. Wir kaufen bei Erzeugern ein und beliefern den Fachhandel in aller Welt.',
+    fr: 'Grossiste en plantes en pot et fleurs coupées. Nous achetons auprès des producteurs et livrons les professionnels du monde entier.',
+    es: 'Mayorista de plantas en maceta y flor cortada. Compramos a productores y suministramos al sector en todo el mundo.',
+    it: 'Grossista di piante in vaso e fiori recisi. Acquistiamo dai produttori e riforniamo i professionisti in tutto il mondo.',
+    pl: 'Hurtownia roślin doniczkowych i kwiatów ciętych. Kupujemy od producentów i zaopatrujemy branżę na całym świecie.',
+  },
+  rRangeP: {
+    en: 'From cyclamen to orchids: pot plants and cut flowers all year round. Other sizes and varieties on request.',
+    nl: 'Van cyclaam tot orchidee: potplanten en snijbloemen, het hele jaar door. Andere maten en soorten op aanvraag.',
+    de: 'Von Alpenveilchen bis Orchidee: Topfpflanzen und Schnittblumen das ganze Jahr. Andere Größen und Sorten auf Anfrage.',
+    fr: 'Du cyclamen à l’orchidée : plantes en pot et fleurs coupées toute l’année. Autres tailles et variétés sur demande.',
+    es: 'Del ciclamen a la orquídea: plantas en maceta y flor cortada todo el año. Otros tamaños y variedades bajo pedido.',
+    it: 'Dal ciclamino all’orchidea: piante in vaso e fiori recisi tutto l’anno. Altre misure e varietà su richiesta.',
+    pl: 'Od cyklamenów po storczyki: rośliny doniczkowe i kwiaty cięte przez cały rok. Inne rozmiary i odmiany na zamówienie.',
+  },
+  rRangeGo: { en: 'See the range', nl: 'Bekijk het assortiment', de: 'Zum Sortiment', fr: 'Voir la gamme', es: 'Ver el surtido', it: 'Vedi l’assortimento', pl: 'Zobacz asortyment' },
+  design: { en: 'Design', nl: 'Ontwerp', de: 'Design', fr: 'Design', es: 'Diseño', it: 'Design', pl: 'Projekt' },
+  designHint: { en: 'Every visit shows the next design.', nl: 'Bij elk bezoek ziet u het volgende ontwerp.', de: 'Bei jedem Besuch sehen Sie das nächste Design.', fr: 'Chaque visite montre le design suivant.', es: 'Cada visita muestra el diseño siguiente.', it: 'A ogni visita vedete il design successivo.', pl: 'Przy każdej wizycie widać kolejny projekt.' },
+  dKiem: { en: 'Seedling', nl: 'Kiem', de: 'Keimling', fr: 'Pousse', es: 'Brote', it: 'Germoglio', pl: 'Kiełek' },
+  dKaart: { en: 'Map', nl: 'Kaart', de: 'Karte', fr: 'Plan', es: 'Plano', it: 'Mappa', pl: 'Mapa' },
+  dRaster: { en: 'Grid', nl: 'Raster', de: 'Raster', fr: 'Grille', es: 'Cuadrícula', it: 'Griglia', pl: 'Siatka' },
   globeAria: { en: 'A globe with Nootdorp marked', nl: 'Een wereldbol met Nootdorp gemarkeerd', de: 'Ein Globus, auf dem Nootdorp markiert ist', fr: 'Un globe où Nootdorp est indiqué', es: 'Un globo terráqueo con Nootdorp señalado', it: 'Un globo con Nootdorp in evidenza', pl: 'Globus z zaznaczonym Nootdorp' },
   factOffice: { en: 'Office', nl: 'Kantoor', de: 'Büro', fr: 'Bureau', es: 'Oficina', it: 'Sede', pl: 'Biuro' },
 
@@ -1557,10 +1762,11 @@ const lcFirst = (s, i) => (i ? s.charAt(0).toLowerCase() + s.slice(1) : s);
 const country = () => countryName('NL', CO.country);
 
 function pubTop(active, plain) {
+  const look = plain ? '' : (DESIGN === 'kaart' ? '' : ' block') + (DESIGN === 'kiem' && active === 'home' ? ' over' : '');
   const item = (href, label, key, go) => `<a href="${href}"${go ? ` data-goto="${go}"` : ''}${active === key ? ' aria-current="page"' : ''}>${label}</a>`;
   const nav = plain ? '' : `<nav class="top-nav" aria-label="${t('menu')}">${item('#/', t('navRange'), 'range', 'range')}${item('#/suppliers', t('navGrowers'), 'suppliers')}${item('#/', t('navContact'), 'contact', 'contact')}</nav>
     ${langMenu()}<a class="btn btn-leaf btn-sm top-cta" href="#/login/customer"${active === 'customer' ? ' aria-current="page"' : ''}>${t('track')}</a>`;
-  return `<header class="site-top"><div class="wrap top-bar${plain ? ' plain' : ''}">${wordmark()}${nav}</div></header>`;
+  return `<header class="site-top${look}"><div class="wrap top-bar${plain ? ' plain' : ''}">${wordmark()}${nav}</div></header>`;
 }
 function pubFoot() {
   return `<footer class="foot" id="contact"><div class="wrap foot-in">
@@ -1568,7 +1774,8 @@ function pubFoot() {
   <div><h2>${t('contactK')}</h2><p>${CO.street}<br>${CO.postcode} ${CO.town}<br>${country()}<br><a href="tel:${CO.tel}">${CO.phone}</a><br><a href="mailto:${CO.mail}">${CO.mail}</a></p></div>
   <nav aria-label="${t('footLinks')}"><h2>${t('footLinks')}</h2><p><a href="#/suppliers">${t('growersBtn')}</a><br><a href="#/login/customer">${t('track')}</a><br><a href="/desk/">Campo desk</a></p></nav>
   <div><h2>${t('footCompany')}</h2><p>${CO.name}<br>KvK ${CO.kvk}<br>${t('vat')} ${CO.vat}</p></div>
-</div><div class="wrap"><div class="foot-base"><span>© ${TODAY.getFullYear()} ${CO.name}</span></div></div></footer>`;
+</div><div class="wrap"><div class="foot-base"><span>© ${TODAY.getFullYear()} ${CO.name}</span>
+  <div class="ontwerp" role="group" aria-label="${t('design')}"><span>${t('design')}</span>${DESIGNS.map(d => `<button type="button" data-act="ontwerp" data-o="${d}" aria-pressed="${d === DESIGN}">${t('d' + d[0].toUpperCase() + d.slice(1))}</button>`).join('')}<small>${t('designHint')}</small></div></div></div></footer>`;
 }
 
 function seasonBar(k) {
@@ -1587,38 +1794,101 @@ function rangeCard(k) {
   </li>`;
 }
 
-/* the front page shows one plant, cut out, standing on the line under the hero */
-function plantArt() {
-  const set = ext => [480, 760, 1100, 1600].map(w => `/img/plant-${w}.${ext} ${w}w`).join(', ');
-  const sizes = '(max-width: 900px) 78vw, 500px';
-  return `<picture><source type="image/avif" srcset="${set('avif')}" sizes="${sizes}"><source type="image/webp" srcset="${set('webp')}" sizes="${sizes}"><img src="/img/plant-760.webp" width="760" height="999" alt="${t('plantAlt')}" fetchpriority="high" decoding="async"></picture>`;
+/* ================= the front page, in three designs that take turns =================
+   Kiem: a seedling in soft focus with the name in big letters. Kaart: a watercolour plan of the warehouse.
+   Raster: photographs and text in a checkerboard. The pictures are made by scripts/art/*.py. */
+const DESIGNS = ['kiem', 'kaart', 'raster'];
+let DESIGN = DESIGNS.includes(document.documentElement.dataset.ontwerp) ? document.documentElement.dataset.ontwerp : 'kiem';
+function setDesign(d) {
+  if (!DESIGNS.includes(d)) return;
+  DESIGN = d;
+  document.documentElement.dataset.ontwerp = d;
+  try { localStorage.setItem('campo.ontwerp', String(DESIGNS.indexOf(d))); } catch (e) { /* storage may be off */ }
+}
+function pic(name, widths, sizes, alt, w, h, cls = '', first = false) {
+  const set = ext => widths.map(x => `/img/${name}-${x}.${ext} ${x}w`).join(', ');
+  const fallback = widths[Math.min(1, widths.length - 1)];
+  return `<picture${cls ? ` class="${cls}"` : ''}><source type="image/avif" srcset="${set('avif')}" sizes="${sizes}"><source type="image/webp" srcset="${set('webp')}" sizes="${sizes}"><img src="/img/${name}-${fallback}.webp" width="${w}" height="${h}" alt="${alt}"${first ? ' fetchpriority="high"' : ' loading="lazy"'} decoding="async"></picture>`;
+}
+function heroFacts(cls) {
+  const seas = seasonalNow().map((k, i) => (LANG === 'de' ? pn(k) : lcFirst(pn(k), i)));
+  return `<dl class="${cls}">
+    <div><dt>${t('factWeek')}</dt><dd>${t('weekN', { n: isoWeek(TODAY) })}</dd></div>
+    <div><dt>${t('factSeason')}</dt><dd>${seas.length ? seas.join(', ') : t('yearRound')}</dd></div>
+    <div><dt>${t('factOffice')}</dt><dd>${CO.town}</dd></div>
+  </dl>`;
 }
 
-function viewHome() {
-  const seas = seasonalNow().map((k, i) => (LANG === 'de' ? pn(k) : lcFirst(pn(k), i)));
-  return `${ribbon()}${pubTop('home')}
-<main>
-  <section class="hero" aria-labelledby="hero-h">
-    <div class="wrap hero-in">
-      <div class="hero-copy">
+function heroKiem() {
+  return `<section class="k-hero" aria-labelledby="hero-h">
+    ${pic('kiem', [760, 1100, 1600, 2400], '(max-width: 760px) 240vw, 100vw', '', 2400, 1350, 'k-bg', true)}
+    <div class="wrap k-in">
+      <p class="k-word" aria-hidden="true"><img class="k-leaf" src="/img/blad.webp" width="476" height="326" alt="">Campo</p>
+      <div class="k-copy">
+        <h1 id="hero-h">${t('h1a')} ${t('h1b')}</h1>
+        <p>${t('lede')}</p>
+        <div class="actions">
+          <a class="btn btn-white" href="#/login/customer">${t('track')}</a>
+          <a class="btn btn-ghost" href="#/suppliers">${t('growersBtn')}</a>
+        </div>
+      </div>
+    </div>
+    <div class="wrap">${heroFacts('k-facts')}</div>
+  </section>`;
+}
+
+function heroKaart() {
+  const lab = (x, y, key) => `<span class="m-lab" style="left:${x}%;top:${y}%">${t(key)}</span>`;
+  return `<section class="m-hero" aria-labelledby="hero-h">
+    <div class="wrap m-in">
+      <div class="m-copy">
         <p class="kicker">${t('since')}</p>
-        <h1 id="hero-h"${(t('h1a') + t('h1b')).length > 42 ? ' class="long"' : ''}>${t('h1a')} <em>${t('h1b')}</em></h1>
+        <h1 id="hero-h">${t('h1a')} <em>${t('h1b')}</em></h1>
         <p class="lede">${t('lede')}</p>
         <div class="actions">
           <a class="btn btn-leaf" href="#/login/customer">${t('track')}</a>
           <a class="btn btn-outline" href="#/suppliers">${t('growersBtn')}</a>
         </div>
-        <dl class="hero-facts">
-          <div><dt>${t('factWeek')}</dt><dd>${t('weekN', { n: isoWeek(TODAY) })}</dd></div>
-          <div><dt>${t('factSeason')}</dt><dd>${seas.length ? seas.join(', ') : t('yearRound')}</dd></div>
-          <div><dt>${t('factOffice')}</dt><dd>${CO.town}</dd></div>
-        </dl>
+        ${heroFacts('hero-facts')}
       </div>
-      <div class="plate">${plantArt()}</div>
+      <figure class="m-map">
+        ${pic('kaart', [700, 1000, 1400, 2000], '(max-width: 900px) 100vw, 640px', t('mapAlt'), 2000, 1500, '', true)}
+        <svg class="m-route" viewBox="0 0 400 300" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+          <path class="m-r" pathLength="1" d="M12 202.4 L61 203.6"/><path class="m-h" d="M54 198.6 L62 203.6 L54 208.6"/>
+          <path class="m-r" pathLength="1" d="M346 202.5 L391 201.5"/><path class="m-h" d="M384 196.5 L392 201.5 L384 206.5"/>
+        </svg>
+        ${lab(18, 21, 'mapKas')}${lab(72, 30, 'mapLoods')}${lab(13, 60.5, 'mapIn')}${lab(87.5, 60.5, 'mapOut')}
+      </figure>
     </div>
-  </section>
+  </section>`;
+}
 
-  <section class="sec" id="range" aria-labelledby="range-h">
+function heroRaster() {
+  return `<section class="r-hero" aria-labelledby="hero-h">
+    <div class="wrap"><div class="r-grid">
+      <figure class="r-img r-kas">${pic('kas-tegel', [600, 900], '(max-width: 760px) 100vw, 384px', t('kasAlt'), 900, 900, '', true)}</figure>
+      <div class="r-txt r-main">
+        <h1 id="hero-h">${t('h1a')} ${t('h1b')}</h1>
+        <p>${t('rLede')}</p>
+        <div class="actions"><a class="btn btn-leaf" href="#/login/customer">${t('track')}</a></div>
+        <a class="r-go" href="#/suppliers">${t('growersBtn')}</a>
+      </div>
+      <figure class="r-img r-kiem">${pic('kiem-tegel', [600, 900], '(max-width: 760px) 100vw, 384px', t('kiemAlt'), 900, 900)}</figure>
+      <div class="r-txt r-range"><h2>${t('navRange')}</h2><p>${t('rRangeP')}</p><a class="r-go" href="#/" data-goto="range">${t('rRangeGo')}</a></div>
+      <figure class="r-img r-kaart">${pic('kaart-tegel', [600, 900], '(max-width: 760px) 100vw, 384px', t('mapAlt'), 900, 900)}</figure>
+      <div class="r-txt r-grow"><h2>${t('growK')}</h2><p>${t('growP')}</p><a class="r-go" href="#/suppliers">${t('growMore')}</a></div>
+    </div>
+    ${heroFacts('r-facts')}</div>
+  </section>`;
+}
+
+function viewHome() {
+  const hero = DESIGN === 'kaart' ? heroKaart() : DESIGN === 'raster' ? heroRaster() : heroKiem();
+  return `${ribbon()}${pubTop('home')}
+<main>
+  ${hero}
+
+  <section class="sec sec-range" id="range" aria-labelledby="range-h">
     <div class="wrap">
       <div class="s-head">
         <p class="kicker">${t('rangeK')}</p>
@@ -1629,7 +1899,7 @@ function viewHome() {
     </div>
   </section>
 
-  <section class="sec sec-sage" aria-labelledby="flow-h">
+  <section class="sec sec-sage sec-flow" aria-labelledby="flow-h">
     <div class="wrap">
       <div class="s-head">
         <p class="kicker">${t('flowK')}</p>
@@ -1640,7 +1910,7 @@ function viewHome() {
     </div>
   </section>
 
-  <section class="sec" aria-label="${t('growK')}, ${t('custK')}">
+  <section class="sec sec-doors" aria-label="${t('growK')}, ${t('custK')}">
     <div class="wrap doors">
       <article class="door">
         <div class="door-art">${BOT.plant('cala', 'door-plant')}</div>
@@ -1916,6 +2186,7 @@ document.addEventListener('click', e => {
     return;
   }
   if (act === 'logout') { S.session = null; save(); location.hash = '#/'; }
+  if (act === 'ontwerp') { setDesign(el.dataset.o); if (route() === '') render(true); else location.hash = '#/'; }
 });
 document.addEventListener('submit', e => {
   const f = e.target;

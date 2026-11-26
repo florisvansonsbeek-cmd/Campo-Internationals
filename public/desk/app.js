@@ -67,7 +67,7 @@ function loginView(msg = '') {
       <button class="btn btn-leaf" type="submit" style="min-height:44px">Inloggen</button>
       <a class="lnk small" href="/">Naar de website</a>
     </form>
-    <div class="art"><p>De desk leest, vergelijkt en zet klaar. Jan beslist.</p><picture><source type="image/avif" srcset="/img/plant-760.avif 760w, /img/plant-1100.avif 1100w" sizes="40vw"><img src="/img/plant-760.webp" srcset="/img/plant-760.webp 760w, /img/plant-1100.webp 1100w" sizes="40vw" alt="" width="760" height="999"></picture></div>
+    <div class="art"><p>De desk leest, vergelijkt en zet klaar. Jan beslist.</p><picture><source type="image/avif" srcset="/img/kiem-tegel-600.avif 600w, /img/kiem-tegel-900.avif 900w" sizes="45vw"><img src="/img/kiem-tegel-600.webp" srcset="/img/kiem-tegel-600.webp 600w, /img/kiem-tegel-900.webp 900w" sizes="45vw" alt="" width="900" height="900"></picture></div>
   </div>`;
   document.getElementById('login').addEventListener('submit', async e => {
     e.preventDefault();
