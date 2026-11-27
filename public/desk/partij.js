@@ -1,8 +1,8 @@
 // One shipment, the same on Inkoop and on the supplier's page: does it arrive (the route with its light and the reasons),
-// the stream from what the supplier delivers to the customers and the hall, the full list, the papers and the purchase
-// order for Exact. The stream is drawn from real numbers: one ribbon per box count, nothing made up.
+// the full list, to whom it goes, the papers and the purchase order for Exact.
 import { api, h, icon, fNum, toast, copy, dialog, field } from './core.js';
 import { dayTime, dShort, zn, regio, stageChip, delta, fUsd, fUsdUnit, readFile } from './wk.js';
+import { paperHtml, drawPapers } from './paper.js';
 
 export const DOC = { bestelling: 'Jans bestelling', bevestiging: 'Bevestiging', verzendbewijs: 'Verzendpapieren', awb: 'AWB', fyto: 'Fytosanitair', overig: 'Document' };
 const sum = (a, f) => a.reduce((s, x) => s + (Number(f(x)) || 0), 0);
@@ -10,9 +10,6 @@ const pad = n => String(n).padStart(2, '0');
 // a moment for a datetime-local field, in the time of the person filling it in
 const localInput = v => { if (!v) return ''; const d = new Date(v); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 const iso = v => (v ? new Date(v).toISOString() : null);
-const INK = '#4d5750';
-// on a phone the names get two lines, so every node a little more room
-const narrow = () => typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width:560px)').matches;
 
 // ---------------------------------------------------------------- the light: green, orange, red
 const LICHT = { groen: 'Op schema', oranje: 'Let op', rood: 'Probleem', binnen: 'Binnen' };
@@ -47,122 +44,6 @@ export function routeStrip(r) {
       <b>${h(title)}</b><small>${h(sub || '')}</small><small class="t">${h(when)}</small></li>`);
   });
   return `<ol class="rte" aria-label="Route">${out.join('')}</ol>`;
-}
-
-// ---------------------------------------------------------------- the stream picture
-const PAL = ['#2b7a4b', '#2f6db0', '#c0792a', '#b4446c', '#6a55c9', '#3d8a8a', '#8a6d3b', '#5a7d2a'];
-const TONE = { wait: '#c0792a', bad: '#b23a2a', muted: '#9aa39c' };
-const ribbon = (y0a, y0b, y1a, y1b) => `M0,${y0a.toFixed(1)} C50,${y0a.toFixed(1)} 50,${y1a.toFixed(1)} 100,${y1a.toFixed(1)} L100,${y1b.toFixed(1)} C50,${y1b.toFixed(1)} 50,${y0b.toFixed(1)} 0,${y0b.toFixed(1)} Z`;
-function place(nodes, k, minH, gap) {
-  let y = 0;
-  return nodes.map(n => { const t = n.dozen * k, hh = Math.max(minH, t); const o = { ...n, y, h: hh, t }; y += hh + gap; return o; });
-}
-const colHeight = ns => (ns.length ? ns[ns.length - 1].y + ns[ns.length - 1].h : 0);
-const shift = (ns, dy) => ns.forEach(n => { n.y += dy; });
-function scaleFor(total, n, { min = 150, max = 460, per = 31, gap = 6 } = {}) {
-  const target = Math.max(min, Math.min(max, n * per));
-  return Math.max(0.12, Math.min(3.2, (target - gap * Math.max(0, n - 1)) / Math.max(1, total)));
-}
-// bands leave a node stacked in the order of where they go, and arrive stacked in the order of where they come from
-function stack(nodes, links, side, other) {
-  const pos = new Map();
-  for (const n of nodes) {
-    const mine = links.filter(l => l[side] === n.id).sort((a, b) => other.get(a[side === 'van' ? 'naar' : 'van']) - other.get(b[side === 'van' ? 'naar' : 'van']));
-    let y = n.y + (n.h - sum(mine, l => l.t)) / 2;
-    for (const l of mine) { pos.set(l, [y, y + l.t]); y += l.t; }
-  }
-  return pos;
-}
-// a node: its bar against the ribbons, the name, the number of boxes
-const label = (n, side) => {
-  const bar = `<i class="nbar" style="height:${Math.max(2, n.t).toFixed(1)}px;background:${n.color || TONE[n.tone] || '#9aa39c'}" aria-hidden="true"></i>`;
-  const txt = `<span class="ntx">${n.href ? `<a href="${h(n.href)}">${h(n.label)}</a>` : `<b>${h(n.label)}</b>`}${n.sub ? `<small>${h(n.sub)}</small>` : ''}</span><em>${fNum(n.dozen)}</em>`;
-  return `<span class="nd ${side}${n.tone ? ` t-${n.tone}` : ''}" style="top:${n.y.toFixed(1)}px;height:${n.h.toFixed(1)}px">${side === 'l' ? `${txt}${bar}` : `${bar}${txt}`}</span>`;
-};
-
-// what one supplier delivers, product by product, to which customers and what is left in the hall
-export function flowPartij(st, { max = 8, id = null } = {}) {
-  if (!st || !st.regels.length) return '<p class="empty">Nog geen regels.</p>';
-  const L = st.regels.map((r, i) => ({ id: `r${r.id}`, label: `${r.naam} ${r.maat}`, dozen: r.dozen, color: PAL[i % PAL.length] })).filter(n => n.dozen > 0);
-  const top = st.klanten.slice(0, max), restK = st.klanten.slice(max), topIds = new Set(top.map(k => k.id));
-  let links = st.links.map(l => ({ van: `r${l.van}`, naar: topIds.has(l.naar) ? `k${l.naar}` : 'andere', dozen: l.dozen }));
-  for (const r of st.regels) {
-    if (r.rest > 0) links.push({ van: `r${r.id}`, naar: 'rest', dozen: r.rest });
-    if (r.uitval > 0) links.push({ van: `r${r.id}`, naar: 'uitval', dozen: r.uitval });
-  }
-  const agg = new Map();
-  for (const l of links) { const k = `${l.van}|${l.naar}`; agg.set(k, { ...l, dozen: (agg.get(k)?.dozen || 0) + l.dozen }); }
-  links = [...agg.values()].filter(l => l.dozen > 0);
-  const li = new Map(L.map((n, i) => [n.id, i]));
-  let R = top.map(k => ({ id: `k${k.id}`, label: k.naam, sub: k.plaats, dozen: k.dozen, href: `#/klant/${k.id}`, color: INK }));
-  // customers in the order of the products they take, so the ribbons cross as little as possible
-  const bary = n => { const ls = links.filter(l => l.naar === n.id); const t = sum(ls, l => l.dozen); return t ? sum(ls, l => li.get(l.van) * l.dozen) / t : 0; };
-  R.sort((a, b) => bary(a) - bary(b));
-  if (restK.length) R.push({ id: 'andere', label: `${restK.length} andere ${restK.length === 1 ? 'klant' : 'klanten'}`, dozen: sum(links.filter(l => l.naar === 'andere'), l => l.dozen), tone: 'muted' });
-  const rest = sum(links.filter(l => l.naar === 'rest'), l => l.dozen), uitval = sum(links.filter(l => l.naar === 'uitval'), l => l.dozen);
-  if (rest) R.push({ id: 'rest', label: 'Over in de loods', dozen: rest, tone: 'wait' });
-  if (uitval) R.push({ id: 'uitval', label: 'Uitval', dozen: uitval, tone: 'bad' });
-  for (const n of L) n.dozen = Math.max(n.dozen, sum(links.filter(l => l.van === n.id), l => l.dozen));
-  const total = Math.max(sum(L, n => n.dozen), sum(R, n => n.dozen)), n = Math.max(L.length, R.length);
-  const k = scaleFor(total, n), gap = 6, minH = narrow() ? 32 : 28;
-  const Lp = place(L, k, minH, gap), Rp = place(R, k, minH, gap);
-  const H = Math.max(colHeight(Lp), colHeight(Rp));
-  shift(Lp, (H - colHeight(Lp)) / 2); shift(Rp, (H - colHeight(Rp)) / 2);
-  for (const l of links) l.t = l.dozen * k;
-  const ri = new Map(Rp.map((x, i) => [x.id, i]));
-  const out = stack(Lp, links, 'van', ri), inn = stack(Rp, links, 'naar', li);
-  const color = new Map(Lp.map(x => [x.id, x.color]));
-  const nameOf = new Map([...Lp, ...Rp].map(x => [x.id, x.label]));
-  const paths = links.map(l => {
-    const [a0, a1] = out.get(l), [b0, b1] = inn.get(l);
-    const c = l.naar === 'rest' ? TONE.wait : l.naar === 'uitval' ? TONE.bad : color.get(l.van);
-    return `<path d="${ribbon(a0, a1, b0, b1)}" fill="${c}" class="${l.naar === 'rest' || l.naar === 'uitval' ? 'hl' : ''}"><title>${h(nameOf.get(l.van))} → ${h(nameOf.get(l.naar))}: ${fNum(l.dozen)} ${l.dozen === 1 ? 'doos' : 'dozen'}</title></path>`;
-  }).join('');
-  const sumTxt = `${fNum(st.dozen)} dozen in ${L.length} ${L.length === 1 ? 'variant' : 'varianten'} naar ${st.klanten.length} ${st.klanten.length === 1 ? 'klant' : 'klanten'}${rest ? `, ${fNum(rest)} over in de loods` : ', niets over'}`;
-  return `<div class="strm f2"${id ? ` data-act="flow" data-p="${id}"` : ''} role="img" aria-label="${h(sumTxt)}" style="--fh:${Math.ceil(H)}px">
-    <div class="scol l">${Lp.map(x => label(x, 'l')).join('')}</div>
-    <svg class="rib" viewBox="0 0 100 ${H.toFixed(1)}" preserveAspectRatio="none" aria-hidden="true">${paths}</svg>
-    <div class="scol r">${Rp.map(x => label(x, 'r')).join('')}</div>
-  </div>`;
-}
-
-// the week: every supplier, through the hall in Nootdorp, to every customer
-export function flowWeek(w, partijen, { max = 10, maandag = '' } = {}) {
-  const ps = partijen.filter(p => p.stroom && p.stroom.dozen > 0);
-  if (!ps.length) return '<p class="empty">Nog niets onderweg.</p>';
-  const col = new Map(ps.map((p, i) => [p.id, PAL[i % PAL.length]]));
-  const L = ps.map(p => ({ id: `p${p.id}`, pid: p.id, label: p.leverancier.replace(/ (S\.A\.|B\.V\.|GmbH)$/, ''), sub: `${p.nummer}${p.risico?.licht ? ` · ${lightWord(p.risico.licht).toLowerCase()}` : ''}`, dozen: p.stroom.dozen, color: col.get(p.id), href: `#/leverancier/${p.leverancier_id}?maandag=${maandag}` }));
-  const top = w.klanten.filter(k => k.dozen > 0).slice(0, max), others = w.klanten.filter(k => k.dozen > 0).slice(max);
-  const R = top.map(k => ({ id: `k${k.id}`, label: k.naam, sub: k.tekort ? `kreeg ${fNum(k.dozen)} van ${fNum(k.gevraagd)}` : k.plaats, dozen: k.dozen, per: k.per, href: `#/klant/${k.id}`, tone: k.tekort ? 'short' : '', color: INK }));
-  if (others.length) { const per = {}; for (const k of others) for (const [pid, n] of Object.entries(k.per)) per[pid] = (per[pid] || 0) + n; R.push({ id: 'andere', label: `${others.length} andere klanten`, dozen: sum(others, k => k.dozen), per, tone: 'muted' }); }
-  if (w.rest) { const per = {}; for (const p of ps) if (p.stroom.rest) per[p.id] = p.stroom.rest; R.push({ id: 'rest', label: 'Over in de loods', dozen: w.rest, per, tone: 'wait' }); }
-  if (w.uitval) { const per = {}; for (const p of ps) if (p.stroom.uitval) per[p.id] = p.stroom.uitval; R.push({ id: 'uitval', label: 'Uitval', dozen: w.uitval, per, tone: 'bad' }); }
-  const total = Math.max(sum(L, n => n.dozen), sum(R, n => n.dozen)), n = Math.max(L.length, R.length);
-  const k = scaleFor(total, n, { max: 480 }), gap = 6;
-  const Lp = place(L, k, narrow() ? 40 : 34, 10), Rp = place(R, k, narrow() ? 32 : 28, gap);
-  const loodsH = total * k, H = Math.max(colHeight(Lp), colHeight(Rp), loodsH);
-  shift(Lp, (H - colHeight(Lp)) / 2); shift(Rp, (H - colHeight(Rp)) / 2);
-  const y0 = (H - loodsH) / 2;
-  // supplier → hall, stacked in supplier order
-  let y = y0;
-  const p1 = Lp.map(x => { const t = x.dozen * k, a = x.y + (x.h - t) / 2, d = ribbon(a, a + t, y, y + t); y += t; return `<path d="${d}" fill="${x.color}"><title>${h(x.label)}: ${fNum(x.dozen)} dozen naar de loods</title></path>`; }).join('');
-  // hall → customer, every customer's band split by where its boxes come from
-  y = y0;
-  const p2 = Rp.map(x => {
-    let ya = x.y + (x.h - x.dozen * k) / 2;
-    return ps.filter(p => x.per[p.id]).map(p => {
-      const t = x.per[p.id] * k, d = ribbon(y, y + t, ya, ya + t); y += t; ya += t;
-      return `<path d="${d}" fill="${x.id === 'rest' ? TONE.wait : x.id === 'uitval' ? TONE.bad : col.get(p.id)}" class="${x.id === 'rest' || x.id === 'uitval' ? 'hl' : ''}"><title>${h(p.nummer)} → ${h(x.label)}: ${fNum(x.per[p.id])} dozen</title></path>`;
-    }).join('');
-  }).join('');
-  const sumTxt = `${fNum(w.in)} dozen van ${ps.length} leveranciers naar ${w.klanten.filter(k => k.dozen > 0).length} klanten${w.rest ? `, ${fNum(w.rest)} over in de loods` : ', netto nul'}`;
-  return `<div class="strm f3" data-act="flow-all" role="img" aria-label="${h(sumTxt)}" style="--fh:${Math.ceil(H)}px">
-    <div class="scol l">${Lp.map(x => label(x, 'l')).join('')}</div>
-    <svg class="rib" viewBox="0 0 100 ${H.toFixed(1)}" preserveAspectRatio="none" aria-hidden="true">${p1}</svg>
-    <div class="smid"><span class="loods" style="top:${y0.toFixed(1)}px;height:${Math.max(40, loodsH).toFixed(1)}px"><b>Loods Nootdorp</b><em>${fNum(w.in)}</em></span></div>
-    <svg class="rib" viewBox="0 0 100 ${H.toFixed(1)}" preserveAspectRatio="none" aria-hidden="true">${p2}</svg>
-    <div class="scol r">${Rp.map(x => label(x, 'r')).join('')}</div>
-  </div>`;
 }
 
 // ---------------------------------------------------------------- the full list
@@ -247,11 +128,12 @@ export function showDoc(p, doc) {
     </tbody></table>${f === 'verzonden' ? `<dl class="kv small" style="margin-top:10px"><dt>AWB</dt><dd>${h(p.awb || '–')}</dd><dt>Vlucht</dt><dd>${h(p.vlucht || '–')}</dd><dt>Fytosanitair</dt><dd>${h(p.fyto || '–')}</dd></dl>` : ''}` : '';
   dlg.classList.add('dlg-wide');
   dlg.innerHTML = `<form method="dialog"><header><h2>${h(doc.titel || DOC[doc.soort])} · ${h(p.nummer)}</h2></header>
-    <div class="body docview"><div class="orig">${doc.bestand_id ? `<iframe src="/api/bestanden/${doc.bestand_id}" title="Origineel"></iframe><a class="lnk small" href="/api/bestanden/${doc.bestand_id}" target="_blank" rel="noopener">Open het origineel apart</a>` : `<pre class="mailtxt" style="max-height:none">${h(doc.tekst || '')}</pre>`}</div>
+    <div class="body docview"><div class="orig">${doc.bestand_id ? `${paperHtml(doc.bestand_id, doc.titel || DOC[doc.soort], doc.mime)}<a class="lnk small" href="/api/bestanden/${doc.bestand_id}" target="_blank" rel="noopener">Open het origineel apart</a>` : `<pre class="mailtxt" style="max-height:none">${h(doc.tekst || '')}</pre>`}</div>
       <div>${read || '<p class="muted">Dit papier hoort bij de zending; er zijn geen aantallen uit gelezen.</p>'}<p class="small faint" style="margin-top:10px">${doc.gelezen_door === 'ai' ? 'Gelezen door de desk.' : doc.gelezen_door === 'regels' ? 'Gelezen met vaste regels.' : 'Door Jan ingevoerd.'} Ontvangen ${h(dayTime(doc.ontvangen))}.</p></div></div>
     <footer><button class="btn btn-leaf" value="cancel" type="submit">Sluiten</button></footer></form>`;
   dlg.addEventListener('close', () => dlg.classList.remove('dlg-wide'), { once: true });
   dlg.showModal();
+  drawPapers(dlg);
 }
 
 // a notice about the world, from Jan

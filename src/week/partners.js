@@ -472,3 +472,106 @@ export async function supplierHistory(id, { limit = 26, now = new Date() } = {})
   });
 }
 
+
+// ---------------------------------------------------------------- plants: what they cost, what they sell for, how much goes
+// Per product a year of weeks: the purchase price on the shipping papers and the price on the packing slips, both in
+// dollars per piece, and the boxes in and out. "Now" is the last four weeks; it is compared with thirteen weeks and a year earlier.
+export async function plantStats() {
+  const D = await load();
+  const N = 52, weeks = Array.from({ length: N }, (_, i) => addDays(D.focus, -7 * (N - i)));
+  const wi = new Map(weeks.map((w, i) => [w, i]));
+  const zero = () => Array(N).fill(0);
+  const P = new Map(D.prod.map(p => [p.id, { inS: zero(), inU: zero(), inD: zero(), outS: zero(), outU: zero(), outD: zero(), lev: new Map(), kopers: new Map() }]));
+  for (const r of D.regels) {
+    const i = wi.get(r.partij.maandag), x = P.get(r.product_id);
+    if (i == null || !x || r.verzonden == null || !passed(r.partij.verzonden_op, D.now)) continue;
+    const st = r.verzonden * r.per_doos, u = st * Number(r.prijs_usd);
+    x.inS[i] += st; x.inU[i] += u; x.inD[i] += r.geteld ?? r.verzonden;
+    const lid = r.partij.leverancier_id;
+    if (!x.lev.has(lid)) x.lev.set(lid, { st: zero(), u: zero(), d: zero(), last: null, lastM: '' });
+    const L = x.lev.get(lid);
+    L.st[i] += st; L.u[i] += u; L.d[i] += r.verzonden;
+    if (r.partij.maandag >= L.lastM) { L.lastM = r.partij.maandag; L.last = Number(r.prijs_usd); }
+  }
+  for (const s of D.sregels) {
+    const i = wi.get(s.slip.maandag), x = P.get(s.product_id);
+    if (i == null || !x) continue;
+    x.outS[i] += s.stuks; x.outU[i] += s.stuks * Number(s.prijs_usd); x.outD[i] += s.dozen;
+    if (i >= N - 13) x.kopers.set(s.slip.klant_id, (x.kopers.get(s.slip.klant_id) || 0) + s.dozen);
+  }
+  const avg = (S, U, a, b) => { let st = 0, u = 0; for (let i = Math.max(0, a); i <= Math.min(N - 1, b); i++) { st += S[i]; u += U[i]; } return st ? u / st : null; };
+  const ch = (a, b) => (a != null && b ? a / b - 1 : null);
+  const avgBoxes = (A, a, b) => { let t = 0; for (let i = a; i <= b; i++) t += A[i]; return t / (b - a + 1); };
+  // this week: what comes (as far as the papers say) and what was asked
+  const nowLines = D.regels.filter(r => r.partij.maandag === D.focus && passed(r.partij.besteld_op, D.now));
+  const nowOrders = D.orders.filter(o => o.maandag === D.focus);
+  const allMargins = [];
+  const list = D.prod.filter(p => p.actief !== false).map(p => {
+    const x = P.get(p.id);
+    const inkoop = avg(x.inS, x.inU, N - 4, N - 1), inkoop13 = avg(x.inS, x.inU, N - 17, N - 14), inkoopJaar = avg(x.inS, x.inU, 0, 3);
+    const verkoop = avg(x.outS, x.outU, N - 4, N - 1), verkoop13 = avg(x.outS, x.outU, N - 17, N - 14), verkoopJaar = avg(x.outS, x.outU, 0, 3);
+    const marge = inkoop && verkoop ? 1 - inkoop / verkoop : null, marge13 = inkoop13 && verkoop13 ? 1 - inkoop13 / verkoop13 : null;
+    if (marge != null) allMargins.push({ m: marge, w: x.outS.slice(N - 13).reduce((t, v) => t + v, 0) });
+    const vol = avgBoxes(x.outD, N - 13, N - 1), volPrev = avgBoxes(x.outD, N - 26, N - 14);
+    const lev = [...x.lev].map(([lid, L]) => {
+      const st13 = L.st.slice(N - 13).reduce((t, v) => t + v, 0);
+      return { id: lid, naam: D.L.get(lid)?.naam || '?', regio: D.L.get(lid)?.regio, laatst: L.last, laatstOp: L.lastM, prijs13: avg(L.st, L.u, N - 13, N - 1), stuks13: st13, dozen13: L.d.slice(N - 13).reduce((t, v) => t + v, 0) };
+    }).filter(l => l.stuks13 || l.laatst != null);
+    const st13 = lev.reduce((t, l) => t + l.stuks13, 0);
+    for (const l of lev) l.aandeel = st13 ? l.stuks13 / st13 : 0;
+    lev.sort((a, b) => b.aandeel - a.aandeel);
+    const komt = nowLines.filter(r => r.product_id === p.id).reduce((t, r) => t + (passed(r.partij.verzonden_op, D.now) ? r.verzonden : passed(r.partij.bevestigd_op, D.now) ? r.bevestigd : r.besteld) || 0, 0);
+    const gevraagd = nowOrders.filter(o => o.product_id === p.id);
+    const shortP = D.short.filter(o => o.product_id === p.id), asked26 = shortP.reduce((t, o) => t + o.dozen, 0), short26 = shortP.reduce((t, o) => t + o.tekort, 0);
+    return {
+      id: p.id, code: p.code, naam: p.naam, maat: p.maat, soort: p.soort, per_doos: p.per_doos, lijst_usd: Number(p.prijs_usd), standaard_usd: Number(p.inkoop_usd),
+      reeks: { inkoop: x.inS.map((s, i) => (s ? Math.round((x.inU[i] / s) * 10000) / 10000 : null)), verkoop: x.outS.map((s, i) => (s ? Math.round((x.outU[i] / s) * 10000) / 10000 : null)), dozen_in: x.inD, dozen_uit: x.outD },
+      inkoop, inkoop13, inkoopJaar, verkoop, verkoop13, verkoopJaar, marge, marge13,
+      d_inkoop13: ch(inkoop, inkoop13), d_inkoopJaar: ch(inkoop, inkoopJaar), d_verkoop13: ch(verkoop, verkoop13), d_verkoopJaar: ch(verkoop, verkoopJaar),
+      volume: vol, volumePrev: volPrev, d_volume: null, leveranciers: lev,
+      deze_week: { dozen: komt, gevraagd: gevraagd.reduce((t, o) => t + o.dozen, 0), klanten: new Set(gevraagd.map(o => o.klant_id)).size },
+      tekort: { dozen: short26, pct: asked26 ? short26 / asked26 : 0 },
+      kopers: [...x.kopers].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([kid, dz]) => ({ id: kid, naam: D.K.get(kid)?.naam || '?', plaats: D.K.get(kid)?.plaats || '', dozen: dz, prijs: D.priceFor(kid, p.id) })),
+    };
+  });
+  const mw = allMargins.reduce((t, x) => t + x.w, 0), avgMarge = mw ? allMargins.reduce((t, x) => t + x.m * x.w, 0) / mw : null;
+  const totNow = list.reduce((t, p) => t + p.volume, 0), totPrev = list.reduce((t, p) => t + p.volumePrev, 0);
+  for (const p of list) { p.d_volumeRuw = p.volumePrev ? p.volume / p.volumePrev - 1 : null; p.d_volume = p.volumePrev && totNow && totPrev ? (p.volume / totNow) / (p.volumePrev / totPrev) - 1 : null; }
+  const pts = v => `${(Math.abs(v) * 100).toFixed(1).replace('.', ',')} punt`;
+  const usd = v => `$ ${v.toFixed(3).replace('.', ',')}`;
+  for (const p of list) {
+    const t = [];
+    if (p.d_inkoop13 != null && p.d_inkoop13 >= 0.025 && (p.d_verkoop13 ?? 0) < p.d_inkoop13 - 0.015 && p.marge != null && p.marge13 != null) {
+      const need = p.inkoop / (1 - p.marge13) - p.verkoop;   // the selling price that keeps the margin of thirteen weeks ago
+      const v = p.d_verkoop13 ?? 0;
+      t.push({ soort: 'let_op', tekst: `Inkoop steeg ${pctTxt(p.d_inkoop13)} in 13 weken, de verkoopprijs ${v <= -0.005 ? `daalde ${pctTxt(-v)}` : v >= 0.005 ? `maar ${pctTxt(v)}` : 'bleef gelijk'}: de marge zakte ${pts(p.marge13 - p.marge)} naar ${pctTxt(p.marge)}.${need > 0.004 ? ` Met ${usd(need)} per stuk erbij op de lijstprijs houd je de oude marge.` : ''}` });
+    }
+    if (p.d_inkoop13 != null && p.d_inkoop13 <= -0.025) t.push({ soort: 'meer', tekst: `Inkoop daalde ${pctTxt(-p.d_inkoop13)} in 13 weken: meer marge, of ruimte voor een scherpere prijs bij je grootste afnemers.` });
+    if (p.leveranciers.length > 1 && p.leveranciers[0].prijs13 && p.leveranciers[1].prijs13) {
+      const [a, b] = [...p.leveranciers].filter(l => l.prijs13).sort((x, y) => x.prijs13 - y.prijs13);
+      const d = b.prijs13 / a.prijs13 - 1;
+      if (d >= 0.015) t.push({ soort: 'prijs', tekst: `${a.naam} is ${pctTxt(d)} goedkoper dan ${b.naam} (${usd(a.prijs13)} tegen ${usd(b.prijs13)}, laatste 13 weken).` });
+    }
+    if (p.d_volume != null && p.d_volume >= 0.15 && p.volume >= 3) t.push({ soort: 'meer', tekst: `De vraag groeit harder dan de rest: ${pctTxt(p.d_volume)} meer dan de 13 weken ervoor, het seizoen eruit gehaald. Bestel wat ruimer${p.kopers[0] ? `, vooral voor ${p.kopers[0].naam}` : ''}.` });
+    if (p.d_volume != null && p.d_volume <= -0.15 && p.volume >= 1) t.push({ soort: 'let_op', tekst: `De vraag daalt: ${pctTxt(-p.d_volume)} minder dan de 13 weken ervoor, het seizoen eruit gehaald.` });
+    if (p.tekort.pct >= 0.04 && p.tekort.dozen >= 10) t.push({ soort: 'let_op', tekst: `Klanten vroegen een half jaar lang ${p.tekort.dozen} dozen meer dan er kwam (${pctTxt(p.tekort.pct)}).` });
+    if (avgMarge != null && p.marge != null && p.marge < avgMarge - 0.05) t.push({ soort: 'let_op', tekst: `De marge (${pctTxt(p.marge)}) ligt onder je gemiddelde van ${pctTxt(avgMarge)}.` });
+    p.tips = t;
+  }
+  // one index for everything: the same basket of plants, priced week by week (100 = the first four weeks of the year)
+  const basket = list.map(p => ({ p, q: p.reeks.dozen_uit.reduce((t, v) => t + v, 0) * p.per_doos })).filter(b => b.q);
+  const index = key => {
+    const last = new Map();
+    const vals = weeks.map((_, i) => { let t = 0, w = 0; for (const b of basket) { const v = b.p.reeks[key][i] ?? last.get(b.p.id); if (v == null) continue; last.set(b.p.id, v); t += v * b.q; w += b.q; } return w ? t / w : null; });
+    const base = vals.slice(0, 4).filter(v => v != null);
+    const b0 = base.length ? base.reduce((t, v) => t + v, 0) / base.length : null;
+    return vals.map(v => (v == null || !b0 ? null : Math.round((v / b0) * 1000) / 10));
+  };
+  const ii = index('inkoop'), vi = index('verkoop');
+  const lastOf = a => [...a].reverse().find(v => v != null) ?? null;
+  return {
+    focus: D.focus, week: isoWeek(D.focus).week, weken: weeks, labels: weeks.map(w => `wk ${isoWeek(w).week}`), gemMarge: avgMarge,
+    index: { inkoop: ii, verkoop: vi, inkoopNu: lastOf(ii), verkoopNu: lastOf(vi) },
+    producten: list,
+  };
+}

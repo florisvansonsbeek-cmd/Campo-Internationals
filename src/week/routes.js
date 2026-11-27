@@ -14,7 +14,7 @@ import { yearWorkbook, sheetRows } from './excel.js';
 import { readShipping, matchProduct } from './read.js';
 import { assess, lateHistory, riskJson, routeOf, parseRoute, PLEKKEN } from './risk.js';
 import { streams } from './flow.js';
-import { relations, customerAnalysis, supplierStat, supplierHistory, deals, onTheWay, leads, forget } from './partners.js';
+import { relations, customerAnalysis, supplierStat, supplierHistory, deals, onTheWay, leads, forget, plantStats } from './partners.js';
 
 export const week = express.Router();
 const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -115,7 +115,7 @@ function partijJson(p, m) {
     verwacht: { bevestiging: !passed(p.bevestigd_op) ? (p.bevestigd_op || addDays(m, -4)) : null, verzonden: !passed(p.verzonden_op) ? (p.verzonden_op || addDays(m, -3)) : null },
     awb: passed(p.verzonden_op) ? p.awb : null, vlucht: passed(p.verzonden_op) ? p.vlucht : null, fyto: passed(p.verzonden_op) ? p.fyto : null,
     exact: p.exact, exact_op: p.exact_op, exact_nummer: p.exact_nummer, exact_door: p.exact_door, twijfels: p.twijfels, dozen: p.dozen,
-    docs: p.docs.map(x => ({ id: x.id, soort: x.soort, titel: x.titel, bestand_id: x.bestand_id, tekst: x.tekst, ontvangen: x.ontvangen, gelezen_door: x.gelezen_door })),
+    docs: p.docs.map(x => ({ id: x.id, soort: x.soort, titel: x.titel, bestand_id: x.bestand_id, mime: x.mime || null, tekst: x.tekst, ontvangen: x.ontvangen, gelezen_door: x.gelezen_door })),
     regels: p.regels.map(r => ({ id: r.id, product_id: r.product_id, product: r.product, maat: r.maat, soort: r.soort, product_code: r.product_code, per_doos: r.per_doos, besteld: r.besteld, bevestigd: r.bevestigd, verzonden: r.verzonden, geteld: r.geteld, uitval: r.uitval, prijs_usd: Number(r.prijs_usd), zekerheid: r.zekerheid, twijfel: r.twijfel, gelezen: r.gelezen, dozen: r.dozen, rest: r.rest })),
     exactRegels: exactLines(p), totaal_usd: r2(sum(exactLines(p), l => l.bedrag_usd)),
   };
@@ -551,7 +551,7 @@ week.get('/leveranciers/:id', wrap(async (req, res) => {
   const flow = p ? streams({ ...d, partijen: [p] }).partijen[0] : null;
   res.json({
     leverancier: { id: l.id, naam: l.naam, code: l.code, regio: l.regio, regio_naam: l.regio_naam, herkomst: l.herkomst, plaats: l.plaats, contact: l.contact, email: l.email, telefoon: l.telefoon, whatsapp: l.whatsapp, taal: l.taal, exact_code: l.exact_code, route: routeOf({ route: l.route, regio: l.regio }), eigenRoute: !!(l.route && l.route.length) },
-    maandag: m, week: isoWeek(m).week, vorige: i > 0 ? ms[i - 1] : ms.filter(x => x < m).pop() || null, volgende: i >= 0 && i < ms.length - 1 ? ms[i + 1] : ms.find(x => x > m) || null,
+    maandag: m, week: isoWeek(m).week, geteld: d.counted, vorige: i > 0 ? ms[i - 1] : ms.filter(x => x < m).pop() || null, volgende: i >= 0 && i < ms.length - 1 ? ms[i + 1] : ms.find(x => x > m) || null,
     partij: p ? { ...partijJson(p, m), risico: riskJson(risk?.per.get(p.id)), stroom: flow } : null,
     verwerking: p ? processing(p, d, logs, xl) : [], excel: xl ? { ...xl, inkoopRange: range(xl.inkoop) } : null,
     stat, geschiedenis: history, bronnen: risk ? risk.bronnen : null, plekken: PLEKKEN,
@@ -600,6 +600,7 @@ week.post('/meldingen/:id/opgelost', wrap(async (req, res) => {
 
 // ---------------------------------------------------------------- Relaties: how good the partners really are
 week.get('/relaties', wrap(async (req, res) => res.json(await relations())));
+week.get('/planten', wrap(async (req, res) => res.json(await plantStats())));
 
 // ---------------------------------------------------------------- good deals: offers and boxes on their way, sold one to one
 week.get('/deals', wrap(async (req, res) => {

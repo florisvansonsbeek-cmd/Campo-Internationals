@@ -9,7 +9,7 @@ import { addDays, isoDow, isoWeek, today, r2, r4, vatFor } from './util.js';
 import { allocate } from './model.js';
 import { supplierPdf } from './docs.js';
 
-export const WEEK_DEMO_VERSION = 5;
+export const WEEK_DEMO_VERSION = 6;
 const WEEKS = 60;
 
 function rng(seed) {
@@ -191,6 +191,7 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
 
     // ---------- the weeks
     const first = addDays(anchor, -7 * WEEKS);
+    const RAISE = addDays(anchor, -7 * 34);
     const weken = [], orders = [], partijen = [], regels = [], verdeling = [], pakbonnen = [], pakRegels = [], docs = [], files = [];
     let pid = await maxId('partijen'), rid = await maxId('partij_regels'), sid = await maxId('pakbonnen'), srid = await maxId('pakbon_regels');
     const batchNo = {}, slipNo = {}, invNo = { 'rio-claro': 410, 'volcan-azul': 1180, 'las-flores': 233 };
@@ -253,7 +254,8 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
           let verz = bev; if (r() < 0.06) verz = Math.max(0, bev - RI(1, 2));
           let get = verz; if (!current && r() < 0.04) get = Math.max(0, verz - 1);
           const uit = !current && get >= 2 && r() < 0.03 ? 1 : 0;
-          const prijs = Math.round(pr.inkoop_usd * (1 + 0.035 * Math.sin(i / 9 + pr.volgorde) + R(-0.01, 0.01)) * (gt ? 0.97 : 1) * 1000) / 1000;
+          // purchase prices creep up over the year (about 6%), with their own swing per product
+          const prijs = Math.round(pr.inkoop_usd * (0.955 + 0.06 * i / WEEKS) * (1 + 0.035 * Math.sin(i / 9 + pr.volgorde) + R(-0.01, 0.01)) * (gt ? 0.97 : 1) * 1000) / 1000;
           regels.push({ id: ++rid, partij_id: p.id, product_id: pr.id, besteld, bevestigd: bev, verzonden: verz, geteld: current ? null : get, uitval: uit, per_doos: pr.per_doos, prijs_usd: prijs,
             zekerheid: current ? RI(96, 99) : null, twijfel: null, gelezen: current ? JSON.stringify({ bron: 'Factura comercial y packing list', zekerheid: RI(96, 99) }) : null, p: pr, partij: p, cap: Math.max(0, get - uit) });
         }
@@ -329,7 +331,8 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
         let n = 0, tot = 0;
         for (const x of mineRows.sort((a, b) => a.regel_id - b.regel_id)) {
           const rg = regels.find(y => y.id === x.regel_id);
-          const stuks = x.dozen * rg.per_doos, pu = priceFor(k, rg.p), pe = r4(pu / koers), bedrag = r2(stuks * pe);
+          // Jan raised his prices by about 4% in the spring
+          const stuks = x.dozen * rg.per_doos, pu = m < RAISE ? Math.round(priceFor(k, rg.p) * 0.96 * 1000) / 1000 : priceFor(k, rg.p), pe = r4(pu / koers), bedrag = r2(stuks * pe);
           tot += bedrag;
           pakRegels.push({ id: ++srid, pakbon_id: s.id, regelnr: ++n, regel_id: rg.id, product_id: rg.p.id, partij: rg.partij.nummer, dozen: x.dozen, stuks, prijs_usd: pu, prijs_eur: pe, bedrag });
         }

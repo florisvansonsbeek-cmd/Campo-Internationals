@@ -3,7 +3,8 @@
 // and how good he really is over the last half year.
 import { api, h, icon, fNum, fEur, toast, dialog, field, waLink } from '../core.js';
 import { dLong, dShort, dayTime, isoWeek, zn, regio, stageChip, fUsd, fUsdUnit } from '../wk.js';
-import { stoplicht, routeStrip, reasons, flowPartij, lines, toWhom, docsRow, doubts, exactBox, partijActions, lightChip } from '../partij.js';
+import { stoplicht, reasons, lines, toWhom, docsRow, doubts, exactBox, partijActions } from '../partij.js';
+import { laneHtml } from './inkoop.js';
 
 let cur = null, openList = false;
 const pct = v => (v == null ? '–' : `${Math.round(v * 100)}%`);
@@ -78,18 +79,19 @@ export async function render(params, query) {
         <button type="button" class="lnk small" data-act="lev-edit">Gegevens en route wijzigen</button></p></div>
       <div class="prof-s">${s && s.score != null ? `<span class="badge-s" data-s="${s.score >= 70 ? 'g' : s.score >= 55 ? 'o' : 'r'}"><b>${s.score}</b><small>${h(s.label.naam)}</small></span>` : ''}</div></div>
     <div class="acts-row">${nav}</div>
-    <div class="grid2">
-      <div class="stack">
-        ${p ? `<section class="panel partij" data-l="${h(r?.licht || '')}"><header><h2>${r?.licht ? stoplicht(r.licht) : ''} ${zn(p.nummer)} wat hij levert</h2><span class="ph-chips">${stageChip(p.stage)}${p.twijfels ? ` <span class="chip wait">${p.twijfels} nakijken</span>` : ''}</span></header>
+    ${p ? `<section class="panel partij" data-l="${h(r?.licht || '')}"><header><h2>${r?.licht ? stoplicht(r.licht) : ''} ${zn(p.nummer)} wat hij levert</h2><span class="ph-chips">${stageChip(p.stage)}${p.twijfels ? ` <span class="chip wait">${p.twijfels} nakijken</span>` : ''}</span></header>
+          <div class="lanes flat">${laneHtml(p, { geteld: d.geteld, plekken: d.plekken, maandag: d.maandag }, { interactive: false })}</div>
           <div class="body stack">
-            ${r ? `<div class="rt">${routeStrip(r)}<p class="rt-a">${lightChip(r.licht)}<span>${h(r.kop)}</span><button type="button" class="lnk small" data-act="route" data-p="${p.id}">Route van deze zending</button></p></div>${reasons(r, { doubt: !p.twijfels })}` : ''}
+            ${r ? reasons(r, { doubt: !p.twijfels }) : ''}
             ${doubts(p)}
-            ${flowPartij(p.stroom, { id: p.id })}
             <div class="row-a"><button type="button" class="btn btn-sm btn-line" data-act="flow" data-p="${p.id}" aria-expanded="${openList}" aria-controls="lfull">${icon('file')}<span>${openList ? 'Verberg de volledige lijst' : 'Volledige lijst'}</span></button>
-              <a class="btn btn-sm btn-ghost" href="#/inkoop?maandag=${d.maandag}&p=${p.id}">${icon('in')}Op de Inkoop-pagina</a></div>
+              <a class="btn btn-sm btn-ghost" href="#/inkoop?maandag=${d.maandag}&p=${p.id}">${icon('in')}Op de Inkoop-pagina</a>
+              <button type="button" class="btn btn-sm btn-ghost" data-act="route" data-p="${p.id}">Route van deze zending</button></div>
             <div class="full stack" id="lfull"${openList ? '' : ' hidden'}><h3>Maten, aantallen en prijzen</h3>${lines(p)}<h3>Naar wie het gaat</h3>${toWhom(p)}${exactBox(p)}</div>
-          </div></section>
-        <section class="panel"><header><h2>Uit zijn mail</h2><span class="sub">${fNum(p.docs.length)} ${p.docs.length === 1 ? 'stuk' : 'stukken'} voor ${h(p.nummer)}</span></header>
+          </div></section>` : ''}
+    <div class="grid2 after-p">
+      <div class="stack">
+        ${p ? `<section class="panel"><header><h2>Uit zijn mail</h2><span class="sub">${fNum(p.docs.length)} ${p.docs.length === 1 ? 'stuk' : 'stukken'} voor ${h(p.nummer)}</span></header>
           <div class="body stack"><p class="small muted">Alles wat er voor deze zending heen en weer ging: Jans bestelling, de bevestiging en de verzendpapieren. Klik een stuk voor het origineel naast wat de desk eruit las.</p>${docsRow(p)}</div></section>
         <section class="panel"><header><h2>Zo is het verwerkt</h2><span class="sub">van mail tot Excel</span></header>
           <ol class="vstp">${d.verwerking.map(x => `<li><span class="when">${h(x.wanneer || '')}</span><span class="who">${h(x.wie === 'desk' ? 'De desk' : x.wie)}</span><span class="what">${h(x.tekst)}${x.doc ? ` <button type="button" class="lnk small" data-act="doc" data-p="${p.id}" data-d="${x.doc}">bekijk</button>` : ''}</span></li>`).join('')}

@@ -30,13 +30,17 @@ export function spark(values, { w = 96, h: hh = 26, color = 'var(--s1)' } = {}) 
 }
 
 // columns from one baseline; tone per column is optional (status), otherwise one colour
+// how many bars share one label, so the labels under the bars never run into each other
+const labelStep = (data, width) => Math.max(1, Math.ceil((data.length * (Math.max(0, ...data.map(d => String(d.label ?? '').length)) * 6.6 + 10)) / width));
+
 export function columns(data, { height = 170, fmt = fNum, unit = '', title = '', color = 'var(--s1)', max: fixedMax = null } = {}) {
   const W = 560, H = height, L = 40, R = 8, T = 10, B = 24;
   const max = fixedMax ?? niceMax(Math.max(...data.map(d => Number(d.value) || 0), 0));
   const bw = (W - L - R) / Math.max(1, data.length);
   const barW = Math.min(24, bw * 0.62);
   const y = v => T + (H - T - B) * (1 - v / max);
-  const ticks = [0, max / 2, max];
+  const ticks = [0, max / 2, max], every = labelStep(data, W - L - R);
+  const showLabel = i => (i % every === 0 && data.length - 1 - i >= every / 2) || i === data.length - 1;
   let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${h(title)}">`;
   for (const t of ticks) s += `<line class="${t ? 'gl' : 'bl'}" x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}"/><text class="ax" x="${L - 6}" y="${y(t) + 4}" text-anchor="end">${compact(t)}${unit}</text>`;
   data.forEach((d, i) => {
@@ -44,7 +48,7 @@ export function columns(data, { height = 170, fmt = fNum, unit = '', title = '',
     const hgt = Math.max(0, base - top), r = Math.min(4, hgt / 2, barW / 2);
     const fill = d.color || color;
     if (hgt > 0) s += `<path d="M${x},${base} V${top + r} Q${x},${top} ${x + r},${top} H${x + barW - r} Q${x + barW},${top} ${x + barW},${top + r} V${base} Z" fill="${fill}"/>`;
-    s += `<text class="ax" x="${x + barW / 2}" y="${H - 6}" text-anchor="middle">${h(d.label)}</text>`;
+    if (showLabel(i)) s += `<text class="ax" x="${x + barW / 2}" y="${H - 6}" text-anchor="middle">${h(d.label)}</text>`;
     s += `<rect class="hit" x="${L + i * bw}" y="${T}" width="${bw}" height="${H - T - B}" ${tipAttr([d.tipTitle || d.label, d.tip || `${fmt(v)}${unit}`])}/>`;
   });
   s += '</svg>';
@@ -56,7 +60,8 @@ export function stacked(data, parts, { height = 190, fmt = fNum, title = '' } = 
   const W = 560, H = height, L = 46, R = 8, T = 10, B = 24;
   const max = niceMax(Math.max(...data.map(d => parts.reduce((s, p) => s + (Number(d[p.key]) || 0), 0)), 0));
   const bw = (W - L - R) / Math.max(1, data.length), barW = Math.min(24, bw * 0.62);
-  const y = v => T + (H - T - B) * (1 - v / max);
+  const y = v => T + (H - T - B) * (1 - v / max), every = labelStep(data, W - L - R);
+  const showLabel = i => (i % every === 0 && data.length - 1 - i >= every / 2) || i === data.length - 1;
   let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${h(title)}">`;
   for (const t of [0, max / 2, max]) s += `<line class="${t ? 'gl' : 'bl'}" x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}"/><text class="ax" x="${L - 6}" y="${y(t) + 4}" text-anchor="end">${compact(t)}</text>`;
   data.forEach((d, i) => {
@@ -73,7 +78,7 @@ export function stacked(data, parts, { height = 190, fmt = fNum, title = '' } = 
       s += `<path d="M${x},${base} V${top + r} Q${x},${top} ${x + r},${top} H${x + barW - r} Q${x + barW},${top} ${x + barW},${top + r} V${base} Z" fill="${p.color}"/>`;
       acc += v;
     });
-    s += `<text class="ax" x="${x + barW / 2}" y="${H - 6}" text-anchor="middle">${h(d.label)}</text>`;
+    if (showLabel(i)) s += `<text class="ax" x="${x + barW / 2}" y="${H - 6}" text-anchor="middle">${h(d.label)}</text>`;
     s += `<rect class="hit" x="${L + i * bw}" y="${T}" width="${bw}" height="${H - T - B}" ${tipAttr([d.tipTitle || d.label, ...parts.map(p => `${p.name}: ${fmt(Number(d[p.key]) || 0)}`)])}/>`;
   });
   s += '</svg>';
@@ -82,7 +87,8 @@ export function stacked(data, parts, { height = 190, fmt = fNum, title = '' } = 
 }
 
 // several lines over the same months; end labels plus a legend, crosshair tooltip
-export function lines(labels, series, { height = 200, fmt = v => fNum(v), title = '', min: fixedMin = null } = {}) {
+// join: draw over weeks without a value (prices of a plant that does not come every week), instead of a gap
+export function lines(labels, series, { height = 200, fmt = v => fNum(v), title = '', min: fixedMin = null, join = false } = {}) {
   const id = `c${++uid}`;
   const W = 560, H = height, L = 46, R = 110, T = 12, B = 24;
   const all = series.flatMap(s => s.values.filter(v => v != null).map(Number));
@@ -95,12 +101,13 @@ export function lines(labels, series, { height = 200, fmt = v => fNum(v), title 
   for (const t of [lo, (lo + hi) / 2, hi]) s += `<line class="gl" x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}"/><text class="ax" x="${L - 6}" y="${y(t) + 4}" text-anchor="end">${h(fmt(t))}</text>`;
   s += `<line class="bl" x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}"/>`;
   const every = Math.ceil(labels.length / 7);
-  labels.forEach((lab, i) => { if (i % every === 0 || i === labels.length - 1) s += `<text class="ax" x="${x(i)}" y="${H - 6}" text-anchor="middle">${h(lab)}</text>`; });
+  // every few weeks a label, and the last one; a regular label too close to the last one is left out
+  labels.forEach((lab, i) => { if ((i % every === 0 && labels.length - 1 - i >= every / 2) || i === labels.length - 1) s += `<text class="ax" x="${x(i)}" y="${H - 6}" text-anchor="middle">${h(lab)}</text>`; });
   const ends = [];
   series.forEach((se, k) => {
     const color = se.color || SERIES[k % SERIES.length];
     let d = '', pen = false;
-    se.values.forEach((v, i) => { if (v == null) { pen = false; return; } d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`; pen = true; });
+    se.values.forEach((v, i) => { if (v == null) { if (!join) pen = false; return; } d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`; pen = true; });
     s += `<path d="${d}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
     const li = se.values.map((v, i) => (v == null ? -1 : i)).filter(i => i >= 0).pop();
     if (li != null && li >= 0) { s += `<circle cx="${x(li)}" cy="${y(se.values[li])}" r="4" fill="${color}" stroke="var(--sheet)" stroke-width="2"/>`; ends.push({ y: y(se.values[li]), x: x(li), name: se.name, v: se.values[li] }); }

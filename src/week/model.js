@@ -37,8 +37,9 @@ export async function weekData(maandag, { now = new Date() } = {}) {
   const pids = partijen.map(p => p.id);
   const regelsRaw = pids.length ? await rows(`SELECT r.*, d.code AS product_code, d.naam AS product, d.soort, d.maat, d.prijs_usd AS std_usd, d.exact_code AS product_exact, d.volgorde
       FROM partij_regels r JOIN producten d ON d.id = r.product_id WHERE r.partij_id = ANY($1) ORDER BY d.volgorde, d.code`, [pids]) : [];
-  const docs = pids.length ? await rows(`SELECT id, partij_id, soort, titel, bestand_id, tekst, ontvangen, gelezen_door FROM partij_documenten
-      WHERE partij_id = ANY($1) AND ontvangen <= $2 ORDER BY ontvangen`, [pids, now]) : [];
+  const docs = pids.length ? await rows(`SELECT d.id, d.partij_id, d.soort, d.titel, d.bestand_id, b.mime, d.tekst, d.ontvangen, d.gelezen_door
+      FROM partij_documenten d LEFT JOIN bestanden b ON b.id = d.bestand_id
+      WHERE d.partij_id = ANY($1) AND d.ontvangen <= $2 ORDER BY d.ontvangen`, [pids, now]) : [];
   const orders = await rows(`SELECT id, klant_id, product_id, dozen, via, notitie, door, aangemaakt FROM weekorders WHERE maandag = $1 AND aangemaakt <= $2 ORDER BY aangemaakt`, [maandag, now]);
   const rids = regelsRaw.map(r => r.id);
   const verdeling = rids.length ? await rows('SELECT * FROM verdeling WHERE regel_id = ANY($1)', [rids]) : [];

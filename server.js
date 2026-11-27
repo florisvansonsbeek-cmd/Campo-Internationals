@@ -14,6 +14,8 @@ import { aiCheck } from './src/ingest/ai.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const pub = path.join(root, 'public');
+// pdf.js (bundled in unpdf, which also reads the shipping papers) draws the originals inside the desk
+const pdfjs = fileURLToPath(import.meta.resolve('unpdf/pdfjs'));
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
@@ -52,6 +54,10 @@ const longCache = (res, file) => {
   if (/\.(woff2|webp|avif|png|jpg|svg)$/.test(file)) res.set('Cache-Control', 'public, max-age=2592000');
   else res.set('Cache-Control', 'no-cache');
 };
+app.get('/desk/vendor/pdf.mjs', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=604800');
+  res.type('text/javascript').sendFile(pdfjs);
+});
 app.use('/desk', express.static(path.join(pub, 'desk'), { index: 'index.html', setHeaders: longCache }));
 app.get(/^\/desk(\/.*)?$/, (req, res) => res.sendFile(path.join(pub, 'desk', 'index.html')));
 app.use(express.static(pub, { index: 'index.html', setHeaders: longCache }));

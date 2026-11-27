@@ -129,7 +129,8 @@ async function route({ keepScroll = false } = {}) {
     main.innerHTML = `<div class="page"><div class="warnbox">${icon('warn')}<span>${h(e.message)}</span></div><button class="btn btn-line" data-act="retry">Opnieuw proberen</button></div>`;
   }
   clearInterval(timer);
-  if (r.every) timer = setInterval(() => { if (!document.hidden && !document.querySelector('dialog[open]') && !document.activeElement?.matches('textarea,input,select')) route({ keepScroll: true }); }, r.every);
+  // a page with something open to read (an order with its papers) is not redrawn under Jan's eyes
+  if (r.every) timer = setInterval(() => { if (!document.hidden && !document.querySelector('dialog[open]') && !document.querySelector('[data-hold]') && !document.activeElement?.matches('textarea,input,select')) route({ keepScroll: true }); }, r.every);
 }
 
 const ctx = {
