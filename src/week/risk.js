@@ -140,10 +140,19 @@ async function weatherFor(codes) {
 }
 
 // the hurricane center's list of active storms, Atlantic and eastern Pacific
+// coordinates come as numbers (latitudeNumeric, or latitude_numeric in NHC's reference) or as text like "25.8N", "71.3W"
+const coord = v => {
+  if (v == null || v === '') return NaN;
+  if (typeof v === 'number') return v;
+  const m = String(v).trim().match(/^(-?[\d.]+)\s*([NSEW])?$/i);
+  if (!m) return NaN;
+  const x = Number(m[1]);
+  return /[SW]/i.test(m[2] || '') ? -Math.abs(x) : x;
+};
 export function nhcStorms(json) {
   return (json?.activeStorms || []).map(s => ({
     naam: s.name, klasse: String(s.classification || '').toUpperCase(), kn: Number(s.intensity) || null,
-    lat: Number(s.latitudeNumeric ?? parseFloat(s.latitude)), lon: Number(s.longitudeNumeric ?? -Math.abs(parseFloat(s.longitude))),
+    lat: coord(s.latitudeNumeric ?? s.latitude_numeric ?? s.latitude), lon: coord(s.longitudeNumeric ?? s.longitude_numeric ?? s.longitude),
   })).filter(s => Number.isFinite(s.lat) && Number.isFinite(s.lon));
 }
 async function stormsNow() {
@@ -254,7 +263,7 @@ export async function assess(partijen, { now = new Date(), hist = {} } = {}) {
         if (!pl_ || EUROPE.has(pl_.land)) continue;
         const d = km(pl_, st);
         const hur = st.klasse === 'HU', ts = st.klasse === 'TS' || st.klasse === 'STS';
-        const kind = hur ? 'Orkaan' : ts ? 'Tropische storm' : 'Tropische depressie';
+        const kind = hur ? 'Orkaan' : ts ? 'Tropische storm' : st.klasse === 'PTC' ? 'Restant van storm' : st.klasse === 'PC' ? 'Mogelijke tropische storm' : 'Tropische depressie';
         if (hur && d <= 300) add('probleem', 'storm', `${kind} ${st.naam} op ${Math.round(d)} km van ${pl_.stad}.`, { plek: s.code, bron: 'nhc' });
         else if ((hur && d <= 750) || (ts && d <= 450) || d <= 250) add('let_op', 'storm', `${kind} ${st.naam} op ${Math.round(d)} km van ${pl_.stad}.`, { plek: s.code, bron: 'nhc' });
       }
