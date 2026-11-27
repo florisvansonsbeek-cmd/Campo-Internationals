@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { migrate, pool } from './src/db.js';
 import { api } from './src/api.js';
 import { login, logout, requireAuth, session, loginEnabled } from './src/auth.js';
-import { ensureDemo, keepDemoCurrent } from './src/seed.js';
+import { ensureWeekDemo, keepWeekDemoCurrent } from './src/week/demo.js';
 import { syncSent } from './src/outlook.js';
 import { verify as waVerify, receive as waReceive } from './src/ingest/whatsapp.js';
 import { startMailPolling } from './src/ingest/mail.js';
@@ -68,13 +68,14 @@ async function boot() {
   if (!dbReady) return;
   try {
     if (!/^(uit|off|nee|false|0)$/i.test(process.env.DEMO_DATA || '')) {
-      const out = await ensureDemo();
+      const out = await ensureWeekDemo();
       if (out) console.log(out.opnieuw ? '[demo] opnieuw gemaakt' : '[demo] aangemaakt', JSON.stringify(out));
     }
-    const shifted = await keepDemoCurrent();
-    if (shifted) console.log(`[demo] ${shifted} dagen opgeschoven naar vandaag`);
+    const moved = await keepWeekDemoCurrent();
+    if (moved) console.log('[demo] nieuwe week', JSON.stringify(moved));
   } catch (e) { console.error('[demo]', e.message); }
-  setInterval(() => keepDemoCurrent().then(d => d && console.log(`[demo] ${d} dagen opgeschoven`)).catch(e => console.error('[demo]', e.message)), 10 * 60000).unref();
+  // when Friday brings new shipping papers, the demo week moves along (only while everything is demo data)
+  setInterval(() => keepWeekDemoCurrent().then(d => d && console.log('[demo] nieuwe week', JSON.stringify(d))).catch(e => console.error('[demo]', e.message)), 10 * 60000).unref();
   startMailPolling();
   // drafts Jan sent from Outlook himself are noticed every two minutes (only with the Microsoft link)
   setInterval(() => syncSent().catch(e => console.error('[outlook]', e.message)), 120000).unref();

@@ -1,12 +1,13 @@
-// Koppelingen: where messages come from, who reads them, and what is in the database.
-import { api, h, icon, fNum, fTime, dayWord, dialog, toast, copy } from '../core.js';
+// Koppelingen: Outlook for the invoices, what is printed on the packing slip (with the plant passport), Exact,
+// the regions with their codes, the mailbox, AI reading and what is in the database.
+import { api, h, icon, fNum, fTime, dayWord, dialog, toast, copy, field } from '../core.js';
 
 const state = (on, ok, off) => `<span class="chip ${on ? 'ok' : 'wait'}">${on ? icon('check') : icon('clock')}${h(on ? ok : off)}</span>`;
 
 function outlookPanel(o) {
   const conn = o.doel === 'microsoft' ? `Gekoppeld: ${o.account}` : o.doel === 'imap' ? 'Via de map Concepten' : 'Nog niet gekoppeld';
   return `<section class="panel outlook-panel" id="outlook"><header><h2>Outlook</h2>${state(!!o.doel, conn, conn)}</header><div class="body stack">
-    <p class="small muted">De desk zet de bestelling voor de kweker en de offertes voor de klanten als concept in Outlook, met de pdf erbij. Jij leest ze na en drukt zelf op verzenden.</p>
+    <p class="small muted">Na jouw akkoord zet de desk per klant de pakbon met factuur als concept in Outlook, in de taal van de klant en met de pdf en het plantenpaspoort erbij. Jij leest ze na en drukt zelf op verzenden.</p>
     ${o.doel === 'microsoft' ? `<dl class="kv"><dt>Account</dt><dd>${h(o.microsoft.naam || '')} ${h(o.account || '')}</dd>${o.microsoft.sinds ? `<dt>Sinds</dt><dd>${dayWord(o.microsoft.sinds)}</dd>` : ''}${o.laatsteFout ? `<dt>Laatste fout</dt><dd style="color:var(--warn)">${h(o.laatsteFout)}</dd>` : ''}</dl>
         <p class="small muted">Wat je in Outlook verstuurt, ziet de desk binnen een paar minuten. Je kunt ook vanuit de desk op Versturen drukken.</p>
         <p><button class="btn btn-ghost" data-act="outlook-los">Ontkoppelen</button></p>`
@@ -17,45 +18,71 @@ function outlookPanel(o) {
           <li>Maak een clientgeheim en zet in Railway onder Variables: <code>MS_CLIENT_ID</code> en <code>MS_CLIENT_SECRET</code>.</li>
           <li>Kom hier terug en klik op Koppel Outlook.</li></ol>
         <p class="small muted">Gebruikt Jan Outlook met een andere mailbox (geen Microsoft 365)? Dan zijn <code>IMAP_HOST</code>, <code>IMAP_USER</code> en <code>IMAP_PASS</code> genoeg: de concepten komen dan in de map Concepten. Tot die tijd opent elke mail met één klik als nieuw bericht in Outlook.</p>`}
-    <label class="check"><input type="checkbox" data-act="meldingen"${o.meldingen && o.meldingen.mail ? ' checked' : ''}${o.doel ? '' : ' disabled'}> Stuur Jan een mail als een bestelling klaarstaat</label>
   </div></section>`;
 }
 
+function slipPanel(b) {
+  return `<section class="panel" id="pakbon"><header><h2>Op de pakbon en factuur</h2>${b.pp_b_voorbeeld || !b.iban ? '<span class="chip wait">nog aanvullen</span>' : `<span class="chip ok">${icon('check')}compleet</span>`}</header><div class="body stack">
+    <p class="small muted">Dit staat op elke pakbon. B is Campo’s registratienummer voor het plantenpaspoort; C is het zendnummer van de partij, A en D komen uit de zending.</p>
+    <form data-form="bedrijf" class="form">
+      ${field('pp_b', 'Plantenpaspoort B: registratienummer', b.pp_b_voorbeeld ? '' : b.pp_b, { hint: b.pp_b_voorbeeld ? `Nu staat er een voorbeeld: ${b.pp_b}` : 'Begint met NL-' })}
+      ${field('iban', 'IBAN op de factuur', b.iban)}${field('naam', 'Bedrijfsnaam', b.naam)}${field('straat', 'Straat', b.straat)}${field('postcode', 'Postcode', b.postcode)}${field('plaats', 'Plaats', b.plaats)}
+      ${field('telefoon', 'Telefoon', b.telefoon)}${field('email', 'E-mail', b.email)}${field('kvk', 'KvK', b.kvk)}${field('btw', 'Btw-nummer', b.btw)}${field('betaaltermijn', 'Standaard betaaltermijn (dagen)', b.betaaltermijn, { type: 'number' })}
+      <p class="wide"><button class="btn btn-leaf" type="submit">Opslaan</button></p>
+    </form></div></section>`;
+}
+
+function exactPanel() {
+  return `<section class="panel" id="exact"><header><h2>Exact</h2><span class="chip wait">${icon('clock')}Klaarzetten, nog niet gekoppeld</span></header><div class="body stack">
+    <p class="small muted">Elke inkooporder (uit de verzendpapieren) en elke verkoopfactuur (de pakbon) staat in de desk klaar zoals hij in Exact komt: artikel, aantal, prijs en het zendnummer als kostendrager. Met <b>Kopieer regels</b> neem je ze over; met <b>Staat in Exact</b> houdt de desk bij wat erin staat.</p>
+    <p class="small muted">Rechtstreeks in Exact zetten kan met een koppeling via Exact Online (een app in het Exact App Center, net als bij Outlook). Die bouwen we als de werkwijze zo blijft.</p>
+  </div></section>`;
+}
+
+function regionPanel(r) {
+  return `<section class="panel" id="regios"><header><h2>Regio's en zendnummers</h2></header><div class="body stack">
+    <p class="small muted">Elke regio heeft een eigen code. Die staat vooraan in het zendnummer, zodat je per regio ziet wat er in en uit gaat.</p>
+    <div class="tbwrap"><table class="tb"><thead><tr><th>Code</th><th>Regio</th><th>Herkomst (D)</th><th>Leveranciers</th></tr></thead><tbody>
+      ${r.regios.map(g => `<tr><td><b>${h(g.code)}</b></td><td>${h(g.naam)}<small class="faint" style="display:block">${h(g.vervoer || '')}</small></td><td>${h(g.land)}</td><td class="small">${r.leveranciers.filter(l => l.regio === g.code).map(l => h(l.naam)).join(', ')}</td></tr>`).join('')}
+    </tbody></table></div>
+    <p><button type="button" class="btn btn-sm btn-line" data-act="regio-new">${icon('plus')}Regio toevoegen</button></p>
+  </div></section>`;
+}
+
+let settings = null;
 export async function render(params, query) {
-  const d = await api('/koppelingen');
+  const [d, w] = await Promise.all([api('/koppelingen'), api('/week/instellingen')]);
+  settings = w;
   const back = query && query.get('outlook');
   const backMsg = back === 'ok' ? '<div class="okbox">' + icon('check') + '<span>Outlook is gekoppeld. Nieuwe concepten komen voortaan bij Concepten.</span></div>'
     : back === 'fout' ? `<div class="warnbox">${icon('warn')}<span>Koppelen lukte niet: ${h(query.get('reden') || 'onbekende fout')}</span></div>`
     : back === 'niet-ingesteld' ? `<div class="warnbox wait">${icon('info')}<span>Eerst moeten MS_CLIENT_ID en MS_CLIENT_SECRET in Railway staan. Zie hieronder.</span></div>` : '';
   const db = d.database;
-  return `<div class="page">
-    <div class="ph"><div><h1>Koppelingen</h1><p>De desk leest mee in Jans mail en WhatsApp, herkent aanbod, facturen en tijden, en zet concepten klaar in Outlook. Bestellen, betalen en versturen blijft bij Jan.</p></div></div>
+  return `<div class="page wk">
+    <div class="ph"><div><h1>Koppelingen</h1><p>Waar de facturen naartoe gaan, wat er op de pakbon staat, en wat de desk leest. Bestellen, betalen en versturen blijft bij Jan.</p></div></div>
     ${backMsg}
     <div class="grid2e">
       ${outlookPanel(d.outlook)}
+      ${slipPanel(w.bedrijf)}
+      ${exactPanel()}
+      ${regionPanel(w)}
       <section class="panel"><header><h2>Mail</h2>${state(d.mail.aan, 'Leest mee', 'Nog niet gekoppeld')}</header><div class="body stack">
         ${d.mail.aan ? `<dl class="kv"><dt>Mailbox</dt><dd>${h(d.mail.user)} via ${h(d.mail.host)}</dd><dt>Laatst gekeken</dt><dd>${d.mail.laatsteKeer ? `${dayWord(d.mail.laatsteKeer)} ${fTime(d.mail.laatsteKeer)}` : 'nog niet'}${d.mail.laatsteAantal ? `, ${d.mail.laatsteAantal} nieuw` : ''}</dd>${d.mail.laatsteFout ? `<dt>Fout</dt><dd style="color:var(--warn)">${h(d.mail.laatsteFout)}</dd>` : ''}</dl>
-          <p class="small muted">Elke drie minuten kijkt de desk naar nieuwe mail met een pdf of foto, of met woorden als factuur of pakbon. Mail wordt alleen gelezen: niets wordt verplaatst, verwijderd of als gelezen gemarkeerd.</p>
+          <p class="small muted">Elke drie minuten kijkt de desk naar nieuwe mail met een pdf of foto. Mail wordt alleen gelezen: niets wordt verplaatst, verwijderd of als gelezen gemarkeerd.</p>
           <p><button class="btn btn-line" data-act="mail-nu">Nu ophalen</button></p>`
-        : `<p>${h(d.mail.reden || '')}</p><p class="small muted">Zet in Railway onder Variables: <code>IMAP_HOST</code> (bijvoorbeeld imap.gmail.com), <code>IMAP_USER</code> en <code>IMAP_PASS</code> (bij Gmail een app-wachtwoord). Tot die tijd: stuur facturen door of sleep ze in de Inbox.</p>`}
-      </div></section>
-      <section class="panel"><header><h2>WhatsApp</h2>${state(d.whatsapp.aan, 'Ontvangt berichten', 'Nog niet gekoppeld')}</header><div class="body stack">
-        <p class="small muted">Kwekers sturen facturen, foto’s en tijden naar het WhatsApp Business-nummer van Campo. Via de WhatsApp Cloud API van Meta komen die hier binnen en leest de desk ze, net als mail.</p>
-        <dl class="kv"><dt>Webhook</dt><dd><code style="overflow-wrap:anywhere">${h(d.whatsapp.webhook)}</code> <button class="lnk small" data-act="copy" data-text="${h(d.whatsapp.webhook)}">kopieer</button></dd>
-        ${d.whatsapp.laatsteBericht ? `<dt>Laatste bericht</dt><dd>${dayWord(d.whatsapp.laatsteBericht)} ${fTime(d.whatsapp.laatsteBericht)}</dd>` : ''}${d.whatsapp.laatsteFout ? `<dt>Fout</dt><dd style="color:var(--warn)">${h(d.whatsapp.laatsteFout)}</dd>` : ''}</dl>
-        ${d.whatsapp.aan ? '' : '<p class="small muted">Nodig in Railway: <code>WHATSAPP_TOKEN</code>, <code>WHATSAPP_VERIFY_TOKEN</code> en liefst <code>WHATSAPP_APP_SECRET</code>. Tot die tijd: plak een WhatsApp-bericht in de Inbox, of stuur het door naar de factuurmail.</p>'}
+        : `<p>${h(d.mail.reden || '')}</p><p class="small muted">Met <code>IMAP_HOST</code>, <code>IMAP_USER</code> en <code>IMAP_PASS</code> in Railway kan de desk de mailbox lezen. Bevestigingen en verzendpapieren van de leveranciers voeg je nu per zending toe bij Inkoop: een pdf, een foto of de geplakte mail.</p>`}
       </div></section>
       <section class="panel"><header><h2>Lezen met AI</h2>${state(d.ai.aan, 'Grok leest mee', 'Alleen vaste regels')}</header><div class="body stack">
-        <p class="small muted">Met AI leest de desk ook scans, foto’s en rommelige WhatsApp-berichten. Zonder AI leest hij nette pdf’s en berichten met vaste regels. Twijfelt hij, dan kijk jij na; wat je kiest onthoudt hij per kweker.</p>
+        <p class="small muted">Met AI leest de desk bevestigingen en verzendpapieren van de leveranciers, ook scans en foto’s. Zonder AI leest hij nette pdf’s met vaste regels. Twijfelt hij, dan zie je dat bij Inkoop en kies jij.</p>
         ${d.ai.aan ? `<dl class="kv"><dt>Model</dt><dd>${h(d.ai.model || 'wordt bepaald')}</dd>${d.ai.laatsteSucces ? `<dt>Laatst gelukt</dt><dd>${dayWord(d.ai.laatsteSucces)} ${fTime(d.ai.laatsteSucces)}</dd>` : ''}${d.ai.laatsteFout ? `<dt>Laatste fout</dt><dd style="color:var(--warn)">${h(d.ai.laatsteFout)}</dd>` : ''}</dl><p><button class="btn btn-line" data-act="ai-test">Test de verbinding</button></p>` : '<p class="small muted">Zet <code>XAI_API_KEY</code> in Railway om AI aan te zetten.</p>'}
       </div></section>
       <section class="panel"><header><h2>Database</h2><span class="chip ok">${icon('db')}${h(db.grootte || '')}</span></header><div class="body">
-        <dl class="kv nums">${[['Kwekers', db.kwekers], ['Klanten', db.klanten], ['Planten', db.planten], ['Geleerde plantnamen', db.plantnamen], ['Klantorders', db.orders], ['Facturen', db.facturen], ['Factuurregels', db.regels], ['Toewijzingen', db.toewijzingen], ['Zendingen', db.zendingen], ['Aanbiedingen', db.aanbiedingen], ['Aanbodregels', db.aanbodregels], ['Conceptmails', db.concepten], ['Gebeurtenissen onderweg', db.gebeurtenissen], ['Berichten binnen', db.berichten_in]].map(([k, v]) => `<dt>${k}</dt><dd class="num">${fNum(v)}</dd>`).join('')}</dl>
-        <p class="small muted" style="margin-top:10px">Elke regel wordt gecontroleerd: aantallen en prijzen positief, nooit meer verdeeld dan er op een factuurregel staat, geen dubbele facturen per kweker, en alles wat bij elkaar hoort aan elkaar gekoppeld.</p>
+        <dl class="kv nums">${[['Klanten', db.klanten], ['Leveranciers', db.leveranciers], ['Producten', db.producten], ['Telefoonbestellingen', db.weekorders], ['Zendingen', db.partijen], ['Zendingregels', db.partijregels], ['Weken met een koers', db.koersen], ['Pakbonnen', db.pakbonnen], ['Pakbonregels', db.pakbonregels], ['Conceptmails', db.concepten]].map(([k, v]) => `<dt>${k}</dt><dd class="num">${fNum(v)}</dd>`).join('')}</dl>
+        <p class="small muted" style="margin-top:10px">Elk zendnummer is uniek, aantallen zijn hele dozen, en een pakbon ligt vast zodra hij akkoord is: wat erna verandert, zie je meteen.</p>
       </div></section>
     </div>
     ${d.demo ? `<section class="panel" style="margin-top:16px;border-color:var(--wait)"><header><h2>Demo-data</h2><span class="chip wait">Aan</span></header><div class="body stack">
-      <p>De kwekers, klanten, facturen en vijftien maanden geschiedenis hier zijn verzonnen, om te laten zien hoe de desk werkt. Ze schuiven elke dag mee, zodat Vandaag altijd gevuld is. Zodra Jan echt begint: haal de demo weg. De plantencatalogus blijft staan.</p>
+      <p>De leveranciers, zestig klanten, zendingen en ruim een jaar weken hier zijn verzonnen, om te laten zien hoe de desk werkt. Elke vrijdag schuift de demo een week op. Zodra Jan echt begint: haal de demo weg.</p>
       <p><button class="btn btn-bad" data-act="demo-weg">Demo-data verwijderen</button></p></div></section>` : ''}
   </div>`;
 }
@@ -70,7 +97,21 @@ export const actions = {
     dialog({ title: 'Demo-data verwijderen', ok: 'Verwijderen', danger: true, body: '<p>Alle verzonnen kwekers, klanten, facturen, zendingen en berichten gaan weg. De plantencatalogus en alles wat je zelf hebt toegevoegd blijven staan. Dit kun je niet terugdraaien.</p><label class="f">Typ VERWIJDER om te bevestigen<input type="text" name="bevestig" autocomplete="off"></label>',
       onOk: async v => { await api('/demo/verwijderen', { method: 'POST', body: { bevestig: v.bevestig } }); toast('Demo-data verwijderd.'); ctx.refresh(); } });
   },
+  'regio-new'(el, ctx) {
+    dialog({ title: 'Regio toevoegen', ok: 'Opslaan', body: `<div class="form">${field('code', 'Code (2 of 3 letters)', '')}${field('naam', 'Naam', '')}${field('land', 'Land van herkomst (2 letters)', '')}${field('valuta', 'Valuta', 'USD')}${field('vervoer', 'Hoe het komt', '', { wide: true })}</div>`,
+      onOk: async v => { await api('/week/regios', { method: 'POST', body: v }); toast('Regio opgeslagen.'); ctx.refresh(); } });
+  },
 };
+
+export function mount(ctx) {
+  const f = document.querySelector('[data-form="bedrijf"]');
+  if (f) f.addEventListener('submit', async e => {
+    e.preventDefault();
+    const v = Object.fromEntries(new FormData(f).entries());
+    try { await api('/week/instellingen', { method: 'PATCH', body: v }); toast('Opgeslagen. Nieuwe pdf’s krijgen deze gegevens.'); ctx.refresh(); }
+    catch (x) { toast(x.message); }
+  });
+}
 
 // the checkbox for notifications: inputs do not go through the click handler
 export async function onChange(e) {

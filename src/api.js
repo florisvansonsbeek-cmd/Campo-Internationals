@@ -9,7 +9,8 @@ import { deliveryMessage, offerMessage, delayMessage, LANG_NAME } from './messag
 import { aiStatus, aiCheck } from './ingest/ai.js';
 import { mailStatus, pollMail } from './ingest/mail.js';
 import { whatsappStatus } from './ingest/whatsapp.js';
-import { removeDemo } from './seed.js';
+import { removeWeekDemo } from './week/demo.js';
+import { week } from './week/routes.js';
 import { offerCards, offerDetail, callOutcome, placeOrder, declineOffer, receiveOrder, proposeOffer, customerStats, dropCaches } from './offers.js';
 import { conceptPdf, conceptEml } from './drafts.js';
 import { pushOffer, pushConcept, sendConcept, outlookStatus, disconnect, removeFromOutlook, syncSent, authStart, authBack, target } from './outlook.js';
@@ -20,6 +21,8 @@ import { agenda, trucksOn, wagenNow, ymd } from './agenda.js';
 import { giveFromLoods } from './erbij.js';
 
 export const api = express.Router();
+// the weekly rhythm: ordering, shipments, Monday, packing slips, customers and the year
+api.use('/week', week);
 const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const who = req => (req.user && req.user.naam) || 'Jan';
 const int = v => { const n = Number(v); return Number.isInteger(n) ? n : null; };
@@ -607,14 +610,16 @@ api.get('/koppelingen', wrap(async (req, res) => {
      (SELECT count(*) FROM klant_orders) AS orders, (SELECT count(*) FROM plant_namen) AS plantnamen,
      (SELECT pg_size_pretty(sum(pg_total_relation_size(c.oid))) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'campo' AND c.relkind = 'r') AS grootte`);
   const host = `${req.protocol}://${req.get('host')}`;
-  const extra = await one(`SELECT (SELECT count(*) FROM aanbiedingen) AS aanbiedingen, (SELECT count(*) FROM aanbod_regels) AS aanbodregels, (SELECT count(*) FROM concepten) AS concepten`);
+  const extra = await one(`SELECT (SELECT count(*) FROM concepten) AS concepten, (SELECT count(*) FROM partijen) AS partijen, (SELECT count(*) FROM partij_regels) AS partijregels,
+     (SELECT count(*) FROM pakbonnen WHERE status = 'akkoord') AS pakbonnen, (SELECT count(*) FROM pakbon_regels) AS pakbonregels, (SELECT count(*) FROM weekorders) AS weekorders,
+     (SELECT count(*) FROM leveranciers) AS leveranciers, (SELECT count(*) FROM producten) AS producten, (SELECT count(*) FROM weken WHERE koers IS NOT NULL) AS koersen`);
   res.json({ ai: aiStatus(), mail: mailStatus(), whatsapp: { ...whatsappStatus(), webhook: `${host}/api/whatsapp/webhook` }, outlook: { ...(await outlookStatus()), terug: `${host}/api/outlook/terug` }, demo, database: { ...counts, ...extra }, talen: LANG_NAME });
 }));
 api.post('/koppelingen/ai-test', wrap(async (req, res) => res.json(await aiCheck())));
 api.post('/koppelingen/mail-nu', wrap(async (req, res) => res.json(await pollMail())));
 api.post('/demo/verwijderen', wrap(async (req, res) => {
   if (req.body?.bevestig !== 'VERWIJDER') return res.status(400).json({ fout: 'Typ VERWIJDER om te bevestigen.' });
-  await removeDemo();
+  await removeWeekDemo();
   await log(who(req), 'Demo-data verwijderd');
   res.json({ ok: true });
 }));

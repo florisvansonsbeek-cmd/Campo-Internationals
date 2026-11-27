@@ -2,7 +2,7 @@
   "name": "campo-international",
   "version": "2.0.0",
   "private": true,
-  "description": "Campo International: website en Campo desk (bestellingen volgen, facturen lezen, verdelen over klanten, kwekers- en klantendatabase).",
+  "description": "Campo International: website en Campo desk (het weekritme: bestellen, verzendpapieren naar Exact, maandag koers, tellen en verdelen, pakbon met plantenpaspoort, Outlook en de live Excel).",
   "type": "module",
   "main": "server.js",
   "engines": {
@@ -14,6 +14,7 @@
     "check": "node scripts/check.js"
   },
   "dependencies": {
+    "exceljs": "^4.4.0",
     "express": "^5.1.0",
     "imapflow": "^1.0.190",
     "mailparser": "^3.7.4",

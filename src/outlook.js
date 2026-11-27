@@ -211,7 +211,7 @@ export async function sendConcept(id, wie) {
   }
   await graph(`/me/messages/${encodeURIComponent(c.extern_id)}/send`, { method: 'POST' });
   await pool.query(`UPDATE concepten SET status = 'verstuurd', verstuurd_op = now(), bijgewerkt = now() WHERE id = $1`, [id]);
-  await log(wie, c.soort === 'bestelling' ? 'Bestelling verstuurd' : 'Offerte verstuurd', 'aanbod', c.aanbod_id, { aan: c.aan, nummer: c.nummer });
+  await log(wie, c.soort === 'bestelling' ? 'Bestelling verstuurd' : c.soort === 'factuur' ? `Factuur ${c.nummer} verstuurd` : 'Offerte verstuurd', c.soort === 'factuur' ? 'pakbon' : 'aanbod', c.soort === 'factuur' ? c.pakbon_id : c.aanbod_id, { aan: c.aan, nummer: c.nummer });
   return one('SELECT * FROM concepten WHERE id = $1', [id]);
 }
 
@@ -219,14 +219,14 @@ export async function sendConcept(id, wie) {
 export async function syncSent() {
   const t = await target();
   if (!t || t.soort !== 'microsoft') return 0;
-  const list = await rows(`SELECT id, extern_id, aanbod_id, soort, nummer, aan FROM concepten WHERE status = 'in_outlook' AND waar = 'microsoft' AND gezet_op > now() - interval '14 days'`);
+  const list = await rows(`SELECT id, extern_id, aanbod_id, pakbon_id, soort, nummer, aan FROM concepten WHERE status = 'in_outlook' AND waar = 'microsoft' AND gezet_op > now() - interval '14 days'`);
   let n = 0;
   for (const c of list) {
     try {
       const m = await graph(`/me/messages/${encodeURIComponent(c.extern_id)}?$select=isDraft,sentDateTime`);
       if (m && m.isDraft === false) {
         await pool.query(`UPDATE concepten SET status = 'verstuurd', verstuurd_op = coalesce($2, now()), bijgewerkt = now() WHERE id = $1`, [c.id, m.sentDateTime || null]);
-        await log('Outlook', c.soort === 'bestelling' ? 'Bestelling verstuurd' : 'Offerte verstuurd', 'aanbod', c.aanbod_id, { aan: c.aan, nummer: c.nummer });
+        await log('Outlook', c.soort === 'bestelling' ? 'Bestelling verstuurd' : c.soort === 'factuur' ? `Factuur ${c.nummer} verstuurd` : 'Offerte verstuurd', c.soort === 'factuur' ? 'pakbon' : 'aanbod', c.soort === 'factuur' ? c.pakbon_id : c.aanbod_id, { aan: c.aan, nummer: c.nummer });
         n++;
       }
     } catch (e) {

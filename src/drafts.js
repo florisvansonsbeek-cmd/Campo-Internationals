@@ -4,6 +4,7 @@ import MailComposer from 'nodemailer/lib/mail-composer/index.js';
 import { pool, rows, one } from './db.js';
 import { offerDetail, planDelivery, growerArrival } from './offers.js';
 import { campoPdf } from './pdf.js';
+import { slipPdfById } from './week/mail.js';
 
 const LOC = { nl: 'nl-NL', en: 'en-GB', de: 'de-DE', fr: 'fr-FR', it: 'it-IT', pl: 'pl-PL', sv: 'sv-SE', da: 'da-DK', es: 'es-ES', no: 'nb-NO' };
 const EU = new Set(['NL', 'BE', 'DE', 'FR', 'IT', 'PL', 'SE', 'DK', 'ES', 'AT', 'IE', 'LU', 'PT', 'FI', 'CZ', 'SK', 'SI', 'HU', 'RO', 'BG', 'HR', 'GR', 'CY', 'MT', 'EE', 'LV', 'LT']);
@@ -106,6 +107,12 @@ function quoteContent(d, k, lines, nummer) {
 
 export async function conceptPdf(c) {
   const i = c.inhoud;
+  // a packing slip with invoice is built fresh from the database, with the plant passport on it
+  if (i.soort === 'factuur' || c.soort === 'factuur') {
+    const out = await slipPdfById(c.pakbon_id || i.pakbon_id);
+    if (!out) throw new Error('De pakbon bij dit concept bestaat niet meer.');
+    return out.pdf;
+  }
   const L = i.soort === 'bestelling' ? ORDER[i.taal].pdf : OFFER[i.taal].pdf;
   return campoPdf(i, L, LOC[i.taal]);
 }

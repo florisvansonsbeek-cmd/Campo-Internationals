@@ -1,52 +1,42 @@
 // Campo desk: the shell, sign-in, menu, search and the router.
 import { api, h, icon, MARK, toast, dialog, waLink, mailLink, copy, fTime } from './core.js';
 import { chartEvents } from './charts.js';
-import * as vandaag from './views/vandaag.js';
-import * as workflow from './views/workflow.js';
-import * as factuur from './views/factuur.js';
-import * as inbox from './views/inbox.js';
-import * as kwekers from './views/kwekers.js';
+import * as week from './views/week.js';
+import * as bestellen from './views/bestellen.js';
+import * as inkoop from './views/inkoop.js';
+import * as maandag from './views/maandag.js';
+import * as pakbonnen from './views/pakbonnen.js';
 import * as klanten from './views/klanten.js';
-import * as relaties from './views/relaties.js';
-import * as planten from './views/planten.js';
+import * as jaar from './views/jaar.js';
 import * as koppelingen from './views/koppelingen.js';
-import * as aanbod from './views/aanbod.js';
-import * as loods from './views/loods.js';
 import * as uitleg from './views/uitleg.js';
-import * as bestelling from './views/bestelling.js';
-import * as wagen from './views/wagen.js';
-import * as agendaPage from './agenda.js';
 
 const app = document.getElementById('app');
-let me = null, badge = { inbox: 0, werk: 0 };
+let me = null, badge = { inkoop: 0, pakbonnen: 0 };
 
+// the desk follows Jan's week: Tuesday order, Thursday and Friday the papers, Monday the hall and the packing slips
 const ROUTES = [
-  { re: /^vandaag$/, nav: 'vandaag', title: 'Vandaag', view: vandaag.render, actions: vandaag.actions, every: vandaag.refreshEvery },
-  { re: /^workflow$/, nav: 'workflow', title: 'Workflow', view: workflow.render, actions: workflow.actions, mount: workflow.mount, every: workflow.refreshEvery },
-  { re: /^aanbod\/(\d+)$/, keys: ['id'], nav: 'workflow', title: 'Aanbod', view: aanbod.render, actions: aanbod.actions },
-  { re: /^wagen\/(\d+)$/, keys: ['id'], nav: 'vandaag', title: 'Wagen', view: wagen.render, actions: wagen.actions, every: wagen.refreshEvery },
-  { re: /^agenda$/, nav: 'vandaag', title: 'Agenda', view: agendaPage.render, actions: agendaPage.actions, every: agendaPage.refreshEvery },
-  { re: /^bestelling\/(\d+)$/, keys: ['id'], nav: 'workflow', title: 'Bestelling', view: bestelling.render, actions: bestelling.actions, mount: bestelling.mount, every: bestelling.refreshEvery },
-  { re: /^loods$/, nav: 'loods', title: 'Loods', view: loods.render, actions: loods.actions, mount: loods.mount, every: loods.refreshEvery },
+  { re: /^week$/, nav: 'week', title: 'Deze week', view: week.render, actions: week.actions, every: week.refreshEvery },
+  { re: /^bestellen$/, nav: 'bestellen', title: 'Bestellen', view: bestellen.render, actions: bestellen.actions, mount: bestellen.mount, change: bestellen.onChange },
+  { re: /^inkoop$/, nav: 'inkoop', title: 'Inkoop', view: inkoop.render, actions: inkoop.actions, mount: inkoop.mount, every: inkoop.refreshEvery },
+  { re: /^maandag$/, nav: 'maandag', title: 'Maandag', view: maandag.render, actions: maandag.actions, mount: maandag.mount, change: maandag.onChange },
+  { re: /^pakbonnen$/, nav: 'pakbonnen', title: 'Pakbon en factuur', view: pakbonnen.render, actions: pakbonnen.actions },
+  { re: /^pakbon\/(\d+)$/, keys: ['klant'], nav: 'pakbonnen', title: 'Pakbon', view: pakbonnen.renderOne, actions: pakbonnen.actions },
+  { re: /^klanten$/, nav: 'klanten', title: 'Klanten', view: klanten.renderList, actions: klanten.listActions, input: klanten.onListInput },
+  { re: /^klant\/(\d+)$/, keys: ['id'], nav: 'klanten', title: 'Klant', view: klanten.renderDetail, actions: klanten.detailActions, mount: klanten.mountDetail },
+  { re: /^jaar$/, nav: 'jaar', title: 'Jaar en Excel', view: jaar.render, actions: jaar.actions },
+  { re: /^koppelingen$/, nav: 'koppelingen', title: 'Koppelingen', view: koppelingen.render, actions: koppelingen.actions, change: koppelingen.onChange, mount: koppelingen.mount },
   { re: /^uitleg$/, nav: 'uitleg', title: 'Zo werkt het', view: uitleg.render, actions: uitleg.actions },
-  { re: /^factuur\/(\d+)$/, keys: ['id'], nav: 'workflow', title: 'Factuur', view: factuur.render, actions: factuur.actions, change: factuur.onChange },
-  { re: /^inbox(?:\/(\d+))?$/, keys: ['id'], nav: 'inbox', title: 'Inbox', view: inbox.render, actions: inbox.actions, mount: inbox.mount },
-  { re: /^relaties$/, nav: 'relaties', title: 'Kwekers en klanten', view: relaties.render, actions: relaties.actions, input: relaties.onInput },
-  { re: /^kwekers$/, nav: 'relaties', title: 'Kwekers en klanten', view: (p, q) => relaties.render({ kant: 'kwekers' }, q), actions: relaties.actions, input: relaties.onInput },
-  { re: /^klanten$/, nav: 'relaties', title: 'Kwekers en klanten', view: (p, q) => relaties.render({ kant: 'klanten' }, q), actions: relaties.actions, input: relaties.onInput },
-  { re: /^kweker\/(\d+)$/, keys: ['id'], nav: 'relaties', title: 'Kweker', view: kwekers.renderDetail, actions: kwekers.detailActions },
-  { re: /^klant\/(\d+)$/, keys: ['id'], nav: 'relaties', title: 'Klant', view: klanten.renderDetail, actions: klanten.detailActions },
-  { re: /^planten$/, nav: 'planten', title: 'Planten', view: planten.renderList, actions: planten.listActions, input: planten.onInput },
-  { re: /^plant\/(\d+)$/, keys: ['id'], nav: 'planten', title: 'Plant', view: planten.renderDetail, actions: planten.detailActions },
-  { re: /^koppelingen$/, nav: 'koppelingen', title: 'Koppelingen', view: koppelingen.render, actions: koppelingen.actions, change: koppelingen.onChange },
 ];
+// key, label, icon, short label on phones, the day it belongs to
 const NAV = [
-  ['vandaag', 'Vandaag', 'today'], ['workflow', 'Workflow', 'flow'], ['loods', 'Loods', 'shed'], ['inbox', 'Inbox', 'inbox'],
-  ['relaties', 'Kwekers en klanten', 'rel', 'Relaties'], ['planten', 'Planten', 'plant'], ['koppelingen', 'Koppelingen', 'plug'], ['uitleg', 'Zo werkt het', 'book'],
+  ['week', 'Deze week', 'today', 'Week'], ['bestellen', 'Bestellen', 'phone', 'Bestel', 'di'], ['inkoop', 'Inkoop', 'in', 'Inkoop', 'do–vr'],
+  ['maandag', 'Maandag', 'shed', 'Maandag', 'ma'], ['pakbonnen', 'Pakbonnen', 'file', 'Pakbon', 'ma'], ['klanten', 'Klanten', 'customer', 'Klanten'], ['jaar', 'Jaar en Excel', 'db', 'Jaar'],
 ];
+const NAV2 = [['koppelingen', 'Koppelingen', 'plug'], ['uitleg', 'Zo werkt het', 'book']];
 
 function parse() {
-  const raw = location.hash.replace(/^#\/?/, '') || 'vandaag';
+  const raw = location.hash.replace(/^#\/?/, '') || 'week';
   const [path, qs] = raw.split('?');
   for (const r of ROUTES) {
     const m = path.match(r.re);
@@ -62,7 +52,7 @@ function loginView(msg = '') {
     <form id="login" novalidate>
       <a class="wm" href="/" style="color:var(--forest)">${MARK}<b>CAMPO</b><i style="color:var(--leaf)">Desk</i></a>
       <h1>Campo desk</h1>
-      <p class="lede">Waar elke bestelling is, wie wat krijgt en hoe het met elke kweker en klant gaat.</p>
+      <p class="lede">De hele week op één plek: bestellen, de verzendbewijzen, maandag in de hal en de pakbon met factuur.</p>
       <label class="f">Naam<input type="text" name="naam" value="Jan" autocomplete="username"></label>
       <label class="f">Wachtwoord<input type="password" name="wachtwoord" autocomplete="current-password" autofocus></label>
       <p class="err" role="alert"${msg ? '' : ' hidden'}>${h(msg)}</p>
@@ -85,16 +75,17 @@ function loginView(msg = '') {
 // ---------- the frame around every page
 function shell() {
   app.innerHTML = `<header class="top">
-      <a class="wm" href="#/vandaag">${MARK}<b>CAMPO</b><i>Desk</i></a>
-      <div class="search"><input type="search" id="q" placeholder="Zoek kweker, klant, plant, bestelling of factuur" autocomplete="off" aria-label="Zoeken">${icon('search')}<div class="sres" id="sres" hidden></div></div>
+      <a class="wm" href="#/week">${MARK}<b>CAMPO</b><i>Desk</i></a>
+      <div class="search"><input type="search" id="q" placeholder="Zoek klant, zendnummer of factuur" autocomplete="off" aria-label="Zoeken">${icon('search')}<div class="sres" id="sres" hidden></div></div>
       <div class="top-r"><span class="clock" id="clock"></span><span class="who">${h(me.naam)}</span><button class="btn btn-sm btn-line" data-act="logout">${icon('logout')}<span class="sr">Uitloggen</span></button></div>
     </header>
     <div class="shell">
-      <aside class="rail"><nav aria-label="Desk">${NAV.map(([k, l, ic]) => `<a href="#/${k}" data-nav="${k}">${icon(ic)}<span>${l}</span>${k === 'inbox' || k === 'workflow' ? `<span class="pill-n" data-badge="${k}" hidden></span>` : ''}</a>`).join('')}</nav>
-        <div class="sep"></div><p class="note">De desk leest, vergelijkt en zet klaar. Jan bestelt, keurt goed, betaalt en verstuurt.</p><p class="note"><a href="/">Naar de website</a></p></aside>
+      <aside class="rail"><nav aria-label="Desk">${NAV.map(([k, l, ic, , dag]) => `<a href="#/${k}" data-nav="${k}">${icon(ic)}<span>${l}</span>${k === 'inkoop' || k === 'pakbonnen' ? `<span class="pill-n" data-badge="${k}" hidden></span>` : ''}${dag ? `<small class="dag">${dag}</small>` : ''}</a>`).join('')}</nav>
+        <div class="sep"></div><nav aria-label="Meer">${NAV2.map(([k, l, ic]) => `<a href="#/${k}" data-nav="${k}">${icon(ic)}<span>${l}</span></a>`).join('')}</nav>
+        <div class="sep"></div><p class="note">De desk leest, telt, verdeelt en zet klaar. Jan bestelt, keurt goed en verstuurt.</p><p class="note"><a href="/">Naar de website</a></p></aside>
       <main id="main" tabindex="-1"></main>
     </div>
-    <nav class="tabs-m" aria-label="Desk">${NAV.slice(0, 6).map(([k, l, ic, short]) => `<a href="#/${k}" data-nav="${k}">${icon(ic)}${short || l}${k === 'inbox' || k === 'workflow' ? `<span class="pill-n" data-badge="${k}" hidden></span>` : ''}</a>`).join('')}</nav>`;
+    <nav class="tabs-m" aria-label="Desk">${NAV.map(([k, l, ic, short]) => `<a href="#/${k}" data-nav="${k}">${icon(ic)}${short || l}${k === 'inkoop' || k === 'pakbonnen' ? `<span class="pill-n" data-badge="${k}" hidden></span>` : ''}</a>`).join('')}</nav>`;
   tick(); setInterval(tick, 15000);
   setupSearch();
   updateBadges();
@@ -102,14 +93,8 @@ function shell() {
 function tick() { const c = document.getElementById('clock'); if (c) c.textContent = fTime(new Date()); }
 async function updateBadges() {
   try {
-    const d = await api('/workflow');
-    badge.inbox = d.inbox.length;
-    badge.werk = d.aanbod.filter(c => c.stap === 'aanbod' || c.stap === 'bellen').length;
-    for (const el of document.querySelectorAll('[data-badge]')) {
-      const n = el.dataset.badge === 'inbox' ? badge.inbox : badge.werk;
-      el.hidden = !n; el.textContent = n;
-      el.classList.toggle('bad', el.dataset.badge === 'inbox' && d.inbox.some(b => b.status === 'fout'));
-    }
+    badge = await api('/week/badges');
+    for (const el of document.querySelectorAll('[data-badge]')) { const n = badge[el.dataset.badge] || 0; el.hidden = !n; el.textContent = n; }
   } catch { /* quiet */ }
 }
 
@@ -131,6 +116,9 @@ async function route({ keepScroll = false } = {}) {
     document.title = `${r.title} · Campo desk`;
     if (r.mount) r.mount(ctx);
     if (changed && !keepScroll) { window.scrollTo(0, 0); main.focus({ preventScroll: true }); } else window.scrollTo(0, y);
+    // ?deel=koers opens the page at that part
+    const deel = query.get('deel');
+    if (deel && changed && !keepScroll) setTimeout(() => document.getElementById(deel)?.scrollIntoView({ block: 'start' }), 30);
   } catch (e) {
     if (my !== seq) return;
     if (e.status === 401) return;
@@ -153,12 +141,16 @@ const ctx = {
 function setupSearch() {
   const q = document.getElementById('q'), box = document.getElementById('sres');
   let t = null;
-  const go = { kweker: id => `#/kweker/${id}`, klant: id => `#/klant/${id}`, plant: id => `#/plant/${id}`, factuur: id => `#/factuur/${id}`, order: id => `#/klant/${id}`, aanbod: id => `#/aanbod/${id}` };
+  const go = {
+    klant: id => `#/klant/${id}`, product: () => '#/jaar',
+    partij: id => { const [m, p] = String(id).split('#p'); return `#/inkoop?maandag=${m}&p=${p}`; },
+    pakbon: id => { const [m, k] = String(id).split(':'); return `#/pakbon/${k}?maandag=${m}`; },
+  };
   q.addEventListener('input', () => {
     clearTimeout(t);
     t = setTimeout(async () => {
       if (q.value.trim().length < 2) { box.hidden = true; return; }
-      const r = await api(`/zoek?q=${encodeURIComponent(q.value.trim())}`).catch(() => []);
+      const r = await api(`/week/zoek?q=${encodeURIComponent(q.value.trim())}`).catch(() => []);
       box.innerHTML = r.length ? r.map(x => `<a href="${go[x.soort](x.id)}"><span>${h(x.titel)}</span><small>${h(x.soort)}${x.sub ? ` · ${h(x.sub)}` : ''}</small></a>`).join('') : '<p class="faint small" style="padding:8px">Niets gevonden.</p>';
       box.hidden = false;
     }, 180);
