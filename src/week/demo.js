@@ -9,7 +9,7 @@ import { addDays, isoDow, isoWeek, today, r2, r4, vatFor } from './util.js';
 import { allocate } from './model.js';
 import { supplierPdf } from './docs.js';
 
-export const WEEK_DEMO_VERSION = 4;
+export const WEEK_DEMO_VERSION = 5;
 const WEEKS = 60;
 
 function rng(seed) {
@@ -28,9 +28,10 @@ const REGIOS = [
   { code: 'GT', naam: 'Guatemala', land: 'GT', valuta: 'USD', vervoer: 'Vliegtuig: om de week, vrijdag uit Guatemala-Stad, maandag in Nootdorp' },
 ];
 const LEVERANCIERS = [
-  { code: 'rio-claro', naam: 'Finca Río Claro S.A.', regio: 'CR', plaats: 'Sarapiquí', contact: 'Mariela Solís', email: 'ventas@fincarioclaro.example', telefoon: '+506 2766 0101', whatsapp: '+50687000101', exact_code: '70010', pre: 'FRC' },
-  { code: 'volcan-azul', naam: 'Viveros Volcán Azul S.A.', regio: 'CR', plaats: 'Guápiles', contact: 'Andrés Mora', email: 'export@volcanazul.example', telefoon: '+506 2710 0102', whatsapp: '+50687000102', exact_code: '70011', pre: 'VVA' },
-  { code: 'las-flores', naam: 'Agroexportadora Las Flores', regio: 'GT', plaats: 'Escuintla', contact: 'Lucía Herrera', email: 'pedidos@lasflores-gt.example', telefoon: '+502 7888 0103', whatsapp: '+50255000103', exact_code: '70020', pre: 'ALF' },
+  // how often the boxes come later than Monday morning, and how often the papers come late
+  { code: 'rio-claro', naam: 'Finca Río Claro S.A.', regio: 'CR', plaats: 'Sarapiquí', contact: 'Mariela Solís', email: 'ventas@fincarioclaro.example', telefoon: '+506 2766 0101', whatsapp: '+50687000101', exact_code: '70010', pre: 'FRC', route: ['SJO', 'AMS'], laat: 0.03, papLaat: 0.02 },
+  { code: 'volcan-azul', naam: 'Viveros Volcán Azul S.A.', regio: 'CR', plaats: 'Guápiles', contact: 'Andrés Mora', email: 'export@volcanazul.example', telefoon: '+506 2710 0102', whatsapp: '+50687000102', exact_code: '70011', pre: 'VVA', route: ['SJO', 'AMS'], laat: 0.09, papLaat: 0.1 },
+  { code: 'las-flores', naam: 'Agroexportadora Las Flores', regio: 'GT', plaats: 'Escuintla', contact: 'Lucía Herrera', email: 'pedidos@lasflores-gt.example', telefoon: '+502 7888 0103', whatsapp: '+50255000103', exact_code: '70020', pre: 'ALF', route: ['GUA', 'MIA', 'AMS'], laat: 0.2, papLaat: 0.05 },
 ];
 // code, name, species (A on the plant passport), size, per box, sales $, purchase $, usual supplier, how the supplier writes it
 const PRODUCTEN = [
@@ -145,8 +146,8 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
     const L = {};
     for (const l of LEVERANCIERS) {
       L[l.code] = { ...l, id: ++lb };
-      await c.query(`INSERT INTO leveranciers (id, code, naam, regio, plaats, contact, email, telefoon, whatsapp, taal, exact_code, bron) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'es',$10,'demo')`,
-        [lb, l.code, l.naam, l.regio, l.plaats, l.contact, l.email, l.telefoon, l.whatsapp, l.exact_code]);
+      await c.query(`INSERT INTO leveranciers (id, code, naam, regio, plaats, contact, email, telefoon, whatsapp, taal, exact_code, route, bron) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'es',$10,$11,'demo')`,
+        [lb, l.code, l.naam, l.regio, l.plaats, l.contact, l.email, l.telefoon, l.whatsapp, l.exact_code, l.route]);
     }
     let pb = await maxId('producten');
     const P = [];
@@ -175,6 +176,7 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
         id: ++kb, code: slug(naam).slice(0, 40), naam, soort, plaats, postcode, adres: `${straat} ${RI(2, 240)}`, land, taal, contact,
         email: `${m1}@${dom}`, factuur_email: `${m2}@${dom}`, telefoon: `${pre} ${nr.slice(0, 4)} ${nr.slice(4)}`.trim(), kanaal: 'telefoon',
         btw_nummer: btw, exact_code: String(10001 + i), betaaltermijn: land === 'NL' ? 14 : pick([21, 30, 30]), klant_sinds: RI(1998, 2023),
+        betaal: r() < 0.1 ? 'laat' : r() < 0.25 ? 'soms' : 'netjes',
         size, mix, kans: size === 3 ? R(0.82, 0.95) : size === 2 ? R(0.5, 0.68) : R(0.22, 0.38), basis: size === 3 ? R(7, 13) : size === 2 ? R(3.5, 7) : R(1.5, 3.5),
       };
     });
@@ -197,7 +199,7 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
       const m = addDays(first, i * 7);
       const current = m === anchor, next = m === addDays(anchor, 7);
       const wk = isoWeek(m), month = Number(m.slice(5, 7)) - 1;
-      const gtWeek = wk.week % 2 === 0;
+      const gtWeek = (WEEKS - i) % 2 === 0;   // every other week, and always in the week that is on its way
       const quiet = wk.week >= 52 || wk.week === 1;   // the Christmas weeks: hardly anything flies
       const season = SEASON[month] * (quiet ? 0.35 : 1);
       const koers = r4(1.078 + 0.088 * (i / WEEKS) + 0.011 * Math.sin(i / 4.3) + R(-0.004, 0.004));
@@ -235,9 +237,11 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
         const p = {
           id: ++pid, nummer, regio: l.regio, leverancier_id: l.id, maandag: m, bron: 'demo', lev: l,
           besteld_op: at(addDays(m, -6), 10, RI(10, 55)), bevestigd_op: gt ? at(addDays(m, -3), 9, RI(5, 40)) : at(addDays(m, -4), second ? 17 : 15, RI(0, 50)),
-          verzonden_op: gt ? at(addDays(m, -2), 10, RI(5, 30)) : at(addDays(m, -3), second ? 16 : 14, RI(0, 45)),
-          binnen_op: current ? null : at(m, 7, RI(10, 40)),
-          awb: `${gt ? '045' : '074'}-${digits(4)} ${digits(4)}`, vlucht: gt ? 'GUA → AMS' : 'SJO → AMS', fyto: `${l.regio}-FITO-${yy}-${digits(6)}`,
+          // this week the ash over Guatemala City moves the Saturday flight to Sunday morning (see the example notice below)
+          verzonden_op: gt ? (current ? at(addDays(m, -1), 9, RI(5, 30)) : r() < l.papLaat ? at(addDays(m, -2), 16, RI(0, 50)) : at(addDays(m, -2), 10, RI(5, 30)))
+            : r() < l.papLaat ? at(addDays(m, -2), 15, RI(0, 50)) : at(addDays(m, -3), second ? 16 : 14, RI(0, 45)),
+          binnen_op: current ? null : r() < l.laat ? at(m, RI(13, 16), RI(0, 59)) : at(m, 7, RI(10, 40)),
+          awb: `${gt ? '045' : '074'}-${digits(4)} ${digits(4)}`, vlucht: l.route.join(' → '), route: l.route, fyto: `${l.regio}-FITO-${yy}-${digits(6)}`,
           exact: current ? 'open' : 'in_exact', exact_op: current ? null : at(addDays(m, -3), 18, RI(0, 50)), exact_door: current ? null : 'Jan', exact_nummer: current ? null : `IO${yy}${String(1000 + pid).slice(-4)}`,
           factuur: `${l.pre}-${yy}-${String(++invNo[lev]).padStart(4, '0')}`,
         };
@@ -264,8 +268,11 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
           docs.push({ partij_id: p.id, soort: 'bestelling', titel: `Pedido semana ${wkn}`, ontvangen: p.besteld_op, gelezen_door: 'jan',
             tekst: `Hola ${lev.contact.split(' ')[0]},\n\nPara la semana ${wkn} (llegada ${dagNl}) quisiera pedir:\n\n${pr.map(x => `${String(x.besteld).padStart(4)} cajas  ${x.p.es}`).join('\n')}\n\nPor favor confirmen cantidades y vuelo.\n\nSaludos,\nJan\nCampo International` });
           const diff = pr.filter(x => x.bevestigd !== x.besteld);
+          const salida = lev.regio === 'GT'
+            ? `Sale el sábado con el vuelo ${p.vlucht.replace(/ → /g, ' - ')}. Ojo: el aeropuerto La Aurora está cerrado desde esta mañana por la ceniza del Volcán de Fuego. Si abre a tiempo sale el sábado; si no, el domingo temprano. Les avisamos.`
+            : `Sale el viernes con el vuelo ${p.vlucht.replace(/ → /g, ' - ')}.`;
           docs.push({ partij_id: p.id, soort: 'bevestiging', titel: `Confirmación pedido semana ${wkn}`, ontvangen: p.bevestigd_op, gelezen_door: 'ai',
-            tekst: `Hola Jan,\n\nConfirmamos el pedido para la semana ${wkn}. Sale el viernes con el vuelo ${p.vlucht.replace('→', '-')}.\n\n${pr.map(x => `${String(x.bevestigd).padStart(4)} cajas  ${x.p.es}${x.bevestigd < x.besteld ? `  (${x.besteld - x.bevestigd} menos: no hay suficiente material)` : x.bevestigd > x.besteld ? `  (${x.bevestigd - x.besteld} más, como hablamos)` : ''}`).join('\n')}\n\n${diff.length ? 'Las diferencias están marcadas.' : 'Todo según su pedido.'}\n\nSaludos,\n${lev.contact}\n${lev.naam}` });
+            tekst: `Hola Jan,\n\nConfirmamos el pedido para la semana ${wkn}. ${salida}\n\n${pr.map(x => `${String(x.bevestigd).padStart(4)} cajas  ${x.p.es}${x.bevestigd < x.besteld ? `  (${x.besteld - x.bevestigd} menos: no hay suficiente material)` : x.bevestigd > x.besteld ? `  (${x.bevestigd - x.besteld} más, como hablamos)` : ''}`).join('\n')}\n\n${diff.length ? 'Las diferencias están marcadas.' : 'Todo según su pedido.'}\n\nSaludos,\n${lev.contact}\n${lev.naam}` });
           // one doubt in the second Costa Rica shipment: invoiced more boxes than are on the packing list
           let nota = null;
           if (p.lev.code === 'volcan-azul') {
@@ -278,7 +285,7 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
           }
           const pdf = await supplierPdf({
             leverancier: { naam: lev.naam, plaats: lev.plaats, land: lev.regio, landnaam: lev.regio === 'GT' ? 'Guatemala' : 'Costa Rica', email: lev.email },
-            factuur: p.factuur, datum: addDays(m, lev.regio === 'GT' ? -2 : -3).split('-').reverse().join('/'), awb: p.awb, vlucht: p.vlucht, fyto: p.fyto, scan: lev.code === 'volcan-azul', nota,
+            factuur: p.factuur, datum: addDays(m, lev.regio === 'GT' ? -1 : -3).split('-').reverse().join('/'), awb: p.awb, vlucht: p.vlucht, fyto: p.fyto, scan: lev.code === 'volcan-azul', nota,
             regels: pr.map(x => ({ omschrijving: x.p.es, cajas: x.factuurDozen || x.verzonden, por_caja: x.per_doos, precio: x.prijs_usd })),
           });
           const sha = crypto.createHash('sha256').update(pdf).digest('hex');
@@ -315,6 +322,10 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
         slipNo[yyS] = (slipNo[yyS] || 0) + 1;
         const s = { id: ++sid, nummer: `${yyS}-${String(slipNo[yyS]).padStart(4, '0')}`, maandag: m, klant_id: k.id, datum, vervaldatum: addDays(datum, k.betaaltermijn), koers, btw_pct: vatFor(k.land).pct,
           exact: 'in_exact', exact_op: at(m, RI(10, 15), RI(0, 59)), exact_door: 'Jan', gedrukt_op: at(m, RI(10, 13), RI(0, 59)), door: 'Jan', bron: 'demo', status: 'akkoord', aangemaakt: at(m, RI(9, 12), RI(0, 59)) };
+        // paid: most on time, some now and then late, a few always late (in real life this comes from Exact)
+        const pay = k.betaal === 'netjes' ? addDays(s.vervaldatum, -RI(0, Math.max(0, Math.min(8, k.betaaltermijn - 3))))
+          : k.betaal === 'soms' ? (r() < 0.7 ? addDays(s.vervaldatum, -RI(0, 4)) : addDays(s.vervaldatum, RI(3, 15))) : addDays(s.vervaldatum, RI(6, 32));
+        s.betaald_op = pay <= today() ? pay : null;
         let n = 0, tot = 0;
         for (const x of mineRows.sort((a, b) => a.regel_id - b.regel_id)) {
           const rg = regels.find(y => y.id === x.regel_id);
@@ -329,16 +340,39 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
     // ---------- write it all
     await insertMany(c, 'weken', ['maandag', 'koers', 'koers_op', 'koers_door', 'geteld_op', 'geteld_door', 'besteld_op'], weken);
     await insertMany(c, 'weekorders', ['maandag', 'klant_id', 'product_id', 'dozen', 'via', 'door', 'aangemaakt'], orders);
-    await insertMany(c, 'partijen', ['id', 'nummer', 'regio', 'leverancier_id', 'maandag', 'besteld_op', 'bevestigd_op', 'verzonden_op', 'binnen_op', 'awb', 'vlucht', 'fyto', 'exact', 'exact_op', 'exact_door', 'exact_nummer', 'bron'], partijen);
+    await insertMany(c, 'partijen', ['id', 'nummer', 'regio', 'leverancier_id', 'maandag', 'besteld_op', 'bevestigd_op', 'verzonden_op', 'binnen_op', 'awb', 'vlucht', 'route', 'fyto', 'exact', 'exact_op', 'exact_door', 'exact_nummer', 'bron'], partijen);
     await insertMany(c, 'partij_regels', ['id', 'partij_id', 'product_id', 'besteld', 'bevestigd', 'verzonden', 'geteld', 'uitval', 'per_doos', 'prijs_usd', 'zekerheid', 'twijfel', 'gelezen'], regels);
     await insertMany(c, 'verdeling', ['regel_id', 'klant_id', 'dozen', 'door'], verdeling);
-    await insertMany(c, 'pakbonnen', ['id', 'nummer', 'maandag', 'klant_id', 'datum', 'vervaldatum', 'koers', 'btw_pct', 'totaal', 'status', 'exact', 'exact_op', 'exact_door', 'gedrukt_op', 'door', 'bron', 'aangemaakt'], pakbonnen);
+    await insertMany(c, 'pakbonnen', ['id', 'nummer', 'maandag', 'klant_id', 'datum', 'vervaldatum', 'koers', 'btw_pct', 'totaal', 'status', 'exact', 'exact_op', 'exact_door', 'gedrukt_op', 'door', 'bron', 'aangemaakt', 'betaald_op'], pakbonnen);
     await insertMany(c, 'pakbon_regels', ['id', 'pakbon_id', 'regelnr', 'regel_id', 'product_id', 'partij', 'dozen', 'stuks', 'prijs_usd', 'prijs_eur', 'bedrag'], pakRegels);
     await insertMany(c, 'partij_documenten', ['partij_id', 'soort', 'titel', 'tekst', 'ontvangen', 'gelezen_door'], docs);
     for (const f of files) {
       const b = (await c.query(`INSERT INTO bestanden (naam, mime, grootte, sha256, data) VALUES ($1, 'application/pdf', $2, $3, $4) RETURNING id`, [f.naam, f.data.length, f.sha, f.data])).rows[0];
       await c.query(`INSERT INTO partij_documenten (partij_id, soort, titel, bestand_id, ontvangen, gelezen_door) VALUES ($1, 'verzendbewijs', $2, $3, $4, 'ai')`, [f.partij_id, f.titel, b.id, f.ontvangen]);
     }
+    // ---------- the world this week, as an example: ash over Guatemala City closes the airport until Sunday morning
+    const gtNow = partijen.find(p => p.maandag === anchor && p.regio === 'GT');
+    await c.query(`INSERT INTO risico_meldingen (soort, ernst, titel, tekst, plek, vertraging_uren, van, tot, bron, door, aangemaakt) VALUES ('vulkaan', 'probleem', $1, $2, 'GUA', 8, $3, $4, 'demo', 'demo', $5)`,
+      ['As van Volcán de Fuego: luchthaven La Aurora (GUA) dicht',
+        `Voorbeeldmelding, niet echt gebeurd. Las Flores meldt dat de luchthaven van Guatemala-Stad dicht is door as. De vlucht van zaterdag schuift naar zondagochtend; via Miami haalt het maandag, maar later dan normaal: reken op maandagmiddag.${gtNow ? ` Het gaat om ${gtNow.nummer}.` : ''}`,
+        at(addDays(anchor, -3), 5, 30), at(addDays(anchor, -1), 8, 0), at(addDays(anchor, -3), 9, 40)]);
+    // ---------- offers for the coming week: extra boxes at a better price (Jan sees them on Tuesday at Bestellen)
+    const nextM = addDays(anchor, 7);
+    const offer = (lev, code, dozen, prijs, notitie, d, h, mi) => c.query(`INSERT INTO leverancier_aanbod (leverancier_id, product_id, maandag, dozen, prijs_usd, notitie, ontvangen, geldig_tot, bron) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'demo')`,
+      [L[lev].id, PC[code].id, nextM, dozen, prijs, notitie, at(addDays(anchor, d), h, mi), at(addDays(nextM, -6), 12, 0)]);
+    await offer('rio-claro', 'HS-090', 30, 0.55, 'Nos sobran 30 cajas de hockey stick 90 cm de esta cosecha. Precio especial US$ 0,55 si confirman antes del martes al mediodía.', -3, 11, 20);
+    await offer('volcan-azul', 'YU-090', 40, 0.62, 'Tenemos 40 cajas extra de Yucca 90 cm, buena calidad. US$ 0,62 la unidad para la semana que viene.', -3, 17, 40);
+    await offer('rio-claro', 'DF-150', 14, 1.05, 'También 14 cajas de caña 150 cm a US$ 1,05.', -3, 11, 22);
+    // ---------- people Jan could work with: made up for the demo
+    const lead = (soort, naam, plaats, land, segment, contact, email, wat, waarom, status, notitie = null) => c.query(`INSERT INTO kansen (soort, naam, plaats, land, segment, contact, email, wat, waarom, status, notitie, bron) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'demo')`,
+      [soort, naam, plaats, land, segment, contact, email, wat, waarom, status, notitie]);
+    await lead('klant', 'Plantwerk Interieur', 'Den Haag', 'NL', 'interieur', 'Sanne de Wit', 'inkoop@plantwerk.example', 'Dracaena- en yuccastammen van 120 en 150 cm voor kantoren', 'Interieurbedrijven geven de hoogste marge, en dit bedrijf zit een kwartier van de loods.', 'nieuw');
+    await lead('klant', 'Grüne Halle GmbH', 'Düsseldorf', 'DE', 'groothandel', 'Jonas Richter', 'einkauf@gruene-halle.example', 'Hockeysticks van 45 tot 90 cm, elke week', 'Groothandels nemen per klant het meest. De Duitse factuur en de verlegde btw staan al klaar.', 'benaderd', 'Gebeld, wil prijzen voor de eerste week van december.');
+    await lead('klant', 'Växtkraft AB', 'Malmö', 'SE', 'groothandel', 'Elin Berg', 'inkop@vaxtkraft.example', 'Yucca- en dracaenastammen', 'Zweden en Denemarken groeien; Växthuset Lund zit om de hoek.', 'nieuw');
+    await lead('klant', "Pépinières de l'Estuaire", 'Saint-Nazaire', 'FR', 'kwekerij', 'Hugo Martin', 'achats@estuaire.example', 'Kopstekken marginata en cordyline', 'Weinig klanten in Frankrijk, terwijl de Franse factuur al klaarstaat.', 'nieuw');
+    await lead('leverancier', 'Viveros Los Guayabos S.A.', 'Pococí', 'CR', 'Yucca elephantipes', 'Rodrigo Vargas', 'ventas@losguayabos.example', 'Yucca caña 60, 90 en 120 cm', 'Yucca komt nu alleen van Volcán Azul. Een tweede kweker in dezelfde streek vliegt met dezelfde vlucht.', 'nieuw');
+    await lead('leverancier', 'Agrícola Tierra Fértil S.A.', 'San Carlos', 'CR', 'Dracaena fragrans', 'Paola Jiménez', 'export@tierrafertil.example', 'Dracaena caña 120 en 150 cm', 'Bood zich aan via WhatsApp en kan elke week leveren.', 'in_gesprek', 'Monsters gevraagd voor de week voor kerst.');
+
     for (const t of ['leveranciers', 'producten', 'klanten', 'partijen', 'partij_regels', 'pakbonnen', 'pakbon_regels']) {
       await c.query(`SELECT setval(pg_get_serial_sequence('campo.${t}', 'id'), greatest((SELECT coalesce(max(id), 0) FROM campo.${t}), 1))`);
     }
@@ -357,6 +391,7 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
 // ---------------------------------------------------------------- the demo's life: made once, made again when the week turns
 const ALL = `concepten, aanbod_klanten, aanbod_regels, aanbiedingen, berichten_uit, verkoopfacturen, afwijkingen, gebeurtenissen, toewijzingen, leveringen, zendingen,
   factuur_regels, facturen, bestanden, berichten_in, klant_order_regels, klant_orders, plant_namen, klanten, planten, kwekers, logboek,
+  aanbod_verkoop, leverancier_aanbod, risico_meldingen,
   pakbon_regels, pakbonnen, verdeling, partij_documenten, partij_regels, partijen, weekorders, weken, prijsafspraken, producten, leveranciers, regios`;
 
 async function onlyDemo(c = pool) {
@@ -372,6 +407,7 @@ export async function resetAll() {
     await c.query('SET search_path TO campo, public');
     await c.query('BEGIN');
     await c.query(`TRUNCATE ${ALL} RESTART IDENTITY CASCADE`);
+    await c.query(`DELETE FROM kansen WHERE bron <> 'jan'`);
     await c.query(`SELECT setval('bestelnummer_seq', 1, false), setval('offertenummer_seq', 1, false)`);
     await c.query(`DELETE FROM instellingen WHERE sleutel IN ('demo', 'imap')`);
     await c.query('COMMIT');
@@ -409,6 +445,9 @@ export async function removeWeekDemo() {
   try {
     await c.query('SET search_path TO campo, public');
     await c.query('BEGIN');
+    await c.query(`DELETE FROM risico_meldingen WHERE bron = 'demo'`);
+    await c.query(`DELETE FROM leverancier_aanbod WHERE bron = 'demo'`);
+    await c.query(`DELETE FROM kansen WHERE bron = 'demo'`);
     await c.query(`DELETE FROM partijen WHERE bron = 'demo'`);
     await c.query(`DELETE FROM pakbonnen WHERE bron = 'demo'`);
     await c.query(`DELETE FROM weekorders w USING klanten k WHERE k.id = w.klant_id AND k.bron = 'demo'`);

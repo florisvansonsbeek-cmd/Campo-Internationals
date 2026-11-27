@@ -38,7 +38,7 @@ export async function customerDetail(id, { jaar = Number(today().slice(0, 4)) } 
   const mix = await rows(`SELECT d.id, d.code, d.naam, d.maat, d.soort, sum(r.dozen) AS dozen, sum(r.stuks) AS stuks, sum(r.bedrag) AS omzet, count(DISTINCT p.maandag) AS weken
     FROM pakbonnen p JOIN pakbon_regels r ON r.pakbon_id = p.id JOIN producten d ON d.id = r.product_id
     WHERE p.klant_id = $1 AND p.status = 'akkoord' AND p.maandag BETWEEN $2 AND $3 GROUP BY d.id ORDER BY sum(r.bedrag) DESC`, [id, a, b]);
-  const slips = await rows(`SELECT p.id, p.nummer, p.maandag, p.datum, p.totaal, p.btw_pct, p.exact, p.status,
+  const slips = await rows(`SELECT p.id, p.nummer, p.maandag, p.datum, p.vervaldatum, p.betaald_op, p.totaal, p.btw_pct, p.exact, p.status,
       (SELECT sum(dozen) FROM pakbon_regels r WHERE r.pakbon_id = p.id) AS dozen,
       (SELECT c.status FROM concepten c WHERE c.pakbon_id = p.id AND c.status <> 'vervallen' LIMIT 1) AS mail
     FROM pakbonnen p WHERE p.klant_id = $1 ORDER BY p.maandag DESC LIMIT 40`, [id]);

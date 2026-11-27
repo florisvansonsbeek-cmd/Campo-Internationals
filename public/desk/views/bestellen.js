@@ -1,9 +1,83 @@
 // Bestellen (Tuesday): what customers asked on the phone, added up per product, and the order per supplier.
 // Jan sends the order himself; when he has, one click makes the shipments with their batch numbers.
-import { api, h, icon, fNum, toast, copy } from '../core.js';
-import { weekNav, dLong, dayTime, zn, regio, stageChip, spanishLine } from '../wk.js';
+import { api, h, icon, fNum, fEur, toast, copy, dialog, field, waLink } from '../core.js';
+import { weekNav, dLong, dayTime, zn, regio, stageChip, spanishLine, fUsdUnit, fUsd } from '../wk.js';
 
-let last = null;
+let last = null, D = null, KN = null;
+const pct = v => (v == null ? '–' : `${Math.round(v * 100)}%`);
+
+// ---------------------------------------------------------------- good deals: every box already has a buyer
+function buyer(k, act, data) {
+  return `<li><span class="by"><a href="#/klant/${k.klant_id}"><b>${h(k.klant)}</b></a><small>${h(k.plaats || '')}${k.land ? `, ${h(k.land)}` : ''}${k.gewoon ? ` · neemt meestal ${fNum(k.gewoon)}` : ''}${k.weken ? ` · ${fNum(k.weken)} van 13 weken` : ''}${k.al ? ` · heeft nu ${fNum(k.al)}` : ''}${k.betaaltLaat ? ' · <b class="late">betaalt laat</b>' : ''}</small></span>
+    ${k.genoteerd ? `<span class="chip ok">${icon('check')}${fNum(k.dozen)} genoteerd</span><button type="button" class="lnk small" data-act="deal-undo" ${data}>terug</button>`
+      : `<span class="bn"><input type="number" min="1" max="999" value="${k.dozen}" ${data.replace(/data-/g, 'data-n-')} aria-label="Dozen voor ${h(k.klant)}"><small>dz</small></span>
+        ${k.telefoon ? `<a class="btn btn-sm btn-ghost" href="tel:${h(String(k.telefoon).replace(/\s/g, ''))}" title="${h(k.telefoon)}">${icon('phone')}<span class="sr">Bel ${h(k.klant)}</span></a>` : ''}
+        <button type="button" class="btn btn-sm btn-leaf" data-act="${act}" ${data}>Ja, genoteerd</button>`}</li>`;
+}
+function acceptText(x) {
+  const first = (x.lev_contact || '').split(' ')[0], n = x.genoteerd || x.dozen - x.rest || x.dozen;
+  return `Hola${first ? ` ${first}` : ''},\n\nTomamos ${n} cajas de ${spanishLine({ soort: x.soort_plant, naam: x.product, maat: x.maat })} a US$ ${String(x.prijs_usd).replace('.', ',')} para la semana ${D.week}. Por favor inclúyanlas en el envío.\n\nSaludos,\nJan\nCampo International`;
+}
+function offerCard(x) {
+  const data = k => `data-id="${x.id}" data-k="${k.klant_id}"`;
+  const take = x.status === 'open' ? `<button type="button" class="btn btn-sm btn-leaf" data-act="deal-take" data-id="${x.id}">${icon('check')}Aanbod aangenomen</button><button type="button" class="btn btn-sm btn-ghost" data-act="deal-skip" data-id="${x.id}">Niet nu</button>`
+    : x.status === 'genomen' ? `<span class="chip ok">${icon('check')}Aangenomen${x.genomen_dozen ? `: ${fNum(x.genomen_dozen)} dozen` : ''}</span><button type="button" class="lnk small" data-act="deal-open" data-id="${x.id}">terug</button>`
+      : `<span class="chip">Niet genomen</span><button type="button" class="lnk small" data-act="deal-open" data-id="${x.id}">terug</button>`;
+  return `<article class="deal${x.goed ? ' is-goed' : ''} st-${h(x.status)}" id="deal${x.id}">
+    <header><div><b>${fNum(x.dozen)} dozen ${h(x.product)} ${h(x.maat)}</b><small>aanbod van <a href="#/leverancier/${x.leverancier_id}">${h(x.leverancier)}</a> ${regio(x.regio)} · ${h(dayTime(x.ontvangen))}</small></div>
+      <div class="deal-m"><b>${fEur(x.marge_eur)}</b><small>marge${x.marge_pct != null ? ` · ${pct(x.marge_pct)}` : ''}</small></div></header>
+    <p class="deal-p">${fUsdUnit(x.prijs_usd)} per stuk${x.normaal_usd > x.prijs_usd ? ` <s title="Normale inkoopprijs">${fUsdUnit(x.normaal_usd)}</s>` : ''} · ${fNum(x.dozen * x.per_doos)} stuks${x.voordeel_usd ? ` · ${fUsd(x.voordeel_usd, 0)} goedkoper dan normaal` : ''}</p>
+    <ul class="checks">${x.checks.map(c => `<li class="${c.ok ? 'ok' : 'no'}">${icon(c.ok ? 'check' : 'warn')}${h(c.tekst)}</li>`).join('')}</ul>
+    ${x.kopers.length ? `<p class="small muted">Wie het neemt, uit wat ze de laatste 13 weken kochten:</p><ol class="buyers">${x.kopers.map(k => buyer(k, 'deal-yes', data(k))).join('')}</ol>` : '<p class="small faint">Geen vaste koper voor dit product gevonden.</p>'}
+    ${x.rest ? `<p class="small rest">${icon('info')}Nog ${fNum(x.rest)} ${x.rest === 1 ? 'doos' : 'dozen'} zonder koper. Neem er ${fNum(x.dozen - x.rest)} in plaats van ${fNum(x.dozen)}, dan blijft er niets over.</p>` : ''}
+    ${x.notitie ? `<blockquote class="lev-q" lang="es">${h(x.notitie)}</blockquote>` : ''}
+    <footer>${take}${x.lev_email ? `<a class="btn btn-sm btn-ghost" href="mailto:${h(x.lev_email)}?subject=${encodeURIComponent(`Oferta semana ${D.week} - Campo International`)}&body=${encodeURIComponent(acceptText(x))}">${icon('mail')}Mail</a>` : ''}${x.lev_whatsapp ? `<a class="btn btn-sm btn-ghost" target="_blank" rel="noopener" href="${h(waLink(x.lev_whatsapp, acceptText(x)))}">${icon('chat')}WhatsApp</a>` : ''}</footer>
+  </article>`;
+}
+function wayCard(x) {
+  const data = k => `data-p="${x.product_id}" data-k="${k.klant_id}"`;
+  return `<article class="deal way">
+    <header><div><b>${fNum(x.dozen)} ${x.dozen === 1 ? 'doos' : 'dozen'} ${h(x.product)} ${h(x.maat)}</b><small>komt maandag binnen (${x.partijen.map(p => h(p.nummer)).join(', ')}), heeft nog geen koper</small></div>
+      <div class="deal-m"><b>${fEur(x.omzet_eur)}</b><small>omzet</small></div></header>
+    ${x.kopers.length ? `<ol class="buyers">${x.kopers.map(k => buyer(k, 'way-yes', data(k))).join('')}</ol>` : '<p class="small faint">Geen vaste koper die er nog ruimte voor heeft.</p>'}
+    ${x.rest ? `<p class="small rest">${icon('info')}${fNum(x.rest)} blijven anders in de loods.</p>` : ''}
+  </article>`;
+}
+function dealsPanel() {
+  if (!D) return '';
+  const open = D.deals.filter(x => x.status !== 'afgewezen'), way = D.onderweg.lijst.filter(x => x.kopers.length);
+  const total = open.filter(x => x.status === 'open' || x.status === 'genomen').reduce((t, x) => t + (x.marge_eur || 0), 0);
+  return `<section class="panel deals-p" id="deals"><header><h2>Goede deals</h2><span class="sub">één op één: elke doos heeft al een koper, er blijft niets over</span></header>
+    <div class="body stack">
+      ${open.length ? `<p class="small muted">${fNum(open.length)} ${open.length === 1 ? 'aanbod' : 'aanbiedingen'} voor week ${D.week}, samen ${fEur(total)} marge als je ze neemt. Bel de kopers, zet ze op "genoteerd", en laat de leverancier weten dat je het neemt. De extra dozen gaan mee in de bestelling van dinsdag.</p>
+        <div class="deal-g">${open.map(offerCard).join('')}</div>`
+        : `<p class="empty">Geen aanbod van leveranciers voor week ${D.week}. Kreeg je er een via mail of WhatsApp? Noteer het, dan zoekt de desk de kopers erbij.</p>`}
+      ${way.length ? `<h3>Komt maandag binnen, nog zonder koper</h3><p class="small muted">Er vliegt iets meer dan er verkocht is. Deze klanten nemen het meestal: één telefoontje en het is weg.</p><div class="deal-g">${way.map(wayCard).join('')}</div>` : ''}
+      ${D.deals.some(x => x.status === 'afgewezen') ? `<p class="small faint">Niet genomen: ${D.deals.filter(x => x.status === 'afgewezen').map(x => `${h(x.product)} ${h(x.maat)} van ${h(x.leverancier)} <button type="button" class="lnk small" data-act="deal-open" data-id="${x.id}">terug</button>`).join(', ')}</p>` : ''}
+      <p><button type="button" class="btn btn-sm btn-line" data-act="aanbod-new">${icon('plus')}Aanbod noteren</button></p>
+    </div></section>`;
+}
+
+// ---------------------------------------------------------------- new customers and suppliers
+const KST = [['nieuw', 'Nieuw'], ['benaderd', 'Benaderd'], ['in_gesprek', 'In gesprek'], ['klant', 'Klant geworden'], ['afgewezen', 'Geen interesse']];
+function lead(x) {
+  return `<li class="lead st-${h(x.status)}"><div class="lead-b"><b>${h(x.naam)}${x.bron === 'demo' ? ' <span class="chip">voorbeeld</span>' : ''}</b>
+      <small>${h([x.plaats, x.land].filter(Boolean).join(', '))}${x.segment ? ` · ${h(x.segment)}` : ''}${x.contact ? ` · ${h(x.contact)}` : ''}</small>
+      ${x.wat ? `<p>${h(x.wat)}</p>` : ''}${x.waarom ? `<p class="small muted">${h(x.waarom)}</p>` : ''}${x.notitie ? `<p class="small note">${icon('edit')}${h(x.notitie)}</p>` : ''}</div>
+    <div class="lead-a"><select data-lead="${x.id}" aria-label="Stand van ${h(x.naam)}">${KST.map(([k, l]) => `<option value="${k}"${x.status === k ? ' selected' : ''}>${l}</option>`).join('')}</select>
+      <button type="button" class="btn btn-sm btn-ghost" data-act="lead-note" data-id="${x.id}">${icon('edit')}<span class="sr">Notitie</span></button>
+      ${x.email ? `<a class="btn btn-sm btn-ghost" href="mailto:${h(x.email)}">${icon('mail')}<span class="sr">Mail</span></a>` : ''}${x.telefoon ? `<a class="btn btn-sm btn-ghost" href="tel:${h(String(x.telefoon).replace(/\s/g, ''))}">${icon('phone')}<span class="sr">Bel</span></a>` : ''}</div></li>`;
+}
+function leadsPanel() {
+  if (!KN) return '';
+  const side = (soort, title, ins) => `<div class="stack"><h3>${title}</h3>
+    ${ins.length ? `<ul class="ins">${ins.map(x => `<li><b>${h(x.titel)}</b><span>${h(x.tekst)}</span></li>`).join('')}</ul>` : ''}
+    <ul class="leads">${KN.kansen.filter(k => k.soort === soort).map(lead).join('') || '<li class="empty">Nog niemand genoteerd.</li>'}</ul></div>`;
+  return `<section class="panel" id="kansen"><header><h2>Nieuwe klanten en leveranciers</h2><span class="sub">waar de cijfers zeggen dat je moet kijken, en wie je kunt benaderen</span></header>
+    <div class="body stack"><div class="grid2 even">${side('klant', 'Nieuwe klanten', KN.inzichten.klanten)}${side('leverancier', 'Nieuwe leveranciers', KN.inzichten.leveranciers)}</div>
+      <p class="small faint">De desk stelt voor; jij belt en beslist. Voorbeelden met het label voorbeeld zijn verzonnen voor de demo.</p>
+      <p><button type="button" class="btn btn-sm btn-line" data-act="lead-new">${icon('plus')}Kans toevoegen</button></p></div></section>`;
+}
 
 function entry(d) {
   const opts = d.producten.map(p => `<option value="${p.id}">${h(p.naam)} ${h(p.maat)}</option>`).join('');
@@ -72,14 +146,16 @@ function regulars(d) {
 
 export async function render(params, query) {
   const m = query.get('maandag');
-  const d = await api(`/week/bestellen${m ? `?maandag=${m}` : ''}`);
-  last = d;
+  const qs = m ? `?maandag=${m}` : '';
+  const [d, deals, kansen] = await Promise.all([api(`/week/bestellen${qs}`), api(`/week/deals${qs}`).catch(() => null), api('/week/kansen').catch(() => null)]);
+  last = d; D = deals; KN = kansen;
   const placed = d.partijen.filter(p => p.besteld_op);
   const due = d.vandaag > d.bestellen ? `Bestellen was op ${dLong(d.bestellen)}.` : d.vandaag === d.bestellen ? 'Vandaag bestellen.' : `Bestellen op ${dLong(d.bestellen)}.`;
   return `<div class="page wk">
     <div class="ph"><div><p class="kick">Week ${d.week} · binnen ${h(dLong(d.maandag))}</p><h1>Bestellen</h1>
       <p>Wat klanten aan de telefoon vroegen, opgeteld per product. ${h(due)}</p></div>
       <div class="acts">${weekNav('bestellen', d.maandag)}</div></div>
+    ${dealsPanel()}
     <div class="grid2">
       <div class="stack">
         <section class="panel"><header><h2>Telefoon</h2><span class="sub">${fNum(d.totaal.klanten)} klanten · ${fNum(d.totaal.dozen)} dozen</span></header>
@@ -96,6 +172,7 @@ export async function render(params, query) {
         ${placed.length ? `<section class="panel"><header><h2>Zendingen</h2></header><ul class="ships">${placed.map(p => `<li><a href="#/inkoop?maandag=${d.maandag}&p=${p.id}">${zn(p.nummer)}</a><span class="ships-b"><b>${h(p.leverancier)}</b><small>${regio(p.regio)} ${fNum(p.regels.reduce((s, r) => s + (r.besteld || 0), 0))} dozen besteld</small></span><span class="ships-s">${stageChip(p.stage)}</span></li>`).join('')}</ul></section>` : ''}
       </aside>
     </div>
+    ${leadsPanel()}
   </div>`;
 }
 
@@ -104,7 +181,46 @@ function plan() {
   return [...document.querySelectorAll('[data-plan]')].map(i => ({ product_id: Number(i.dataset.plan), leverancier_id: Number(i.closest('tr')?.querySelector('[data-act="order-lev"]')?.value || i.dataset.lev), dozen: Number(i.value) }));
 }
 
+const nOf = (sel) => Math.max(0, Math.round(Number(document.querySelector(sel)?.value) || 0));
 export const actions = {
+  'deal-yes': async (el, ctx) => {
+    const n = nOf(`input[data-n-id="${el.dataset.id}"][data-n-k="${el.dataset.k}"]`);
+    if (!n) { toast('Vul het aantal dozen in.'); return; }
+    el.disabled = true;
+    await api(`/week/aanbod/${el.dataset.id}/verkoop`, { method: 'POST', body: { klant_id: Number(el.dataset.k), dozen: n } });
+    toast(`Genoteerd: ${n} dozen. Ze staan bij de telefoonbestellingen.`); ctx.refresh();
+  },
+  'deal-undo': async (el, ctx) => { await api(`/week/aanbod/${el.dataset.id}/verkoop`, { method: 'POST', body: { klant_id: Number(el.dataset.k), dozen: 0 } }); toast('Teruggezet.'); ctx.refresh(); },
+  'deal-take': async (el, ctx) => { await api(`/week/aanbod/${el.dataset.id}/status`, { method: 'POST', body: { status: 'genomen' } }); toast('Aangenomen. De prijs van het aanbod gaat mee in de bestelling.'); ctx.refresh(); },
+  'deal-skip': async (el, ctx) => { await api(`/week/aanbod/${el.dataset.id}/status`, { method: 'POST', body: { status: 'afgewezen' } }); toast('Niet genomen.'); ctx.refresh(); },
+  'deal-open': async (el, ctx) => { await api(`/week/aanbod/${el.dataset.id}/status`, { method: 'POST', body: { status: 'open' } }); ctx.refresh(); },
+  'way-yes': async (el, ctx) => {
+    const n = nOf(`input[data-n-p="${el.dataset.p}"][data-n-k="${el.dataset.k}"]`);
+    if (!n) { toast('Vul het aantal dozen in.'); return; }
+    el.disabled = true;
+    await api('/week/deals/onderweg', { method: 'POST', body: { klant_id: Number(el.dataset.k), product_id: Number(el.dataset.p), dozen: n } });
+    toast(`Genoteerd voor maandag: ${n} ${n === 1 ? 'doos' : 'dozen'} erbij.`); ctx.refresh();
+  },
+  'aanbod-new': (el, ctx) => dialog({
+    title: `Aanbod voor week ${last.week}`, ok: 'Noteren',
+    body: `<div class="form">${field('leverancier_id', 'Leverancier', last.leveranciers[0]?.id, { opts: last.leveranciers.map(l => [l.id, l.naam]) })}
+      ${field('product_id', 'Product', last.producten[0]?.id, { opts: last.producten.map(p => [p.id, `${p.naam} ${p.maat}`]) })}
+      ${field('dozen', 'Dozen', '', { type: 'number', required: true })}${field('prijs_usd', 'Prijs in dollar per stuk', '', { required: true })}
+      ${field('notitie', 'Wat hij schreef (mag leeg)', '', { type: 'textarea', wide: true })}</div>
+      <p class="small faint">De desk zoekt de vaste kopers erbij en rekent de marge uit. Jij belt.</p>`,
+    onOk: async v => { await api('/week/aanbod', { method: 'POST', body: { ...v, maandag: last.maandag } }); toast('Aanbod genoteerd.'); ctx.refresh(); },
+  }),
+  'lead-new': (el, ctx) => dialog({
+    title: 'Kans toevoegen', ok: 'Toevoegen',
+    body: `<div class="form">${field('soort', 'Wat is het', 'klant', { opts: [['klant', 'Een mogelijke klant'], ['leverancier', 'Een mogelijke leverancier']] })}${field('naam', 'Naam', '', { required: true })}
+      ${field('plaats', 'Plaats')}${field('land', 'Land (2 letters)', 'NL')}${field('segment', 'Soort bedrijf of wat hij kweekt')}${field('contact', 'Contactpersoon')}${field('telefoon', 'Telefoon')}${field('email', 'E-mail', '', { type: 'email' })}
+      ${field('wat', 'Wat zou hij kopen of leveren', '', { wide: true })}${field('waarom', 'Waarom past het', '', { type: 'textarea', wide: true })}</div>`,
+    onOk: async v => { await api('/week/kansen', { method: 'POST', body: v }); toast('Toegevoegd.'); ctx.refresh(); },
+  }),
+  'lead-note': (el, ctx) => {
+    const x = KN.kansen.find(k => k.id === Number(el.dataset.id));
+    dialog({ title: x.naam, ok: 'Opslaan', body: field('notitie', 'Notitie', x.notitie || '', { type: 'textarea', wide: true }), onOk: async v => { await api(`/week/kansen/${x.id}`, { method: 'PATCH', body: { notitie: v.notitie } }); toast('Opgeslagen.'); ctx.refresh(); } });
+  },
   'order-del': async (el, ctx) => { await api('/week/bestellen/regel', { method: 'POST', body: { maandag: last.maandag, klant_id: Number(el.dataset.k), product_id: Number(el.dataset.p), dozen: 0 } }); toast('Weggehaald.'); ctx.refresh(); },
   'order-again': async (el, ctx) => { el.disabled = true; const r = await api('/week/bestellen/vorige', { method: 'POST', body: { maandag: last.maandag, klant_id: Number(el.dataset.k) } }); toast(`${r.regels} ${r.regels === 1 ? 'regel' : 'regels'} genoteerd, zoals vorige keer.`); ctx.refresh(); },
   'order-copy': async el => {
@@ -136,6 +252,7 @@ export function mount(ctx) {
 }
 export async function onChange(e, ctx) {
   const el = e.target;
+  if (el.matches('select[data-lead]')) { await api(`/week/kansen/${el.dataset.lead}`, { method: 'PATCH', body: { status: el.value } }).catch(x => toast(x.message)); toast('Bijgewerkt.'); ctx.refresh(); return; }
   if (el.matches('[data-act="order-set"]')) {
     await api('/week/bestellen/regel', { method: 'POST', body: { maandag: last.maandag, klant_id: Number(el.dataset.k), product_id: Number(el.dataset.p), dozen: Math.max(0, Number(el.value) || 0) } }).catch(x => toast(x.message));
     ctx.refresh();

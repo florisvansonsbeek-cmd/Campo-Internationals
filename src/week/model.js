@@ -31,7 +31,7 @@ export async function ensureWeek(maandag, c = pool) {
 export async function weekData(maandag, { now = new Date() } = {}) {
   const wk = (await one('SELECT * FROM weken WHERE maandag = $1', [maandag])) || { maandag, koers: null };
   const partijen = await rows(`SELECT p.*, l.naam AS leverancier, l.code AS lev_code, l.email AS lev_email, l.taal AS lev_taal, l.exact_code AS lev_exact,
-      l.contact AS lev_contact, l.plaats AS lev_plaats, g.naam AS regio_naam, g.land AS herkomst, g.valuta
+      l.contact AS lev_contact, l.plaats AS lev_plaats, l.route AS lev_route, l.whatsapp AS lev_whatsapp, l.telefoon AS lev_telefoon, g.naam AS regio_naam, g.land AS herkomst, g.valuta
     FROM partijen p JOIN leveranciers l ON l.id = p.leverancier_id JOIN regios g ON g.code = p.regio
     WHERE p.maandag = $1 ORDER BY p.regio, p.nummer`, [maandag]);
   const pids = partijen.map(p => p.id);
@@ -428,13 +428,18 @@ export async function placeOrders(maandag, plan, wie) {
       let p = (await c.query('SELECT * FROM partijen WHERE maandag = $1 AND leverancier_id = $2 ORDER BY id LIMIT 1', [maandag, lid])).rows[0];
       if (!p) {
         const nummer = await nextBatch(c, lev.regio, maandag);
-        p = (await c.query(`INSERT INTO partijen (nummer, regio, leverancier_id, maandag, besteld_op) VALUES ($1,$2,$3,$4, now()) RETURNING *`, [nummer, lev.regio, lid, maandag])).rows[0];
+        // the shipment flies the supplier's usual route; Jan can change it per shipment
+        p = (await c.query(`INSERT INTO partijen (nummer, regio, leverancier_id, maandag, besteld_op, route) VALUES ($1,$2,$3,$4, now(), (SELECT route FROM leveranciers WHERE id = $3)) RETURNING *`, [nummer, lev.regio, lid, maandag])).rows[0];
       } else if (!p.besteld_op) await c.query('UPDATE partijen SET besteld_op = now() WHERE id = $1', [p.id]);
       for (const l of lines) {
         const prod = (await c.query('SELECT per_doos, inkoop_usd FROM producten WHERE id = $1', [l.product_id])).rows[0];
-        const last = (await c.query(`SELECT r.prijs_usd FROM partij_regels r JOIN partijen x ON x.id = r.partij_id WHERE x.leverancier_id = $1 AND r.product_id = $2 ORDER BY x.maandag DESC LIMIT 1`, [lid, l.product_id])).rows[0];
+        const last = (await c.query(`SELECT r.prijs_usd FROM partij_regels r JOIN partijen x ON x.id = r.partij_id WHERE x.leverancier_id = $1 AND r.product_id = $2 AND x.maandag < $3 ORDER BY x.maandag DESC LIMIT 1`, [lid, l.product_id, maandag])).rows[0];
+        // an offer Jan took: those boxes at the offer price, the rest at the usual one
+        const off = (await c.query(`SELECT coalesce(sum(coalesce(genomen_dozen, dozen)), 0) AS n, max(prijs_usd) AS prijs FROM leverancier_aanbod WHERE maandag = $1 AND leverancier_id = $2 AND product_id = $3 AND status = 'genomen'`, [maandag, lid, l.product_id])).rows[0];
+        const base = Number(last ? last.prijs_usd : prod.inkoop_usd || 0), g = Math.min(Number(off.n) || 0, l.dozen);
+        const price = g ? Math.round((((l.dozen - g) * base + g * Number(off.prijs)) / l.dozen) * 10000) / 10000 : base;
         await c.query(`INSERT INTO partij_regels (partij_id, product_id, besteld, per_doos, prijs_usd) VALUES ($1,$2,$3,$4,$5)
-          ON CONFLICT (partij_id, product_id) DO UPDATE SET besteld = EXCLUDED.besteld`, [p.id, l.product_id, l.dozen, prod.per_doos, last ? last.prijs_usd : prod.inkoop_usd || 0]);
+          ON CONFLICT (partij_id, product_id) DO UPDATE SET besteld = EXCLUDED.besteld`, [p.id, l.product_id, l.dozen, prod.per_doos, price]);
       }
       made.push({ id: p.id, nummer: p.nummer, leverancier: lev.naam });
     }
@@ -586,7 +591,7 @@ export async function overview(maandag = focusMonday(), { now = new Date() } = {
   return {
     maandag, week: d.week, jaar: d.jaar, vandaag: nowDay, dagen: days, koers: d.koers, counted: d.counted,
     stappen: steps, taken: weekTasks(d, { now }), afwijkingen: deviations(d),
-    partijen: d.partijen.map(p => ({ id: p.id, nummer: p.nummer, regio: p.regio, leverancier: p.leverancier, stage: p.stage, dozen: p.dozen, exact: p.exact, twijfels: p.twijfels, vlucht: p.vlucht, awb: p.awb, verzonden_op: passed(p.verzonden_op, now) ? p.verzonden_op : null, verwacht: !passed(p.verzonden_op, now) && p.verzonden_op ? p.verzonden_op : null })),
+    partijen: d.partijen.map(p => ({ id: p.id, nummer: p.nummer, regio: p.regio, leverancier: p.leverancier, leverancier_id: p.leverancier_id, stage: p.stage, dozen: p.dozen, exact: p.exact, twijfels: p.twijfels, vlucht: p.vlucht, awb: p.awb, verzonden_op: passed(p.verzonden_op, now) ? p.verzonden_op : null, verwacht: !passed(p.verzonden_op, now) && p.verzonden_op ? p.verzonden_op : null })),
     klanten: new Set(d.orders.map(o => o.klant_id)).size, dozen: sumOrders,
     omzet: r2(sum(d.slips, s => s.totaal)), pakbonnen: { totaal: d.slips.length, akkoord: akkoord.length },
     vorige: prevTasks.length ? { maandag: prevMonday, week: prev.week, taken: prevTasks } : null,

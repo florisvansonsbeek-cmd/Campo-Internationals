@@ -7,6 +7,8 @@ import * as inkoop from './views/inkoop.js';
 import * as maandag from './views/maandag.js';
 import * as pakbonnen from './views/pakbonnen.js';
 import * as klanten from './views/klanten.js';
+import * as relaties from './views/relaties.js';
+import * as leverancier from './views/leverancier.js';
 import * as jaar from './views/jaar.js';
 import * as koppelingen from './views/koppelingen.js';
 import * as uitleg from './views/uitleg.js';
@@ -22,8 +24,10 @@ const ROUTES = [
   { re: /^maandag$/, nav: 'maandag', title: 'Maandag', view: maandag.render, actions: maandag.actions, mount: maandag.mount, change: maandag.onChange },
   { re: /^pakbonnen$/, nav: 'pakbonnen', title: 'Pakbon en factuur', view: pakbonnen.render, actions: pakbonnen.actions },
   { re: /^pakbon\/(\d+)$/, keys: ['klant'], nav: 'pakbonnen', title: 'Pakbon', view: pakbonnen.renderOne, actions: pakbonnen.actions },
-  { re: /^klanten$/, nav: 'klanten', title: 'Klanten', view: klanten.renderList, actions: klanten.listActions, input: klanten.onListInput },
-  { re: /^klant\/(\d+)$/, keys: ['id'], nav: 'klanten', title: 'Klant', view: klanten.renderDetail, actions: klanten.detailActions, mount: klanten.mountDetail },
+  { re: /^relaties$/, nav: 'relaties', title: 'Relaties', view: relaties.render, actions: relaties.actions, input: relaties.onInput },
+  { re: /^klanten$/, nav: 'relaties', title: 'Relaties', view: relaties.render, actions: relaties.actions, input: relaties.onInput },
+  { re: /^klant\/(\d+)$/, keys: ['id'], nav: 'relaties', title: 'Klant', view: klanten.renderDetail, actions: klanten.detailActions, mount: klanten.mountDetail },
+  { re: /^leverancier\/(\d+)$/, keys: ['id'], nav: 'relaties', title: 'Leverancier', view: leverancier.render, actions: leverancier.actions },
   { re: /^jaar$/, nav: 'jaar', title: 'Jaar en Excel', view: jaar.render, actions: jaar.actions },
   { re: /^koppelingen$/, nav: 'koppelingen', title: 'Koppelingen', view: koppelingen.render, actions: koppelingen.actions, change: koppelingen.onChange, mount: koppelingen.mount },
   { re: /^uitleg$/, nav: 'uitleg', title: 'Zo werkt het', view: uitleg.render, actions: uitleg.actions },
@@ -31,7 +35,7 @@ const ROUTES = [
 // key, label, icon, short label on phones, the day it belongs to
 const NAV = [
   ['week', 'Deze week', 'today', 'Week'], ['bestellen', 'Bestellen', 'phone', 'Bestel', 'di'], ['inkoop', 'Inkoop', 'in', 'Inkoop', 'do–vr'],
-  ['maandag', 'Maandag', 'shed', 'Maandag', 'ma'], ['pakbonnen', 'Pakbonnen', 'file', 'Pakbon', 'ma'], ['klanten', 'Klanten', 'customer', 'Klanten'], ['jaar', 'Jaar en Excel', 'db', 'Jaar'],
+  ['maandag', 'Maandag', 'shed', 'Maandag', 'ma'], ['pakbonnen', 'Pakbonnen', 'file', 'Pakbon', 'ma'], ['relaties', 'Relaties', 'rel', 'Relaties'], ['jaar', 'Jaar en Excel', 'db', 'Jaar'],
 ];
 const NAV2 = [['koppelingen', 'Koppelingen', 'plug'], ['uitleg', 'Zo werkt het', 'book']];
 
@@ -142,7 +146,7 @@ function setupSearch() {
   const q = document.getElementById('q'), box = document.getElementById('sres');
   let t = null;
   const go = {
-    klant: id => `#/klant/${id}`, product: () => '#/jaar',
+    klant: id => `#/klant/${id}`, leverancier: id => `#/leverancier/${id}`, product: () => '#/jaar',
     partij: id => { const [m, p] = String(id).split('#p'); return `#/inkoop?maandag=${m}&p=${p}`; },
     pakbon: id => { const [m, k] = String(id).split(':'); return `#/pakbon/${k}?maandag=${m}`; },
   };

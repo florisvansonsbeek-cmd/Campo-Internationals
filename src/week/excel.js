@@ -2,15 +2,21 @@
 // whether it nets out to zero. Totals are formulas, so Jan can check the desk and Exact himself; the computed
 // values are stored next to them, so the file also reads right in a preview.
 import ExcelJS from 'exceljs';
-import { rows } from '../db.js';
+import { rows, one } from '../db.js';
 import { company } from './model.js';
 import { isoWeek, passed, r2, r4 } from './util.js';
+import { supplierStats } from './partners.js';
+import { routeOf, routeText } from './risk.js';
 
 const FONT = { name: 'Arial', size: 10 };
 const HEAD = { font: { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F5138' } }, alignment: { vertical: 'middle', wrapText: true } };
 const NUM = { int: '#,##0', eur: '€ #,##0.00', eur4: '€ 0.0000', usd: '$ #,##0.00', usd4: '$ 0.0000', koers: '0.0000', date: 'dd-mm-yyyy', pct: '0%', pct1: '0.0%' };
 const xd = s => { const [y, m, d] = String(s).slice(0, 10).split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)); };
 const f = (formula, result) => ({ formula, result });
+// a moment as Jan reads it in Nootdorp (Excel has no time zones)
+const xdt = v => { const d = new Date(v); return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes())); };
+// the row order of the sheets; the desk uses the same order to say on which row a shipment stands
+export const ORDER = { inkoop: 'p.maandag, p.nummer, d.volgorde, d.code, r.id', partijen: 'p.maandag, p.nummer', verkoop: 's.maandag, s.nummer, r.regelnr', leveranciers: 'l.naam, l.id' };
 const serial = s => (s ? Date.UTC(...String(s).slice(0, 10).split('-').map((v, i) => Number(v) - (i === 1 ? 1 : 0))) / 864e5 + 25569 : '');
 
 function sheet(wb, name, cols, { freeze = 1 } = {}) {
@@ -29,15 +35,17 @@ export async function yearWorkbook(jaar, { now = new Date() } = {}) {
   const inkoop = await rows(`SELECT p.maandag, p.nummer, p.regio, p.awb, p.exact, p.exact_nummer, p.bevestigd_op, p.verzonden_op, l.naam AS leverancier, l.exact_code AS crediteur,
       d.code, d.exact_code, d.naam, d.soort, d.maat, r.per_doos, r.besteld, r.bevestigd, r.verzonden, r.geteld, r.uitval, r.prijs_usd, w.koers
     FROM partijen p JOIN partij_regels r ON r.partij_id = p.id JOIN leveranciers l ON l.id = p.leverancier_id JOIN producten d ON d.id = r.product_id JOIN weken w ON w.maandag = p.maandag
-    WHERE p.maandag BETWEEN $1 AND $2 ORDER BY p.maandag, p.nummer, d.volgorde`, [a, b]);
+    WHERE p.maandag BETWEEN $1 AND $2 ORDER BY ${ORDER.inkoop}`, [a, b]);
   const verkoop = await rows(`SELECT s.id AS pakbon_id, s.maandag, s.nummer, s.datum, s.exact, s.btw_pct, s.koers, k.naam AS klant, k.land, k.exact_code AS debiteur,
       d.code, d.exact_code, d.naam, d.soort, d.maat, r.regelnr, r.partij, p.regio, r.dozen, r.stuks, r.prijs_usd, r.prijs_eur, r.bedrag,
       (SELECT c.status FROM concepten c WHERE c.pakbon_id = s.id AND c.status <> 'vervallen' LIMIT 1) AS mail
     FROM pakbonnen s JOIN pakbon_regels r ON r.pakbon_id = s.id JOIN klanten k ON k.id = s.klant_id JOIN producten d ON d.id = r.product_id
     LEFT JOIN partijen p ON p.nummer = r.partij
-    WHERE s.status = 'akkoord' AND s.maandag BETWEEN $1 AND $2 ORDER BY s.maandag, s.nummer, r.regelnr`, [a, b]);
-  const partijen = await rows(`SELECT p.nummer, p.regio, p.maandag, l.naam AS leverancier, w.geteld_op IS NOT NULL AS geteld
-    FROM partijen p JOIN leveranciers l ON l.id = p.leverancier_id JOIN weken w ON w.maandag = p.maandag WHERE p.maandag BETWEEN $1 AND $2 ORDER BY p.maandag, p.nummer`, [a, b]);
+    WHERE s.status = 'akkoord' AND s.maandag BETWEEN $1 AND $2 ORDER BY ${ORDER.verkoop}`, [a, b]);
+  const partijen = await rows(`SELECT p.nummer, p.regio, p.maandag, p.binnen_op, p.route, l.route AS lev_route, l.naam AS leverancier, w.geteld_op IS NOT NULL AS geteld
+    FROM partijen p JOIN leveranciers l ON l.id = p.leverancier_id JOIN weken w ON w.maandag = p.maandag WHERE p.maandag BETWEEN $1 AND $2 ORDER BY ${ORDER.partijen}`, [a, b]);
+  const leveranciers = await rows(`SELECT l.id, l.naam, l.regio, l.exact_code, l.route FROM leveranciers l ORDER BY ${ORDER.leveranciers}`);
+  const scores = await supplierStats().catch(() => []);
   const weken = await rows(`SELECT w.maandag, w.koers, w.koers_door, w.koers_op FROM weken w WHERE w.maandag BETWEEN $1 AND $2 AND EXISTS (SELECT 1 FROM partijen p WHERE p.maandag = w.maandag) ORDER BY w.maandag`, [a, b]);
   const klanten = await rows(`SELECT k.naam, k.land, k.exact_code, coalesce(k.factuur_email, k.email) AS mail, k.telefoon FROM klanten k ORDER BY k.naam`);
   const regios = await rows('SELECT code, naam, land FROM regios ORDER BY code');
@@ -70,7 +78,7 @@ export async function yearWorkbook(jaar, { now = new Date() } = {}) {
     // in the hall: what was counted; on the invoice of the supplier: what flew (the shipping papers)
     const dozen = x.geteld ?? verz ?? bev ?? x.besteld ?? 0, stuks = (verz ?? bev ?? x.besteld ?? 0) * x.per_doos, usd = r2(stuks * Number(x.prijs_usd));
     const eur = x.koers ? r2(usd / Number(x.koers)) : '';
-    inkoopRows.push({ maandag: x.maandag, nummer: x.nummer, regio: x.regio, dozen, uitval: x.uitval, eur: eur === '' ? 0 : eur });
+    inkoopRows.push({ maandag: x.maandag, nummer: x.nummer, regio: x.regio, leverancier: x.leverancier, dozen, uitval: x.uitval, eur: eur === '' ? 0 : eur, usd, besteld: x.besteld, bev, verz, geteld: x.geteld });
     wsI.addRow({
       week: isoWeek(x.maandag).week, maandag: xd(x.maandag), nummer: x.nummer, regio: x.regio, leverancier: x.leverancier, crediteur: x.crediteur, artikel: x.exact_code || x.code,
       product: x.naam, soort: x.soort, maat: x.maat, per: x.per_doos, besteld: x.besteld, bevestigd: bev, verzonden: verz, geteld: x.geteld, uitval: x.uitval,
@@ -110,6 +118,7 @@ export async function yearWorkbook(jaar, { now = new Date() } = {}) {
     { h: 'Zendnummer (C)', k: 'nummer', w: 13 }, { h: 'Regio', k: 'regio', w: 7 }, { h: 'Week', k: 'week', w: 7, fmt: '0' }, { h: 'Aankomst', k: 'maandag', w: 11, fmt: NUM.date },
     { h: 'Leverancier', k: 'leverancier', w: 26 }, { h: 'Dozen in', k: 'in', w: 9, fmt: NUM.int }, { h: 'Uitval', k: 'uitval', w: 8, fmt: NUM.int }, { h: 'Dozen uit', k: 'uit', w: 9, fmt: NUM.int },
     { h: 'Rest', k: 'rest', w: 8, fmt: NUM.int }, { h: 'Stand', k: 'stand', w: 16 }, { h: 'Geteld', k: 'geteld', w: 8 },
+    { h: 'Route', k: 'route', w: 26 }, { h: 'In de loods', k: 'binnen', w: 16, fmt: 'dd-mm-yyyy hh:mm' }, { h: 'Op tijd (voor maandag 12:00)', k: 'optijd', w: 11 },
   ]);
   const I = c => `Inkoop!$${c}$2:$${c}$${Math.max(2, nI)}`, V = c => `Verkoop!$${c}$2:$${c}$${Math.max(2, nV)}`;
   const partRows = [];
@@ -118,16 +127,51 @@ export async function yearWorkbook(jaar, { now = new Date() } = {}) {
     const inn = inkoopRows.filter(x => x.nummer === p.nummer).reduce((s, x) => s + x.dozen, 0), uitval = inkoopRows.filter(x => x.nummer === p.nummer).reduce((s, x) => s + x.uitval, 0);
     const uit = verkoopRows.filter(x => x.partij === p.nummer).reduce((s, x) => s + x.dozen, 0), rest = inn - uitval - uit;
     const stand = !p.geteld ? 'loopt nog' : rest === 0 ? 'netto nul' : rest > 0 ? 'over in de loods' : 'meer uit dan in';
-    partRows.push({ ...p, in: inn, uitval, uit, rest });
+    const binnen = passed(p.binnen_op, now) ? new Date(p.binnen_op) : null;
+    const opTijd = binnen ? (binnen.getTime() <= new Date(`${String(p.maandag).slice(0, 10)}T12:00:00`).getTime() ? 'ja' : 'nee') : '';
+    partRows.push({ ...p, in: inn, uitval, uit, rest, opTijd });
     wsP.addRow({
       nummer: p.nummer, regio: p.regio, week: isoWeek(p.maandag).week, maandag: xd(p.maandag), leverancier: p.leverancier,
       in: f(`SUMIFS(${I('Q')},${I('C')},A${n})`, inn), uitval: f(`SUMIFS(${I('P')},${I('C')},A${n})`, uitval), uit: f(`SUMIFS(${V('N')},${V('L')},A${n})`, uit),
       rest: f(`F${n}-G${n}-H${n}`, rest), stand: f(`IF(K${n}="nee","loopt nog",IF(I${n}=0,"netto nul",IF(I${n}>0,"over in de loods","meer uit dan in")))`, stand), geteld: p.geteld ? 'ja' : 'nee',
+      route: routeText([...routeOf(p), 'Nootdorp']), binnen: binnen ? xdt(binnen) : null, optijd: f(`IF(M${n}="","",IF(M${n}<=D${n}+0.5,"ja","nee"))`, opTijd),
     });
   });
   const nP = partijen.length + 1;
-  wsP.autoFilter = { from: 'A1', to: `K${Math.max(2, nP)}` };
+  wsP.autoFilter = { from: 'A1', to: `N${Math.max(2, nP)}` };
   if (partijen.length) wsP.addConditionalFormatting({ ref: `A2:K${nP}`, rules: [{ type: 'expression', formulae: [`AND($K2="ja",$I2<>0)`], style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFF3E3DC' } }, font: { color: { argb: 'FF8A3D2A' }, bold: true } } }] });
+
+  // ---------- Leveranciers: how each one delivers, as formulas on Inkoop and Partijen
+  const wsL = sheet(wb, 'Leveranciers', [
+    { h: 'Leverancier', k: 'naam', w: 28 }, { h: 'Regio', k: 'regio', w: 7 }, { h: 'Route', k: 'route', w: 26 }, { h: 'Crediteur Exact', k: 'exact', w: 10 }, { h: 'Zendingen', k: 'zend', w: 9, fmt: NUM.int },
+    { h: 'Besteld (dozen)', k: 'besteld', w: 10, fmt: NUM.int }, { h: 'Bevestigd', k: 'bev', w: 10, fmt: NUM.int }, { h: 'Verzonden', k: 'verz', w: 10, fmt: NUM.int }, { h: 'Geteld', k: 'geteld', w: 9, fmt: NUM.int },
+    { h: 'Uitval', k: 'uitval', w: 8, fmt: NUM.int }, { h: 'Bevestigd / besteld', k: 'r1', w: 10, fmt: NUM.pct1 }, { h: 'Verzonden / bevestigd', k: 'r2', w: 10, fmt: NUM.pct1 },
+    { h: 'Geteld / verzonden', k: 'r3', w: 10, fmt: NUM.pct1 }, { h: 'Uitval / geteld', k: 'r4', w: 9, fmt: NUM.pct1 }, { h: 'Op tijd in de loods', k: 'optijd', w: 10, fmt: NUM.pct },
+    { h: 'Inkoop $', k: 'usd', w: 12, fmt: NUM.usd }, { h: 'Score desk (laatste half jaar)', k: 'score', w: 11, fmt: '0' },
+  ]);
+  const PP = c => `Partijen!$${c}$2:$${c}$${Math.max(2, nP)}`;
+  leveranciers.forEach((l, i) => {
+    const n = i + 2, mine = inkoopRows.filter(x => x.leverancier === l.naam), pm = partRows.filter(x => x.leverancier === l.naam);
+    const s_ = (rowsX, k) => rowsX.reduce((t, x) => t + (Number(x[k]) || 0), 0);
+    const withBev = mine.filter(x => x.bev != null), withVerz = mine.filter(x => x.verz != null), withGet = mine.filter(x => x.geteld != null);
+    const ratio = (num, den) => (den ? num / den : '');
+    const ja = pm.filter(x => x.opTijd === 'ja').length, nee = pm.filter(x => x.opTijd === 'nee').length;
+    const sc = scores.find(x => x.id === l.id);
+    const cond = c => `${I('E')},A${n},${I(c)},">=0"`;
+    wsL.addRow({
+      naam: l.naam, regio: l.regio, route: routeText([...routeOf({ route: l.route, regio: l.regio }), 'Nootdorp']), exact: l.exact_code,
+      zend: f(`COUNTIFS(${PP('E')},A${n})`, pm.length),
+      besteld: f(`SUMIFS(${I('L')},${I('E')},A${n})`, s_(mine, 'besteld')), bev: f(`SUMIFS(${I('M')},${I('E')},A${n})`, s_(withBev, 'bev')),
+      verz: f(`SUMIFS(${I('N')},${I('E')},A${n})`, s_(withVerz, 'verz')), geteld: f(`SUMIFS(${I('O')},${I('E')},A${n})`, s_(withGet, 'geteld')), uitval: f(`SUMIFS(${I('P')},${I('E')},A${n})`, s_(mine, 'uitval')),
+      r1: f(`IFERROR(SUMIFS(${I('M')},${cond('M')})/SUMIFS(${I('L')},${cond('M')}),"")`, ratio(s_(withBev, 'bev'), s_(withBev, 'besteld'))),
+      r2: f(`IFERROR(SUMIFS(${I('N')},${cond('N')})/SUMIFS(${I('M')},${cond('N')}),"")`, ratio(s_(withVerz, 'verz'), s_(withVerz, 'bev'))),
+      r3: f(`IFERROR(SUMIFS(${I('O')},${cond('O')})/SUMIFS(${I('N')},${cond('O')}),"")`, ratio(s_(withGet, 'geteld'), s_(withGet, 'verz'))),
+      r4: f(`IFERROR(SUMIFS(${I('P')},${cond('O')})/SUMIFS(${I('O')},${cond('O')}),"")`, ratio(s_(withGet, 'uitval'), s_(withGet, 'geteld'))),
+      optijd: f(`IFERROR(COUNTIFS(${PP('E')},A${n},${PP('N')},"ja")/(COUNTIFS(${PP('E')},A${n},${PP('N')},"ja")+COUNTIFS(${PP('E')},A${n},${PP('N')},"nee")),"")`, ja + nee ? ja / (ja + nee) : ''),
+      usd: f(`SUMIFS(${I('T')},${I('E')},A${n})`, r2(s_(mine, 'usd'))), score: sc && sc.score != null ? sc.score : null,
+    });
+  });
+  wsL.autoFilter = { from: 'A1', to: `Q${Math.max(2, leveranciers.length + 1)}` };
 
   // ---------- Klanten
   const wsK = sheet(wb, 'Klanten', [
@@ -222,7 +266,8 @@ export async function yearWorkbook(jaar, { now = new Date() } = {}) {
     ['Overzicht', 'De totalen van het jaar, per regio en per week. Alles zijn formules op de andere bladen.'],
     ['Inkoop', 'Elke regel van elke zending: besteld (dinsdag), bevestigd (donderdag), verzonden (verzendbewijs, vrijdag), geteld (maandag). Dozen in = geteld, anders het laatst bekende aantal.'],
     ['Verkoop', 'Elke regel van elke pakbon. De pakbon is ook de factuur. Prijs €/st = prijs $/st gedeeld door de koers van die week, afgerond op 4 decimalen; bedrag = stuks × prijs €/st.'],
-    ['Partijen', 'Per zendnummer (C op het plantenpaspoort, kostendrager in Exact): dozen in, uitval, dozen naar klanten en de rest. Rood = een getelde partij die niet op nul uitkomt.'],
+    ['Partijen', 'Per zendnummer (C op het plantenpaspoort, kostendrager in Exact): dozen in, uitval, dozen naar klanten en de rest. Rood = een getelde partij die niet op nul uitkomt. Met de route en of het voor maandag 12:00 in de loods stond.'],
+    ['Leveranciers', 'Per leverancier: besteld, bevestigd, verzonden en geteld, hoeveel daarvan klopte en hoe vaak het op tijd binnen was. Formules op Inkoop en Partijen; de score is hoe de desk hem over het laatste halfjaar rekent.'],
     ['Klanten', 'Omzet, dozen en facturen per klant in dit jaar.'],
     ['Koersen', 'De dollarkoers per week, zoals Jan hem op maandag vastzette.'],
     ['Plantenpaspoorten', 'Welk paspoort (A, B, C, D) op welke factuur stond.'],
@@ -231,4 +276,24 @@ export async function yearWorkbook(jaar, { now = new Date() } = {}) {
 
   const buf = await wb.xlsx.writeBuffer();
   return Buffer.from(buf);
+}
+
+// where one shipment stands in the workbook of its year: the same order as the sheets above
+export async function sheetRows(partijId) {
+  const p = await one('SELECT id, nummer, maandag, leverancier_id FROM partijen WHERE id = $1', [partijId]);
+  if (!p) return null;
+  const jaar = Number(String(p.maandag).slice(0, 4)), a = `${jaar}-01-01`, b = `${jaar}-12-31`;
+  const [ink, par, lev, ver] = await Promise.all([
+    rows(`SELECT * FROM (SELECT r.id AS regel_id, p.id AS partij_id, row_number() OVER (ORDER BY ${ORDER.inkoop}) + 1 AS rij
+        FROM partijen p JOIN partij_regels r ON r.partij_id = p.id JOIN leveranciers l ON l.id = p.leverancier_id JOIN producten d ON d.id = r.product_id JOIN weken w ON w.maandag = p.maandag
+        WHERE p.maandag BETWEEN $1 AND $2) x WHERE partij_id = $3 ORDER BY rij`, [a, b, partijId]),
+    one(`SELECT rij FROM (SELECT p.id, row_number() OVER (ORDER BY ${ORDER.partijen}) + 1 AS rij FROM partijen p JOIN leveranciers l ON l.id = p.leverancier_id JOIN weken w ON w.maandag = p.maandag
+        WHERE p.maandag BETWEEN $1 AND $2) x WHERE id = $3`, [a, b, partijId]),
+    one(`SELECT rij FROM (SELECT l.id, row_number() OVER (ORDER BY ${ORDER.leveranciers}) + 1 AS rij FROM leveranciers l) x WHERE id = $1`, [p.leverancier_id]),
+    rows(`SELECT * FROM (SELECT s.nummer AS factuur, k.naam AS klant, r.partij, r.dozen, row_number() OVER (ORDER BY ${ORDER.verkoop}) + 1 AS rij
+        FROM pakbonnen s JOIN pakbon_regels r ON r.pakbon_id = s.id JOIN klanten k ON k.id = s.klant_id JOIN producten d ON d.id = r.product_id
+        WHERE s.status = 'akkoord' AND s.maandag BETWEEN $1 AND $2) x WHERE partij = $3 ORDER BY rij`, [a, b, p.nummer]),
+  ]);
+  return { jaar, inkoop: ink.map(x => Number(x.rij)), regels: Object.fromEntries(ink.map(x => [x.regel_id, Number(x.rij)])), partijen: par ? Number(par.rij) : null, leveranciers: lev ? Number(lev.rij) : null,
+    verkoop: ver.map(x => ({ ...x, rij: Number(x.rij) })) };
 }

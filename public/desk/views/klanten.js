@@ -2,7 +2,8 @@
 // a quick order for the coming week, the products they take, the prices agreed in dollars and every packing slip.
 import { api, h, icon, fNum, fEur, toast, dialog, field, LANG } from '../core.js';
 import { spark, columns } from '../charts.js';
-import { dLong, dShort, fUsdUnit, fEur2, isoWeek } from '../wk.js';
+import { dLong, dShort, fUsdUnit, fEur2, isoWeek, today } from '../wk.js';
+import { scoreBar, partsList, kansList } from './leverancier.js';
 
 let list = null, filter = 'alle', q = '';
 const SOORT = { kwekerij: 'Kwekerij', groothandel: 'Groothandel', tuincentrum: 'Tuincentrum', interieur: 'Interieur', bloemist: 'Bloemist', overig: 'Overig' };
@@ -49,6 +50,22 @@ function customerForm(k = {}) {
     ${field('btw_nummer', 'Btw-nummer', k.btw_nummer)}${field('exact_code', 'Debiteurnummer in Exact', k.exact_code)}${field('betaaltermijn', 'Betaaltermijn (dagen)', k.betaaltermijn ?? 14, { type: 'number' })}</div>`;
 }
 
+// paid on time, late, or still open (until Exact tells the desk, Jan ticks it here)
+function paid(s) {
+  if (s.status !== 'akkoord') return '';
+  const late = s.betaald_op ? Math.round((new Date(`${s.betaald_op}T12:00:00`) - new Date(`${s.vervaldatum}T12:00:00`)) / 864e5) : null;
+  if (s.betaald_op) return `<span class="ot ${late > 2 ? 'late' : 'ok'}">${icon(late > 2 ? 'clock' : 'check')}${h(dShort(s.betaald_op))}${late > 2 ? ` · ${late} d te laat` : ''}</span>`;
+  const over = Math.round((new Date(`${today()}T12:00:00`) - new Date(`${s.vervaldatum}T12:00:00`)) / 864e5);
+  return `${over > 0 ? `<span class="ot late">${over} d over tijd</span> ` : '<span class="faint">open</span> '}<button type="button" class="lnk small" data-act="paid" data-id="${s.id}">Betaald</button>`;
+}
+function analysis(a) {
+  if (!a) return '';
+  return `<section class="panel"><header><h2>Hoe goed is deze klant</h2>${a.score != null ? `<span class="badge-s" data-s="${a.score >= 60 ? 'g' : a.score >= 40 ? 'o' : 'r'}"><b>${a.score}</b><small>${h(a.label.naam)}</small></span>` : `<span class="sub">${h(a.label.naam)}</span>`}</header>
+    <div class="body stack">${a.tags.length ? `<p class="tags">${a.tags.map(t => `<span class="chip ${h(t.toon)}">${h(t.naam)}</span>`).join('')}</p>` : ''}
+      ${partsList(a.parts)}
+      <h3 class="h3s">Meer voor hem doen</h3>${kansList(a.kansen, 'Geen open kansen: hij neemt wat bij hem past.')}</div></section>`;
+}
+
 let cur = null;
 export async function renderDetail(params) {
   const d = await api(`/week/klanten/${params.id}`);
@@ -59,7 +76,7 @@ export async function renderDetail(params) {
   const byWeek = new Map();
   for (const u of upcoming) { if (!byWeek.has(u.maandag)) byWeek.set(u.maandag, []); byWeek.get(u.maandag).push(u); }
   return `<div class="page wk">
-    <a class="back" href="#/klanten">${icon('back')}Klanten</a>
+    <a class="back" href="#/relaties">${icon('back')}Relaties</a>
     <div class="prof"><div><h1>${h(k.naam)}</h1>
       <p class="sub"><span>${h([k.adres, [k.postcode, k.plaats].filter(Boolean).join(' '), k.land].filter(Boolean).join(', '))}</span>
         ${k.contact ? `<span>${h(k.contact)}</span>` : ''}${k.telefoon ? `<a href="tel:${h(String(k.telefoon).replace(/\s/g, ''))}">${icon('phone')}${h(k.telefoon)}</a>` : ''}
@@ -81,12 +98,14 @@ export async function renderDetail(params) {
           ${byWeek.size ? [...byWeek.entries()].map(([m, us]) => `<p class="small"><b>Week ${isoWeek(m)}</b> (${h(dShort(m))}): ${us.map(u => `${u.dozen} × ${h(u.naam)} ${h(u.maat)}`).join(', ')}</p>`).join('') : '<p class="small faint">Nog niets genoteerd voor de komende weken.</p>'}
         </div></section>
         <section class="panel"><header><h2>Omzet per week</h2><span class="sub">${d.jaar}</span></header><div class="body">${chart}</div></section>
-        <section class="panel"><header><h2>Pakbonnen en facturen</h2></header><div class="tbwrap"><table class="tb"><thead><tr><th>Nummer</th><th>Week</th><th class="r">Dozen</th><th class="r">Bedrag</th><th>Exact</th><th>Mail</th></tr></thead><tbody>
+        <section class="panel"><header><h2>Pakbonnen en facturen</h2></header><div class="tbwrap"><table class="tb"><thead><tr><th>Nummer</th><th>Week</th><th class="r">Dozen</th><th class="r">Bedrag</th><th>Exact</th><th>Mail</th><th>Betaald</th></tr></thead><tbody>
           ${d.slips.map(s => `<tr><td>${s.status === 'akkoord' ? `<a href="/api/week/pakbonnen/${s.id}/pdf" target="_blank" rel="noopener">${h(s.nummer)}</a>` : `${h(s.nummer)} <span class="chip wait">heropend</span>`}</td><td>wk ${isoWeek(s.maandag)} · ${h(dShort(s.maandag))}</td>
-            <td class="r num">${fNum(s.dozen || 0)}</td><td class="r num">${fEur2(s.totaal)}</td><td>${s.exact === 'in_exact' ? icon('check') : '–'}</td><td class="small">${s.mail === 'verstuurd' ? 'verstuurd' : s.mail === 'in_outlook' ? 'in Outlook' : s.mail === 'concept' ? 'concept' : 'met de goederen'}</td></tr>`).join('') || '<tr><td colspan="6" class="empty">Nog geen pakbonnen.</td></tr>'}
+            <td class="r num">${fNum(s.dozen || 0)}</td><td class="r num">${fEur2(s.totaal)}</td><td>${s.exact === 'in_exact' ? icon('check') : '–'}</td><td class="small">${s.mail === 'verstuurd' ? 'verstuurd' : s.mail === 'in_outlook' ? 'in Outlook' : s.mail === 'concept' ? 'concept' : 'met de goederen'}</td>
+            <td class="small nowrap">${paid(s)}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">Nog geen pakbonnen.</td></tr>'}
         </tbody></table></div></section>
       </div>
       <aside class="stack">
+        ${analysis(d.analyse)}
         <section class="panel"><header><h2>Wat ze nemen</h2><span class="sub">${d.jaar}</span></header>${d.mix.length ? `<table class="tb"><tbody>${d.mix.map(p => `<tr><td>${h(p.naam)} ${h(p.maat)}<small class="faint" style="display:block">${fNum(p.weken)} weken</small></td><td class="r num">${fNum(p.dozen)} dozen</td><td class="r num">${fEur(p.omzet)}</td></tr>`).join('')}</tbody></table>` : '<p class="empty">Nog niets.</p>'}</section>
         <section class="panel"><header><h2>Prijzen in dollars</h2><span class="sub">per stuk</span></header><table class="tb deals"><tbody>
           ${d.deals.map(p => `<tr><td>${h(p.naam)} ${h(p.maat)}</td><td class="r num">${p.prijs_usd != null ? `<b>${fUsdUnit(p.prijs_usd)}</b><small class="faint" style="display:block">lijst ${fUsdUnit(p.standaard)}</small>` : `<span class="faint">${fUsdUnit(p.standaard)}</span>`}</td>
@@ -112,6 +131,7 @@ export const listActions = {
   new: () => dialog({ title: 'Nieuwe klant', ok: 'Toevoegen', body: customerForm(), onOk: async v => { const r = await save(null, v); toast('Klant toegevoegd.'); location.hash = `#/klant/${r.id}`; } }),
 };
 export const detailActions = {
+  paid: async (el, ctx) => { await api(`/week/pakbonnen/${el.dataset.id}/betaald`, { method: 'POST', body: { datum: today() } }); toast('Op betaald gezet.'); ctx.refresh(); },
   edit: (el, ctx) => dialog({ title: cur.klant.naam, ok: 'Opslaan', body: customerForm(cur.klant), onOk: async v => { await save(cur.klant.id, v); toast('Opgeslagen.'); ctx.refresh(); } }),
   deal: (el, ctx) => {
     const p = cur.deals.find(x => x.product_id === Number(el.dataset.p));

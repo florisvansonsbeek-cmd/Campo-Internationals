@@ -90,6 +90,10 @@ const P = {
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
   book: '<path d="M5 4.5h9a3 3 0 0 1 3 3V20H8a3 3 0 0 1-3-3z"/><path d="M17 7.5h2V20h-2"/><path d="M8.5 8.5h5M8.5 12h5"/>',
   shield: '<path d="M12 3.5l7 2.8v5.4c0 4.3-3 7.6-7 8.8-4-1.2-7-4.5-7-8.8V6.3z"/>',
+  plane: '<path d="M21 12c0-.8-.7-1.3-1.5-1.3H14L9.8 4H8l2.4 6.7H6L4.3 8.5H3l1 3.5-1 3.5h1.3L6 13.3h4.4L8 20h1.8l4.2-6.7h5.5c.8 0 1.5-.5 1.5-1.3z"/>',
+  globe: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.4 2.5 3.5 5.3 3.5 8.5s-1.1 6-3.5 8.5c-2.4-2.5-3.5-5.3-3.5-8.5s1.1-6 3.5-8.5z"/>',
+  tag: '<path d="M3.5 12.5V4h8.5l8.5 8.5-8.5 8.5z"/><circle cx="8" cy="8.5" r="1.3"/>',
+  star: '<path d="M12 3.8l2.5 5.2 5.7.8-4.1 4 1 5.7L12 16.8l-5.1 2.7 1-5.7-4.1-4 5.7-.8z"/>',
 };
 export const icon = (name, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>`;
 export const MARK = '<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 16h26M16 3c4 4 5.6 8.4 5.6 13S20 25 16 29M16 3c-4 4-5.6 8.4-5.6 13S12 25 16 29" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".55"/><path d="M16 22c0-6 3.5-10 9-11-.5 6-4 10-9 11z" fill="currentColor"/></svg>';

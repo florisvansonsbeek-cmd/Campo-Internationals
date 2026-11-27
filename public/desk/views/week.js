@@ -2,6 +2,7 @@
 // Monday rate, count and hand-out, then one packing slip per customer), what asks for Jan now, and what differs.
 import { api, h, icon, fNum } from '../core.js';
 import { weekNav, dLong, dMonth, dayTime, stageChip, regio, zn, fKoers } from '../wk.js';
+import { stoplicht } from '../partij.js';
 
 const STAP = { klaar: ['check', 'Klaar'], nu: ['clock', 'Nu'], straks: ['', 'Straks'] };
 
@@ -48,7 +49,8 @@ function shipments(d) {
   if (!d.partijen.length) return `<p class="empty">Nog niets besteld voor deze week.</p>`;
   return `<ul class="ships">${d.partijen.map(p => `<li>
       <a href="#/inkoop?maandag=${d.maandag}&p=${p.id}">${zn(p.nummer)}</a>
-      <span class="ships-b"><b>${h(p.leverancier)}</b><small>${regio(p.regio)} ${fNum(p.dozen)} dozen${p.verzonden_op ? ` · ${h(p.vlucht || '')}` : p.verwacht ? ` · papieren verwacht ${h(dayTime(p.verwacht))}` : ''}</small></span>
+      <span class="ships-b"><b>${p.risico?.licht ? stoplicht(p.risico.licht) : ''}<a class="lnk-plain" href="#/leverancier/${p.leverancier_id}?maandag=${d.maandag}">${h(p.leverancier)}</a></b><small>${regio(p.regio)} ${fNum(p.dozen)} dozen${p.verzonden_op ? ` · ${h(p.vlucht || '')}` : p.verwacht ? ` · papieren verwacht ${h(dayTime(p.verwacht))}` : ''}</small>
+        ${p.risico && p.risico.licht && p.risico.licht !== 'binnen' ? `<small class="lt-k" data-l="${h(p.risico.licht)}">${h(p.risico.licht === 'groen' ? `In de loods ${p.risico.aankomst}` : p.risico.kop)}</small>` : ''}</span>
       <span class="ships-s">${stageChip(p.stage)}${p.exact === 'in_exact' ? `<span class="chip ok">${icon('check')}Exact</span>` : ''}${p.twijfels ? `<span class="chip wait">${p.twijfels} nakijken</span>` : ''}</span>
     </li>`).join('')}</ul>`;
 }

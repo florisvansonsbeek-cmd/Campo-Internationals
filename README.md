@@ -11,17 +11,34 @@ Uitgangspunt: **de desk leest, telt, verdeelt en zet klaar; Jan bestelt, keurt g
 
 | Dag | Pagina | Wat er gebeurt |
 |---|---|---|
-| hele week | **Bestellen** | Klanten bellen. Jan noteert klant, product en dozen. Wie meestal belt en nog niet heeft, staat erbij met "zelfde als vorige keer". |
+| hele week | **Bestellen** | Klanten bellen. Jan noteert klant, product en dozen. Wie meestal belt en nog niet heeft, staat erbij met "zelfde als vorige keer". Bovenaan de **goede deals**: aanbod van een leverancier dat de desk meteen aan vaste kopers koppelt (marge erbij, niets blijft over), en dozen die al onderweg zijn zonder koper. Onderaan **nieuwe klanten en leveranciers**: waar de cijfers zeggen dat je moet kijken, en de mensen die Jan kan benaderen. |
 | dinsdag | **Bestellen** | De desk telt op per product en per leverancier, met de bestelling in het Spaans om te kopiëren. "Ik heb besteld" maakt per leverancier een **zending** met een eigen **zendnummer**: regiocode, jaar, volgnummer (`CR26-048`). |
-| donderdag | **Inkoop** | De bevestiging: bevestigd naast besteld, elk verschil (die 10% meer of minder) zichtbaar. |
+| donderdag | **Inkoop** | Per leverancier **wat hij levert** en een **stroom** naar de klanten (en wat er netto overblijft in de loods). Een klik op de stroom geeft de volledige lijst. **Komt het maandag binnen?**: per zending de route (kwekerij, luchthavens, vrachtwagen, loods) met een stoplicht: groen, oranje, rood. De bevestiging staat naast de bestelling, elk verschil zichtbaar. |
 | vrijdag | **Inkoop** | De verzendpapieren (factura comercial, packing list, AWB, fyto) worden gelezen. Dat is de **inkooporder voor Exact**: elke regel klaar, met het zendnummer als kostendrager. Twijfel staat naast het origineel. |
 | maandag | **Maandag** | Jan zet de **dollarkoers** van de week vast (dollars voor één euro), telt de dozen (alleen afwijkingen intikken) en verdeelt ze per klant. De desk stelt de verdeling voor uit de telefoonbestellingen; elke doos een klant, zodat de loods **netto nul** is. Verdeellijst printen voor de hal. |
 | maandag | **Pakbonnen** | Per klant één pakbon die ook de factuur is, met de partij per regel en het **plantenpaspoort** (A soort, B registratie, C zendnummer, D herkomst). Prijzen in dollars, omgerekend met de koers van de week. Na akkoord: concept in **Outlook** (pdf erbij, in de taal van de klant), of "Open in Outlook" (.eml). Regels voor Exact met kostendrager. |
-| altijd | **Jaar en Excel** | Per week, per regio en per partij: in, uit, rest. **Excel** wordt bij elke download opnieuw uit de database gemaakt (Overzicht, Inkoop, Verkoop, Partijen, Klanten, Koersen, Plantenpaspoorten), met formules op de regels. |
+| altijd | **Jaar en Excel** | Per week, per regio en per partij: in, uit, rest. **Excel** wordt bij elke download opnieuw uit de database gemaakt (Overzicht, Inkoop, Verkoop, Partijen, Leveranciers, Klanten, Koersen, Plantenpaspoorten), met formules op de regels. |
+| altijd | **Relaties** | Klanten en leveranciers met een score uit wat er echt gebeurde, en per relatie wat je nog meer kunt doen. Een klik op een leverancier geeft zijn zending, alles uit zijn mail, hoe het verwerkt is en op welke rijen het in de Excel staat. |
 
-Verder: **Deze week** (het ritme in één oogopslag en wat er nu te doen is), **Klanten** (60 klanten, prijsafspraken in dollars, pakbonnen) en **Koppelingen** (Outlook, de gegevens op de pakbon zoals het B-nummer en de IBAN, Exact, regio's).
+Verder: **Deze week** (het ritme in één oogopslag, het stoplicht per zending en wat er nu te doen is) en **Koppelingen** (Outlook, de gegevens op de pakbon zoals het B-nummer en de IBAN, Exact, regio's).
 
-De code van het weekritme staat in `src/week/` (database: `src/schema-3-week.sql`) en de schermen in `public/desk/views/`.
+De code van het weekritme staat in `src/week/` (database: `src/schema-3-week.sql` en `src/schema-4-relaties.sql`) en de schermen in `public/desk/views/`.
+
+### Het stoplicht: komt het maandag binnen
+
+`src/week/risk.js` bekijkt per zending:
+
+- **eigen signalen**: bevestiging of verzendbewijs later dan normaal, een twijfel op de papieren, een leverancier die vaker te laat is, een overstap;
+- **meldingen van Jan**: een staking, as boven een luchthaven, een weg dicht (met hoeveel uur later het wordt);
+- **de kalender**: kerst, Valentijn en Moederdag maken de vrachtvliegtuigen vol;
+- **het weer**: de verwachting van MET Norway (vrij te gebruiken, ook zakelijk) voor elke luchthaven op de route, op de dag dat de dozen er zijn, en voor Nootdorp op maandag;
+- **stormen**: de actieve tropische stormen van het Amerikaanse orkaancentrum (NHC) in de buurt van een luchthaven op de route.
+
+Naar buiten gaan alleen de coördinaten van de luchthavens. Is een bron niet bereikbaar, dan zegt de desk dat en tellen de andere signalen gewoon. Groen: niets in de weg. Oranje: let op. Rood: echt een probleem.
+
+### De analyse van klanten en leveranciers
+
+`src/week/partners.js` rekent over het laatste half jaar. Leveranciers: op tijd in de loods, bevestigt wat je bestelt, stuurt wat hij bevestigt, telling klopt, uitval, papieren op tijd, prijs tegen de standaard. Klanten: trouw, omzet, groei (het seizoen eruit gehaald: het aandeel in de omzet tegen het halfjaar ervoor), marge, betalen, hoeveel producten. Daarnaast de goede deals en de voorstellen voor nieuwe klanten en leveranciers. Wanneer een klant betaalde komt straks uit Exact; tot die tijd kan Jan het bij de klant aanvinken.
 
 ## Variabelen in Railway
 
@@ -34,6 +51,8 @@ De code van het weekritme staat in `src/week/` (database: `src/schema-3-week.sql
 | `WHATSAPP_TOKEN`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` | nee | WhatsApp Cloud API (Meta). De webhook staat op `/api/whatsapp/webhook`. |
 | `DEMO_DATA` | nee | `uit` = geen voorbeelddata aanmaken bij een lege database. `DEMO_OPNIEUW=ja` maakt een database met alleen demo-data opnieuw. |
 | `CAMPO_TZ` | nee | Tijdzone, standaard Europe/Amsterdam. |
+| `WERELD` | nee | `uit` = het weer en de stormen niet ophalen (de eigen signalen en meldingen tellen wel). |
+| `WEER_CONTACT` | nee | Contact in de User-Agent naar MET Norway (hun voorwaarde), standaard info@campointernational.nl. |
 
 ## Lokaal draaien
 

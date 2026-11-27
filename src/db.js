@@ -53,6 +53,7 @@ const MIGRATIONS = [
   { v: 1, file: 'schema.sql' },
   { v: 2, file: 'schema-2-aanbod.sql' },
   { v: 3, file: 'schema-3-week.sql' },
+  { v: 4, file: 'schema-4-relaties.sql' },
 ];
 
 export async function migrate() {
