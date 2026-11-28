@@ -16,6 +16,8 @@ const grade = (v, good, bad) => (v == null || !Number.isFinite(v) ? null : Math.
 const days = (a, b) => Math.round((new Date(`${String(b).slice(0, 10)}T12:00:00`) - new Date(`${String(a).slice(0, 10)}T12:00:00`)) / 864e5);
 const eur = v => `€ ${Math.round(Number(v) || 0).toLocaleString('nl-NL')}`;
 const pctTxt = v => `${Math.round(v * 100)}%`;
+// small price moves with one decimal, as in the plant table (5,9% and not 6%, 0,5% and not 1%)
+const pct1 = v => { const x = Math.abs(v) * 100; return `${String(x < 10 ? Math.round(x * 10) / 10 : Math.round(x)).replace('.', ',')}%`; };
 const name = p => `${p.naam} ${p.maat}`;
 const SOORT_EEN = { kwekerij: 'kwekerij', groothandel: 'groothandel', tuincentrum: 'tuincentrum', interieur: 'interieurbedrijf', bloemist: 'bloemist', overig: 'klant' };
 const SOORT_MV = { kwekerij: 'Kwekerijen', groothandel: 'Groothandels', tuincentrum: 'Tuincentra', interieur: 'Interieurbedrijven', bloemist: 'Bloemisten', overig: 'Overige klanten' };
@@ -544,9 +546,9 @@ export async function plantStats() {
     if (p.d_inkoop13 != null && p.d_inkoop13 >= 0.025 && (p.d_verkoop13 ?? 0) < p.d_inkoop13 - 0.015 && p.marge != null && p.marge13 != null) {
       const need = p.inkoop / (1 - p.marge13) - p.verkoop;   // the selling price that keeps the margin of thirteen weeks ago
       const v = p.d_verkoop13 ?? 0;
-      t.push({ soort: 'let_op', tekst: `Inkoop steeg ${pctTxt(p.d_inkoop13)} in 13 weken, de verkoopprijs ${v <= -0.005 ? `daalde ${pctTxt(-v)}` : v >= 0.005 ? `maar ${pctTxt(v)}` : 'bleef gelijk'}: de marge zakte ${pts(p.marge13 - p.marge)} naar ${pctTxt(p.marge)}.${need > 0.004 ? ` Met ${usd(need)} per stuk erbij op de lijstprijs houd je de oude marge.` : ''}` });
+      t.push({ soort: 'let_op', tekst: `Inkoop steeg ${pct1(p.d_inkoop13)} in 13 weken, de verkoopprijs ${v <= -0.005 ? `daalde ${pct1(v)}` : v >= 0.005 ? `maar ${pct1(v)}` : 'bleef gelijk'}: de marge zakte ${pts(p.marge13 - p.marge)} naar ${pctTxt(p.marge)}.${need > 0.004 ? ` Met ${usd(need)} per stuk erbij op de lijstprijs houd je de oude marge.` : ''}` });
     }
-    if (p.d_inkoop13 != null && p.d_inkoop13 <= -0.025) t.push({ soort: 'meer', tekst: `Inkoop daalde ${pctTxt(-p.d_inkoop13)} in 13 weken: meer marge, of ruimte voor een scherpere prijs bij je grootste afnemers.` });
+    if (p.d_inkoop13 != null && p.d_inkoop13 <= -0.025) t.push({ soort: 'meer', tekst: `Inkoop daalde ${pct1(p.d_inkoop13)} in 13 weken: meer marge, of ruimte voor een scherpere prijs bij je grootste afnemers.` });
     if (p.leveranciers.length > 1 && p.leveranciers[0].prijs13 && p.leveranciers[1].prijs13) {
       const [a, b] = [...p.leveranciers].filter(l => l.prijs13).sort((x, y) => x.prijs13 - y.prijs13);
       const d = b.prijs13 / a.prijs13 - 1;
