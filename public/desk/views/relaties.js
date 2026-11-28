@@ -1,5 +1,6 @@
-// Relaties: how good the customers and suppliers really are, from what really happened in the desk (ordered,
-// delivered, counted, invoiced, paid), and where Jan could serve them more.
+// Three parts of Bestellen en relaties: the customers and the suppliers under a magnifying glass (how good they really are,
+// from what happened in the desk: ordered, delivered, counted, invoiced, paid, and where Jan could serve them more), and
+// the plants: what they cost and fetch, and where the prices are going.
 import { api, h, icon, fNum, fEur, toast, dialog, field, LANG } from '../core.js';
 import { spark, lines as lineChart, columns } from '../charts.js';
 import { fUsd, fUsdUnit } from '../wk.js';
@@ -70,7 +71,7 @@ function suppliers() {
       </tbody></table></div></section>` : ''}
     ${R.inzichten.leveranciers.length ? `<section class="panel"><header><h2>Waar het kwetsbaar is</h2><span class="sub">en waar een nieuwe leverancier helpt</span></header>
       <ul class="ins">${R.inzichten.leveranciers.map(x => `<li><b>${h(x.titel)}</b><span>${h(x.tekst)}</span></li>`).join('')}</ul>
-      <p class="small faint" style="padding:0 16px 14px">Nieuwe leveranciers en klanten die je kunt benaderen staan bij <a href="#/bestellen?deel=kansen">Bestellen</a>.</p></section>` : ''}`;
+      <p class="small faint" style="padding:0 16px 14px">Nieuwe leveranciers en klanten die je kunt benaderen staan bij <a href="#/handel?deel=kansen">Nieuwe klanten</a>.</p></section>` : ''}`;
 }
 
 // ---------------------------------------------------------------- plants: what they cost and fetch, and where it is going
@@ -134,22 +135,23 @@ function plants() {
       <p class="small faint" style="padding:10px 16px 14px"><span class="lg-b"></span>Inkoop <span class="lg-g"></span>Verkoop. Inkoop komt van de verzendbewijzen, verkoop van de pakbonnen. De vraag is met het seizoen eruit gehaald: het aandeel van de plant in alle dozen.</p></section>`;
 }
 
-export async function render(params, query) {
-  soort = ['leveranciers', 'planten'].includes(query.get('soort')) ? query.get('soort') : 'klanten';
+const HEAD = {
+  klanten: ['Klanten onder de loep', 'Hoe goed elke klant echt is: trouw, omzet, groei zonder seizoen, marge, betalen en hoeveel producten hij neemt. Met wat je hem nog meer kunt bieden.'],
+  leveranciers: ['Leveranciers onder de loep', 'Op tijd, levert wat hij bevestigt, telt het klopt, uitval, papieren en prijs. En waar het kwetsbaar is.'],
+  planten: ['Planten en prijzen', 'Wat de planten kosten en opbrengen, en waar de prijzen naartoe gaan. Inkoop van de verzendbewijzen, verkoop van de pakbonnen.'],
+};
+// the part of Bestellen en relaties that lives here: klanten, leveranciers or planten
+export async function renderPart(part) {
+  soort = ['leveranciers', 'planten'].includes(part) ? part : 'klanten';
   const [rel, kl, pl] = await Promise.all([api('/week/relaties'), api('/week/klanten'), soort === 'planten' ? api('/week/planten') : null]);
   PL = pl;
   const by = new Map(kl.lijst.map(k => [k.id, k]));
   for (const c of rel.klanten) { const k = by.get(c.id) || {}; Object.assign(c, { nu_dozen: k.nu_dozen || 0, reeks: k.reeks, contact: k.contact }); }
   R = rel;
-  return `<div class="page wk">
-    <div class="ph"><div><h1>Relaties</h1><p>Hoe goed je klanten en leveranciers echt zijn, waar je ze meer kunt dienen, en wat de planten kosten en opbrengen. Alles komt uit wat er in de desk gebeurde: besteld, geleverd, geteld, gefactureerd en betaald.</p></div>
+  const [t, p] = HEAD[soort];
+  return `<div class="part-h"><div><h2>${t}</h2><p>${p}</p></div>
       <div class="acts">${soort === 'klanten' ? `<button type="button" class="btn btn-leaf" data-act="new">${icon('plus')}Nieuwe klant</button>` : ''}</div></div>
-    <div class="pick big" role="group" aria-label="Klanten, leveranciers of planten">
-      <a href="#/relaties?soort=klanten" aria-pressed="${soort === 'klanten'}">${icon('customer')}Klanten<small>${R.klanten.length}</small></a>
-      <a href="#/relaties?soort=leveranciers" aria-pressed="${soort === 'leveranciers'}">${icon('grower')}Leveranciers<small>${R.leveranciers.length}</small></a>
-      <a href="#/relaties?soort=planten" aria-pressed="${soort === 'planten'}">${icon('plant')}Planten<small>prijzen</small></a></div>
-    ${soort === 'klanten' ? customers() : soort === 'leveranciers' ? suppliers() : plants()}
-  </div>`;
+    ${soort === 'klanten' ? customers() : soort === 'leveranciers' ? suppliers() : plants()}`;
 }
 
 export function onInput(e) {

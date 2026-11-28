@@ -1,7 +1,7 @@
 // The stream of one week, as numbers for the picture on the Inkoop page: what every supplier delivers, through the hall in
 // Nootdorp, to which customer, and whether anything is left over. Before Monday it follows the desk's proposal (the phone
 // orders laid over what was confirmed or shipped); after the count it is what Jan handed out.
-import { sum } from './util.js';
+import { sum, passed } from './util.js';
 
 export function streams(d) {
   const asked = new Map();
@@ -43,12 +43,22 @@ export function streams(d) {
   }
   const klanten = [...kl.values()].map(x => ({ ...x, gevraagd: x.gevraagd || 0, tekort: x.tekort || 0 })).sort((a, b) => b.dozen - a.dozen || a.naam.localeCompare(b.naam, 'nl'));
   const inn = sum(partijen, p => p.dozen), uit = sum(partijen, p => p.uit), rest = sum(partijen, p => p.rest), uitval = sum(partijen, p => p.uitval), teVeel = sum(partijen, p => p.teVeel);
+  // what has no destination yet, per plant: already in the loods, or still on its way
+  const free = new Map();
+  for (const p of d.partijen) for (const r of p.regels) if (r.rest > 0) {
+    if (!free.has(r.product_id)) free.set(r.product_id, { product_id: r.product_id, naam: r.product, maat: r.maat, dozen: 0, binnen: 0, onderweg: 0, batches: [] });
+    const x = free.get(r.product_id);
+    x.dozen += r.rest;
+    if (passed(p.binnen_op)) x.binnen += r.rest; else x.onderweg += r.rest;
+    if (!x.batches.includes(p.nummer)) x.batches.push(p.nummer);
+  }
+  const vrij = [...free.values()].sort((a, b) => b.dozen - a.dozen || a.naam.localeCompare(b.naam, 'nl'));
   return {
     partijen,
     week: {
       in: inn, uit, rest, uitval, teVeel, klanten, tekort: sum(klanten, k => k.tekort), kortKlanten: klanten.filter(k => k.tekort > 0).length,
       geteld: !!d.counted, basis: d.counted ? 'geteld' : partijen.some(p => p.basis === 'verzonden') ? 'verzonden' : partijen.some(p => p.basis === 'bevestigd') ? 'bevestigd' : 'besteld',
-      netto: !teVeel && !rest ? 'nul' : teVeel ? 'te veel' : 'over',
+      netto: !teVeel && !rest ? 'nul' : teVeel ? 'te veel' : 'over', vrij,
     },
   };
 }

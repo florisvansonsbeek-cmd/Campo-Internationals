@@ -76,7 +76,7 @@ export async function renderDetail(params) {
   const byWeek = new Map();
   for (const u of upcoming) { if (!byWeek.has(u.maandag)) byWeek.set(u.maandag, []); byWeek.get(u.maandag).push(u); }
   return `<div class="page wk">
-    <a class="back" href="#/relaties">${icon('back')}Relaties</a>
+    <a class="back" href="#/handel?deel=klanten">${icon('back')}Klanten</a>
     <div class="prof"><div><h1>${h(k.naam)}</h1>
       <p class="sub"><span>${h([k.adres, [k.postcode, k.plaats].filter(Boolean).join(' '), k.land].filter(Boolean).join(', '))}</span>
         ${k.contact ? `<span>${h(k.contact)}</span>` : ''}${k.telefoon ? `<a href="tel:${h(String(k.telefoon).replace(/\s/g, ''))}">${icon('phone')}${h(k.telefoon)}</a>` : ''}

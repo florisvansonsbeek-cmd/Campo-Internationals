@@ -1,5 +1,7 @@
-// Bestellen (Tuesday): what customers asked on the phone, added up per product, and the order per supplier.
-// Jan sends the order himself; when he has, one click makes the shipments with their batch numbers.
+// Three parts of Bestellen en relaties. Bestellen (Tuesday): what customers asked on the phone, added up per product, and
+// the order per supplier; Jan sends the order himself, and one click makes the shipments with their batch numbers.
+// Deals: an offer from a supplier or boxes without a buyer, each matched one to one with regular buyers. Nieuwe klanten:
+// where the numbers say to look, and the people Jan could approach.
 import { api, h, icon, fNum, fEur, toast, copy, dialog, field, waLink } from '../core.js';
 import { weekNav, dLong, dayTime, zn, regio, stageChip, spanishLine, fUsdUnit, fUsd } from '../wk.js';
 
@@ -12,7 +14,7 @@ function buyer(k, act, data) {
     ${k.genoteerd ? `<span class="chip ok">${icon('check')}${fNum(k.dozen)} genoteerd</span><button type="button" class="lnk small" data-act="deal-undo" ${data}>terug</button>`
       : `<span class="bn"><input type="number" min="1" max="999" value="${k.dozen}" ${data.replace(/data-/g, 'data-n-')} aria-label="Dozen voor ${h(k.klant)}"><small>dz</small></span>
         ${k.telefoon ? `<a class="btn btn-sm btn-ghost" href="tel:${h(String(k.telefoon).replace(/\s/g, ''))}" title="${h(k.telefoon)}">${icon('phone')}<span class="sr">Bel ${h(k.klant)}</span></a>` : ''}
-        <button type="button" class="btn btn-sm btn-leaf" data-act="${act}" ${data}>Ja, genoteerd</button>`}</li>`;
+        <button type="button" class="btn btn-sm btn-leaf" data-act="${act}" ${data}>${icon('check')}Deal rond</button>`}</li>`;
 }
 function acceptText(x) {
   const first = (x.lev_contact || '').split(' ')[0], n = x.genoteerd || x.dozen - x.rest || x.dozen;
@@ -25,11 +27,12 @@ function offerCard(x) {
       : `<span class="chip">Niet genomen</span><button type="button" class="lnk small" data-act="deal-open" data-id="${x.id}">terug</button>`;
   return `<article class="deal${x.goed ? ' is-goed' : ''} st-${h(x.status)}" id="deal${x.id}">
     <header><div><b>${fNum(x.dozen)} dozen ${h(x.product)} ${h(x.maat)}</b><small>aanbod van <a href="#/leverancier/${x.leverancier_id}">${h(x.leverancier)}</a> ${regio(x.regio)} · ${h(dayTime(x.ontvangen))}</small></div>
-      <div class="deal-m"><b>${fEur(x.marge_eur)}</b><small>marge${x.marge_pct != null ? ` · ${pct(x.marge_pct)}` : ''}</small></div></header>
+      <div class="deal-m">${x.kopers.length ? `<b>${fEur(x.marge_eur)}</b><small>marge${x.marge_pct != null ? ` · ${pct(x.marge_pct)}` : ''}</small>` : '<b>–</b><small>geen koper</small>'}</div></header>
     <p class="deal-p">${fUsdUnit(x.prijs_usd)} per stuk${x.normaal_usd > x.prijs_usd ? ` <s title="Normale inkoopprijs">${fUsdUnit(x.normaal_usd)}</s>` : ''} · ${fNum(x.dozen * x.per_doos)} stuks${x.voordeel_usd ? ` · ${fUsd(x.voordeel_usd, 0)} goedkoper dan normaal` : ''}</p>
     <ul class="checks">${x.checks.map(c => `<li class="${c.ok ? 'ok' : 'no'}">${icon(c.ok ? 'check' : 'warn')}${h(c.tekst)}</li>`).join('')}</ul>
     ${x.kopers.length ? `<p class="small muted">Wie het neemt, uit wat ze de laatste 13 weken kochten:</p><ol class="buyers">${x.kopers.map(k => buyer(k, 'deal-yes', data(k))).join('')}</ol>` : '<p class="small faint">Geen vaste koper voor dit product gevonden.</p>'}
-    ${x.rest ? `<p class="small rest">${icon('info')}Nog ${fNum(x.rest)} ${x.rest === 1 ? 'doos' : 'dozen'} zonder koper. Neem er ${fNum(x.dozen - x.rest)} in plaats van ${fNum(x.dozen)}, dan blijft er niets over.</p>` : ''}
+    ${x.rest && x.rest < x.dozen ? `<p class="small rest">${icon('info')}Nog ${fNum(x.rest)} ${x.rest === 1 ? 'doos' : 'dozen'} zonder koper. Neem er ${fNum(x.dozen - x.rest)} in plaats van ${fNum(x.dozen)}, dan blijft er niets over.</p>`
+      : x.rest ? `<p class="small rest">${icon('info')}Niemand neemt dit product meestal. Laat dit aanbod liever lopen, tenzij je zelf een koper weet.</p>` : ''}
     ${x.notitie ? `<blockquote class="lev-q" lang="es">${h(x.notitie)}</blockquote>` : ''}
     <footer>${take}${x.lev_email ? `<a class="btn btn-sm btn-ghost" href="mailto:${h(x.lev_email)}?subject=${encodeURIComponent(`Oferta semana ${D.week} - Campo International`)}&body=${encodeURIComponent(acceptText(x))}">${icon('mail')}Mail</a>` : ''}${x.lev_whatsapp ? `<a class="btn btn-sm btn-ghost" target="_blank" rel="noopener" href="${h(waLink(x.lev_whatsapp, acceptText(x)))}">${icon('chat')}WhatsApp</a>` : ''}</footer>
   </article>`;
@@ -43,19 +46,23 @@ function wayCard(x) {
     ${x.rest ? `<p class="small rest">${icon('info')}${fNum(x.rest)} blijven anders in de loods.</p>` : ''}
   </article>`;
 }
-function dealsPanel() {
+function dealsPart() {
   if (!D) return '';
-  const open = D.deals.filter(x => x.status !== 'afgewezen'), way = D.onderweg.lijst.filter(x => x.kopers.length);
+  const open = D.deals.filter(x => x.status !== 'afgewezen'), way = D.onderweg.lijst;
   const total = open.filter(x => x.status === 'open' || x.status === 'genomen').reduce((t, x) => t + (x.marge_eur || 0), 0);
-  return `<section class="panel deals-p" id="deals"><header><h2>Goede deals</h2><span class="sub">één op één: elke doos heeft al een koper, er blijft niets over</span></header>
-    <div class="body stack">
-      ${open.length ? `<p class="small muted">${fNum(open.length)} ${open.length === 1 ? 'aanbod' : 'aanbiedingen'} voor week ${D.week}, samen ${fEur(total)} marge als je ze neemt. Bel de kopers, zet ze op "genoteerd", en laat de leverancier weten dat je het neemt. De extra dozen gaan mee in de bestelling van dinsdag.</p>
-        <div class="deal-g">${open.map(offerCard).join('')}</div>`
-        : `<p class="empty">Geen aanbod van leveranciers voor week ${D.week}. Kreeg je er een via mail of WhatsApp? Noteer het, dan zoekt de desk de kopers erbij.</p>`}
-      ${way.length ? `<h3>Komt maandag binnen, nog zonder koper</h3><p class="small muted">Er vliegt iets meer dan er verkocht is. Deze klanten nemen het meestal: één telefoontje en het is weg.</p><div class="deal-g">${way.map(wayCard).join('')}</div>` : ''}
-      ${D.deals.some(x => x.status === 'afgewezen') ? `<p class="small faint">Niet genomen: ${D.deals.filter(x => x.status === 'afgewezen').map(x => `${h(x.product)} ${h(x.maat)} van ${h(x.leverancier)} <button type="button" class="lnk small" data-act="deal-open" data-id="${x.id}">terug</button>`).join(', ')}</p>` : ''}
-      <p><button type="button" class="btn btn-sm btn-line" data-act="aanbod-new">${icon('plus')}Aanbod noteren</button></p>
-    </div></section>`;
+  const free = way.reduce((t, x) => t + x.dozen, 0);
+  return `<div class="part-h"><div><h2>Deals om te verzegelen</h2>
+      <p>Eén op één: elk aanbod en elke doos zonder koper staat naast de vaste kopers die het meestal nemen. Bel, zet het op "Deal rond", en laat de leverancier weten dat je het neemt.</p></div>
+      <div class="acts">${weekNav('handel', D.maandag || last.maandag, '&deel=deals')}<button type="button" class="btn btn-line" data-act="aanbod-new">${icon('plus')}Aanbod noteren</button></div></div>
+    <dl class="facts mini3">
+      <div><dt>Aanbod week ${D.week}</dt><dd>${fNum(open.filter(x => x.status === 'open').length)}<small>${open.length ? `samen ${fEur(total)} marge` : 'nog niets binnen'}</small></dd></div>
+      <div><dt>Zonder koper</dt><dd>${fNum(free)}<small>${free ? `dozen, komt maandag ${D.onderweg.week ? `(week ${D.onderweg.week})` : ''}` : 'elke doos heeft een koper'}</small></dd></div>
+      <div><dt>Rond</dt><dd>${fNum(open.filter(x => x.status === 'genomen').length)}<small>aanbod aangenomen</small></dd></div>
+    </dl>
+    ${open.length ? `<h3 class="part-s">Aanbod van leveranciers</h3><div class="deal-g">${open.map(offerCard).join('')}</div>`
+      : `<p class="empty">Geen aanbod van leveranciers voor week ${D.week}. Kreeg je er een via mail of WhatsApp? Noteer het, dan zoekt de desk de kopers erbij.</p>`}
+    ${way.length ? `<h3 class="part-s">Komt maandag binnen, nog zonder koper</h3><p class="small muted">Er vliegt iets meer dan er verkocht is. Deze klanten nemen het meestal: één telefoontje en het is weg.</p><div class="deal-g">${way.map(wayCard).join('')}</div>` : ''}
+    ${D.deals.some(x => x.status === 'afgewezen') ? `<p class="small faint">Niet genomen: ${D.deals.filter(x => x.status === 'afgewezen').map(x => `${h(x.product)} ${h(x.maat)} van ${h(x.leverancier)} <button type="button" class="lnk small" data-act="deal-open" data-id="${x.id}">terug</button>`).join(', ')}</p>` : ''}`;
 }
 
 // ---------------------------------------------------------------- new customers and suppliers
@@ -68,15 +75,15 @@ function lead(x) {
       <button type="button" class="btn btn-sm btn-ghost" data-act="lead-note" data-id="${x.id}">${icon('edit')}<span class="sr">Notitie</span></button>
       ${x.email ? `<a class="btn btn-sm btn-ghost" href="mailto:${h(x.email)}">${icon('mail')}<span class="sr">Mail</span></a>` : ''}${x.telefoon ? `<a class="btn btn-sm btn-ghost" href="tel:${h(String(x.telefoon).replace(/\s/g, ''))}">${icon('phone')}<span class="sr">Bel</span></a>` : ''}</div></li>`;
 }
-function leadsPanel() {
+function leadsPart() {
   if (!KN) return '';
-  const side = (soort, title, ins) => `<div class="stack"><h3>${title}</h3>
+  const side = (soort, title, ins) => `<section class="panel"><header><h2>${title}</h2><span class="sub">${fNum(KN.kansen.filter(k => k.soort === soort && ['nieuw', 'benaderd', 'in_gesprek'].includes(k.status)).length)} open</span></header><div class="body stack">
     ${ins.length ? `<ul class="ins">${ins.map(x => `<li><b>${h(x.titel)}</b><span>${h(x.tekst)}</span></li>`).join('')}</ul>` : ''}
-    <ul class="leads">${KN.kansen.filter(k => k.soort === soort).map(lead).join('') || '<li class="empty">Nog niemand genoteerd.</li>'}</ul></div>`;
-  return `<section class="panel" id="kansen"><header><h2>Nieuwe klanten en leveranciers</h2><span class="sub">waar de cijfers zeggen dat je moet kijken, en wie je kunt benaderen</span></header>
-    <div class="body stack"><div class="grid2 even">${side('klant', 'Nieuwe klanten', KN.inzichten.klanten)}${side('leverancier', 'Nieuwe leveranciers', KN.inzichten.leveranciers)}</div>
-      <p class="small faint">De desk stelt voor; jij belt en beslist. Voorbeelden met het label voorbeeld zijn verzonnen voor de demo.</p>
-      <p><button type="button" class="btn btn-sm btn-line" data-act="lead-new">${icon('plus')}Kans toevoegen</button></p></div></section>`;
+    <ul class="leads">${KN.kansen.filter(k => k.soort === soort).map(lead).join('') || '<li class="empty">Nog niemand genoteerd.</li>'}</ul></div></section>`;
+  return `<div class="part-h"><div><h2>Nieuwe klanten</h2><p>Waar de cijfers zeggen dat je moet kijken, en wie je kunt benaderen. De desk stelt voor; jij belt en beslist.</p></div>
+      <div class="acts"><button type="button" class="btn btn-line" data-act="lead-new">${icon('plus')}Kans toevoegen</button></div></div>
+    <div class="grid2 even">${side('klant', 'Mogelijke klanten', KN.inzichten.klanten)}${side('leverancier', 'Mogelijke leveranciers', KN.inzichten.leveranciers)}</div>
+    <p class="small faint">Voorbeelden met het label voorbeeld zijn verzonnen voor de demo.</p>`;
 }
 
 function entry(d) {
@@ -144,18 +151,11 @@ function regulars(d) {
     </li>`).join('')}</ul></section>`;
 }
 
-export async function render(params, query) {
-  const m = query.get('maandag');
-  const qs = m ? `?maandag=${m}` : '';
-  const [d, deals, kansen] = await Promise.all([api(`/week/bestellen${qs}`), api(`/week/deals${qs}`).catch(() => null), api('/week/kansen').catch(() => null)]);
-  last = d; D = deals; KN = kansen;
+function orderPart(d) {
   const placed = d.partijen.filter(p => p.besteld_op);
   const due = d.vandaag > d.bestellen ? `Bestellen was op ${dLong(d.bestellen)}.` : d.vandaag === d.bestellen ? 'Vandaag bestellen.' : `Bestellen op ${dLong(d.bestellen)}.`;
-  return `<div class="page wk">
-    <div class="ph"><div><p class="kick">Week ${d.week} · binnen ${h(dLong(d.maandag))}</p><h1>Bestellen</h1>
-      <p>Wat klanten aan de telefoon vroegen, opgeteld per product. ${h(due)}</p></div>
-      <div class="acts">${weekNav('bestellen', d.maandag)}</div></div>
-    ${dealsPanel()}
+  return `<div class="part-h"><div><h2>Bestellen voor week ${d.week}</h2><p>Wat klanten aan de telefoon vroegen, opgeteld per product. ${h(due)} Binnen ${h(dLong(d.maandag))}.</p></div>
+      <div class="acts">${weekNav('handel', d.maandag, '&deel=bestellen')}</div></div>
     <div class="grid2">
       <div class="stack">
         <section class="panel"><header><h2>Telefoon</h2><span class="sub">${fNum(d.totaal.klanten)} klanten · ${fNum(d.totaal.dozen)} dozen</span></header>
@@ -171,9 +171,18 @@ export async function render(params, query) {
           </div></section>
         ${placed.length ? `<section class="panel"><header><h2>Zendingen</h2></header><ul class="ships">${placed.map(p => `<li><a href="#/inkoop?maandag=${d.maandag}&p=${p.id}">${zn(p.nummer)}</a><span class="ships-b"><b>${h(p.leverancier)}</b><small>${regio(p.regio)} ${fNum(p.regels.reduce((s, r) => s + (r.besteld || 0), 0))} dozen besteld</small></span><span class="ships-s">${stageChip(p.stage)}</span></li>`).join('')}</ul></section>` : ''}
       </aside>
-    </div>
-    ${leadsPanel()}
-  </div>`;
+    </div>`;
+}
+
+// the part of Bestellen en relaties that lives here: bestellen, deals or kansen
+export async function renderPart(part, query) {
+  const m = query.get('maandag');
+  const qs = m ? `?maandag=${m}` : '';
+  if (part === 'kansen') { KN = await api('/week/kansen'); return leadsPart(); }
+  const [d, deals] = await Promise.all([api(`/week/bestellen${qs}`), part === 'deals' ? api(`/week/deals${qs}`) : null]);
+  last = d;
+  if (part === 'deals') { D = deals; return dealsPart(); }
+  return orderPart(d);
 }
 
 const klantId = naam => { const n = String(naam || '').trim().toLowerCase(); const k = last.alleKlanten.find(x => x.naam.toLowerCase() === n) || last.alleKlanten.filter(x => x.naam.toLowerCase().includes(n)); return Array.isArray(k) ? (k.length === 1 ? k[0].id : null) : k.id; };

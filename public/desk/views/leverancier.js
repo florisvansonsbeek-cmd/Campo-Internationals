@@ -70,7 +70,7 @@ export async function render(params, query) {
       <span class="wknav-now"><b>Week ${d.week}</b><small>${h(dShort(d.maandag))}</small></span>
       ${d.volgende ? `<a href="#/leverancier/${l.id}?maandag=${d.volgende}"><span>wk ${isoWeek(d.volgende)}</span>${icon('back', 'flip')}</a>` : '<span></span>'}</nav>`;
   return `<div class="page wk">
-    <p class="crumbs"><a class="back" href="#/inkoop?maandag=${d.maandag}">${icon('back')}Inkoop week ${d.week}</a><a class="back" href="#/relaties?soort=leveranciers">Relaties</a></p>
+    <p class="crumbs"><a class="back" href="#/inkoop?maandag=${d.maandag}">${icon('back')}Overzicht week ${d.week}</a><a class="back" href="#/handel?deel=leveranciers">Leveranciers</a></p>
     <div class="prof"><div><h1>${h(l.naam)}</h1>
       <p class="sub"><span>${h([l.plaats, l.regio_naam].filter(Boolean).join(', '))}</span>${l.contact ? `<span>${h(l.contact)}</span>` : ''}
         ${l.telefoon ? `<a href="tel:${h(tel(l.telefoon))}">${icon('phone')}${h(l.telefoon)}</a>` : ''}${l.whatsapp ? `<a href="${h(waLink(l.whatsapp, ''))}" target="_blank" rel="noopener">${icon('chat')}WhatsApp</a>` : ''}

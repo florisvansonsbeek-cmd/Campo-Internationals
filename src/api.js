@@ -14,6 +14,7 @@ import { week } from './week/routes.js';
 import { offerCards, offerDetail, callOutcome, placeOrder, declineOffer, receiveOrder, proposeOffer, customerStats, dropCaches } from './offers.js';
 import { conceptPdf, conceptEml } from './drafts.js';
 import { pushOffer, pushConcept, sendConcept, outlookStatus, disconnect, removeFromOutlook, syncSent, authStart, authBack, target } from './outlook.js';
+import { exactStart, exactBack, exactStatus } from './exact.js';
 import { afterChange, afterOffer } from './pipeline.js';
 import { loodsNow } from './loods.js';
 import { zendingState, leveringState, eventsFor, flowNow, orderNow } from './stroom.js';
@@ -613,7 +614,7 @@ api.get('/koppelingen', wrap(async (req, res) => {
   const extra = await one(`SELECT (SELECT count(*) FROM concepten) AS concepten, (SELECT count(*) FROM partijen) AS partijen, (SELECT count(*) FROM partij_regels) AS partijregels,
      (SELECT count(*) FROM pakbonnen WHERE status = 'akkoord') AS pakbonnen, (SELECT count(*) FROM pakbon_regels) AS pakbonregels, (SELECT count(*) FROM weekorders) AS weekorders,
      (SELECT count(*) FROM leveranciers) AS leveranciers, (SELECT count(*) FROM producten) AS producten, (SELECT count(*) FROM weken WHERE koers IS NOT NULL) AS koersen`);
-  res.json({ ai: aiStatus(), mail: mailStatus(), whatsapp: { ...whatsappStatus(), webhook: `${host}/api/whatsapp/webhook` }, outlook: { ...(await outlookStatus()), terug: `${host}/api/outlook/terug` }, demo, database: { ...counts, ...extra }, talen: LANG_NAME });
+  res.json({ ai: aiStatus(), mail: mailStatus(), whatsapp: { ...whatsappStatus(), webhook: `${host}/api/whatsapp/webhook` }, outlook: { ...(await outlookStatus()), terug: `${host}/api/outlook/terug` }, exact: { ...(await exactStatus()), terug: `${host}/api/exact/terug` }, demo, database: { ...counts, ...extra }, talen: LANG_NAME });
 }));
 api.post('/koppelingen/ai-test', wrap(async (req, res) => res.json(await aiCheck())));
 api.post('/koppelingen/mail-nu', wrap(async (req, res) => res.json(await pollMail())));
@@ -797,6 +798,8 @@ api.patch('/concepten/:id', wrap(async (req, res) => {
 }));
 
 // ---------------------------------------------------------------- Outlook
+api.get('/exact/start', wrap(exactStart));
+api.get('/exact/terug', wrap(exactBack));
 api.get('/outlook/start', wrap(authStart));
 api.get('/outlook/terug', wrap(authBack));
 api.post('/outlook/los', wrap(async (req, res) => { await disconnect(who(req)); res.json(await outlookStatus()); }));

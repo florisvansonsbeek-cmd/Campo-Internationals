@@ -57,9 +57,11 @@ export function slipNext(x) {
       <button type="button" class="btn btn-sm btn-ghost" data-act="slip-paper" data-id="${s.id}">Met de goederen meegegeven</button>` : c && c.status === 'verstuurd' ? `<span class="chip ok">${icon('check')}Verstuurd ${h(dayTime(c.verstuurd_op))}</span>` : ''}</p>
     ${c && c.status !== 'verstuurd' && !outlook ? '<p class="small faint">Open in Outlook geeft een nieuwe mail met de pdf erbij; jij drukt op verzenden. Met Outlook gekoppeld (Koppelingen) staan ze allemaal tegelijk bij Concepten.</p>' : ''}
     <h3 class="mini-h">Exact</h3>
-    <p class="acts-row">${s.exact === 'in_exact' ? `<span class="chip ok">${icon('check')}Staat in Exact</span><button type="button" class="lnk small" data-act="slip-exact-back" data-id="${s.id}">Terugzetten</button>` : `<button type="button" class="btn btn-sm btn-leaf" data-act="slip-exact-in" data-id="${s.id}">${icon('check')}Staat in Exact</button>`}
+    <p class="acts-row">${s.exact === 'in_exact' ? `<span class="chip ok">${icon('check')}Staat in Exact</span><button type="button" class="lnk small" data-act="slip-exact-back" data-id="${s.id}">Terugzetten</button>`
+      : x.exactKan && x.exactKan.kan ? `<button type="button" class="btn btn-sm btn-leaf" data-act="slip-exact-zet" data-id="${s.id}">${icon('check')}Zet in ${x.exactKan.bron === 'demo' ? 'demo-Exact' : 'Exact'}</button><button type="button" class="lnk small" data-act="slip-exact-in" data-id="${s.id}">met de hand gezet</button>`
+        : `<button type="button" class="btn btn-sm btn-leaf" data-act="slip-exact-in" data-id="${s.id}">${icon('check')}Staat in Exact</button>`}
       <button type="button" class="btn btn-sm btn-line" data-act="slip-exact-copy" data-k="${k}">${icon('copy')}Kopieer regels</button></p>
-    <p class="small faint">Elke regel met het batchnummer als kostendrager. Zo telt Exact per regio en per week wat erin en eruit gaat.</p>
+    <p class="small faint">Elke regel met het batchnummer als kostendrager. Zo telt Exact per regio en per week wat erin en eruit gaat. <a href="#/controle?deel=exact">Controle</a> kijkt of het goed staat.</p>
     <p><button type="button" class="lnk small" data-act="slip-reopen" data-id="${s.id}">Pakbon heropenen</button></p>`;
 }
 
@@ -83,6 +85,12 @@ export function slipActions(slipOf) {
       title: 'Staat in Exact', ok: 'Staat in Exact', body: field('nummer', 'Factuurnummer in Exact (mag leeg)', ''),
       onOk: async v => { await api('/week/pakbonnen/exact', { method: 'POST', body: { ids: [Number(el.dataset.id)], nummer: v.nummer || null } }); toast('Staat in Exact.'); ctx.refresh(); },
     }),
+    'slip-exact-zet': async (el, ctx) => {
+      el.disabled = true;
+      const r = await api('/week/exact/zet', { method: 'POST', body: { pakbonnen: [Number(el.dataset.id)] } }).catch(x => { el.disabled = false; throw x; });
+      toast(r.gezet ? 'Staat in Exact. Controle kijkt of het klopt.' : r.fouten[0]?.fout || 'Niet gelukt.');
+      ctx.refresh();
+    },
     'slip-exact-back': async (el, ctx) => { await api('/week/pakbonnen/exact', { method: 'POST', body: { ids: [Number(el.dataset.id)], terug: true } }); toast('Teruggezet.'); ctx.refresh(); },
     'slip-exact-copy': async el => {
       const x = slipOf(Number(el.dataset.k));

@@ -165,10 +165,15 @@ function exactStep(d, s) {
   const done = (s?.slips || []).filter(x => x.status === 'akkoord');
   if (!done.length) return '<p class="empty">Eerst de pakbonnen en facturen (stap 5).</p>';
   const open = done.filter(x => x.pakbon.exact !== 'in_exact');
-  return `<p class="xcols">${['Plantensoort', 'Grootte', 'Hoeveelheid', 'Prijs per eenheid', 'Plantenpaspoortnummer', 'Klant', 'Plantenpaspoortnummer'].map(c => `<span>${c}</span>`).join('<i aria-hidden="true">›</i>')}</p>
-    <p class="acts-row"><a class="btn btn-leaf" href="/api/week/weken/${d.maandag}/exact.xlsx">${icon('db')}Excel voor Exact</a>
-      ${open.length ? `<button type="button" class="btn btn-line" data-act="exact-all">${icon('check')}Staat in Exact</button>` : `<span class="chip ok">${icon('check')}Alles staat in Exact</span>`}</p>
-    <p class="small faint">Eén regel per factuurregel, in euro. Het plantenpaspoortnummer is het batchnummer; de tweede keer als kostendrager.</p>`;
+  const ex = s?.exact || { kan: false };
+  const where = ex.bron === 'demo' ? 'het demo-Exact' : 'Exact';
+  return `${open.length ? `<div class="mk"><button type="button" class="btn btn-leaf" data-act="exact-zet"${ex.kan ? '' : ' disabled'}>${icon('check')}Zet ${open.length} ${open.length === 1 ? 'factuur' : 'facturen'} in ${where}</button>
+      <p class="small muted">${ex.kan ? `Elke regel met het batchnummer als kostendrager. Daarna kijkt <a href="#/controle?deel=exact">Controle</a> of alles goed in Exact staat.` : h(ex.waarom || '')}</p></div>`
+      : `<p><span class="chip ok">${icon('check')}Alles staat in Exact</span> <a class="lnk small" href="#/controle?deel=exact">Naar de controle</a></p>`}
+    <p class="xcols">${['Plantensoort', 'Grootte', 'Hoeveelheid', 'Prijs per eenheid', 'Plantenpaspoortnummer', 'Klant', 'Plantenpaspoortnummer'].map(c => `<span>${c}</span>`).join('<i aria-hidden="true">›</i>')}</p>
+    <p class="acts-row"><a class="btn btn-line" href="/api/week/weken/${d.maandag}/exact.xlsx">${icon('db')}Excel voor Exact</a>
+      ${open.length && !ex.kan ? `<button type="button" class="btn btn-ghost" data-act="exact-all">${icon('check')}Met de hand in Exact gezet</button>` : ''}</p>
+    <p class="small faint">De Excel heeft één regel per factuurregel, in euro. Het plantenpaspoortnummer is het batchnummer; de tweede keer als kostendrager.</p>`;
 }
 
 // what goes on whose pallet, printed for the hall: per batch, then per customer
@@ -267,7 +272,7 @@ export const actions = {
   binnen: async (el, ctx) => {
     const id = Number(el.dataset.p), p = last.partijen.find(x => x.id === id), inn = !!p.binnen_op;
     if (inn) {
-      return dialog({ title: `${short(p.leverancier)} niet binnen?`, ok: 'Terugzetten', body: '<p>De telling van deze zending gaat terug naar wat de papieren zeggen, en op Inkoop staat hij weer onderweg.</p>',
+      return dialog({ title: `${short(p.leverancier)} niet binnen?`, ok: 'Terugzetten', body: '<p>De telling van deze zending gaat terug naar wat de papieren zeggen, en op het Overzicht staat hij weer onderweg.</p>',
         onOk: async () => { await api(`/week/partijen/${id}/binnen`, { method: 'POST', body: { binnen: false } }); toast('Teruggezet.'); ctx.refresh(); } });
     }
     const box = document.getElementById(`arr${id}`), regels = [];
@@ -277,7 +282,7 @@ export const actions = {
     }
     el.disabled = true;
     await api(`/week/partijen/${id}/binnen`, { method: 'POST', body: { binnen: true, regels } }).catch(x => { el.disabled = false; throw x; });
-    toast(`${short(p.leverancier)} is binnen${regels.length ? `, ${regels.length} ${regels.length === 1 ? 'regel' : 'regels'} anders geteld` : ''}. Op Inkoop staat hij op groen.`);
+    toast(`${short(p.leverancier)} is binnen${regels.length ? `, ${regels.length} ${regels.length === 1 ? 'regel' : 'regels'} anders geteld` : ''}. Op het Overzicht staat hij op groen.`);
     ctx.refresh();
   },
   give: async (el, ctx) => {
@@ -311,6 +316,19 @@ export const actions = {
         const r = await api('/week/pakbonnen/akkoord', { method: 'POST', body: { maandag: last.maandag } });
         opened.add('pakbon'); opened.add('exact');     // the list stays in view: per invoice the mail, or "in Outlook"
         toast(`${r.nummers.length} ${r.nummers.length === 1 ? 'pakbon' : 'pakbonnen'} gemaakt${r.inOutlook ? `, ${r.inOutlook} als concept in Outlook` : ''}.`);
+        ctx.refresh();
+      },
+    });
+  },
+  'exact-zet': (el, ctx) => {
+    const n = slipsOf.slips.filter(x => x.status === 'akkoord' && x.pakbon.exact !== 'in_exact').length;
+    const where = slipsOf.exact?.bron === 'demo' ? 'het demo-Exact' : 'Exact';
+    dialog({
+      title: 'In Exact zetten', ok: 'Zet in Exact',
+      body: `<p>${n} ${n === 1 ? 'factuur gaat' : 'facturen gaan'} naar ${where}, elke regel met het batchnummer als kostendrager.</p><p class="small faint">Ze zijn al door jou goedgekeurd. Controle leest daarna terug wat er in Exact staat.</p>`,
+      onOk: async () => {
+        const r = await api('/week/exact/zet', { method: 'POST', body: { maandag: last.maandag, soort: 'verkoop' } });
+        toast(`${r.gezet} in Exact gezet${r.fouten.length ? `; niet gelukt: ${r.fouten[0].ref}: ${r.fouten[0].fout}` : ''}.`);
         ctx.refresh();
       },
     });

@@ -9,7 +9,7 @@ import { addDays, isoDow, isoWeek, today, r2, r4, vatFor, batchNumber } from './
 import { allocate } from './model.js';
 import { supplierPdf } from './docs.js';
 
-export const WEEK_DEMO_VERSION = 8;
+export const WEEK_DEMO_VERSION = 9;
 const WEEKS = 60;
 
 function rng(seed) {
@@ -215,8 +215,9 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
         }
         partijen.push(p); mine.push(p);
       }
-      if (current) {
-        // the papers of this week, each arriving at its own moment
+      // the papers of every shipment (Jan's order, the confirmation, the supplier's invoice with packing list), so the
+      // archive on the Controle tab has them for every week; this week's arrive each at their own moment
+      {
         for (const p of mine) {
           const pr = regels.filter(x => x.partij_id === p.id);
           const lev = p.lev, wkn = isoWeek(m).week;
@@ -225,13 +226,13 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
             tekst: `Hola ${lev.contact.split(' ')[0]},\n\nPara la semana ${wkn} (llegada ${dagNl}) quisiera pedir:\n\n${pr.map(x => `${String(x.besteld).padStart(4)} cajas  ${x.p.es}`).join('\n')}\n\nPor favor confirmen cantidades y vuelo.\n\nSaludos,\nJan\nCampo International` });
           const diff = pr.filter(x => x.bevestigd !== x.besteld);
           const salida = lev.regio === 'GT'
-            ? `Sale el sábado con el vuelo ${p.vlucht.replace(/ → /g, ' - ')}. Ojo: el aeropuerto La Aurora está cerrado desde esta mañana por la ceniza del Volcán de Fuego. Si abre a tiempo sale el sábado; si no, el domingo temprano. Les avisamos.`
+            ? `Sale el sábado con el vuelo ${p.vlucht.replace(/ → /g, ' - ')}.${current ? ' Ojo: el aeropuerto La Aurora está cerrado desde esta mañana por la ceniza del Volcán de Fuego. Si abre a tiempo sale el sábado; si no, el domingo temprano. Les avisamos.' : ''}`
             : `Sale el viernes con el vuelo ${p.vlucht.replace(/ → /g, ' - ')}.`;
           docs.push({ partij_id: p.id, soort: 'bevestiging', titel: `Confirmación pedido semana ${wkn}`, ontvangen: p.bevestigd_op, gelezen_door: 'ai',
             tekst: `Hola Jan,\n\nConfirmamos el pedido para la semana ${wkn}. ${salida}\n\n${pr.map(x => `${String(x.bevestigd).padStart(4)} cajas  ${x.p.es}${x.bevestigd < x.besteld ? `  (${x.besteld - x.bevestigd} menos: no hay suficiente material)` : x.bevestigd > x.besteld ? `  (${x.bevestigd - x.besteld} más, como hablamos)` : ''}`).join('\n')}\n\n${diff.length ? 'Las diferencias están marcadas.' : 'Todo según su pedido.'}\n\nSaludos,\n${lev.contact}\n${lev.naam}` });
           // one doubt in the second Costa Rica shipment: invoiced more boxes than are on the packing list
           let nota = null;
-          if (p.lev.code === 'volcan-azul') {
+          if (current && p.lev.code === 'volcan-azul') {
             const x = pr.find(y => y.p.code === 'YU-090') || pr[0];
             x.twijfel = `Op de factuur staan ${x.verzonden + 2} dozen, maar onderaan staat dat er 2 met de volgende vlucht komen. De desk nam ${x.verzonden}: wat er nu in het vliegtuig zit.`;
             x.zekerheid = 64;
@@ -247,7 +248,7 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
           const sha = crypto.createHash('sha256').update(pdf).digest('hex');
           files.push({ partij_id: p.id, naam: `Factura ${p.factuur}.pdf`, data: pdf, sha, ontvangen: p.verzonden_op, titel: `Factura comercial y packing list ${p.factuur}` });
         }
-        continue;
+        if (current) continue;
       }
       // ---------- Monday of a finished week: handed out to the last box, one packing slip per customer
       const give = new Map(); // klant -> rows
@@ -366,7 +367,8 @@ export async function resetAll() {
     await c.query(`TRUNCATE ${ALL} RESTART IDENTITY CASCADE`);
     await c.query(`DELETE FROM kansen WHERE bron <> 'jan'`);
     await c.query(`SELECT setval('bestelnummer_seq', 1, false), setval('offertenummer_seq', 1, false)`);
-    await c.query(`DELETE FROM instellingen WHERE sleutel IN ('demo', 'imap')`);
+    await c.query(`DELETE FROM exact_boekingen WHERE bron = 'demo'`);
+    await c.query(`DELETE FROM instellingen WHERE sleutel IN ('demo', 'imap', 'exact_demo')`);
     await c.query('COMMIT');
   } catch (e) { await c.query('ROLLBACK').catch(() => {}); throw e; } finally { c.release(); }
 }
@@ -415,8 +417,9 @@ export async function removeWeekDemo() {
     await c.query(`DELETE FROM weken w WHERE NOT EXISTS (SELECT 1 FROM partijen p WHERE p.maandag = w.maandag) AND NOT EXISTS (SELECT 1 FROM weekorders o WHERE o.maandag = w.maandag) AND NOT EXISTS (SELECT 1 FROM pakbonnen s WHERE s.maandag = w.maandag)`);
     await c.query(`DELETE FROM berichten_in WHERE extern_id LIKE 'demo-%' OR kanaal = 'demo'`);
     await c.query(`DELETE FROM kwekers WHERE bron = 'demo'`);
-    await c.query(`DELETE FROM bestanden b WHERE bericht_id IS NULL AND NOT EXISTS (SELECT 1 FROM partij_documenten d WHERE d.bestand_id = b.id)`);
-    await c.query(`DELETE FROM instellingen WHERE sleutel = 'demo'`);
+    await c.query(`DELETE FROM bestanden b WHERE bericht_id IS NULL AND NOT EXISTS (SELECT 1 FROM partij_documenten d WHERE d.bestand_id = b.id) AND NOT EXISTS (SELECT 1 FROM pakbonnen s WHERE s.pdf_id = b.id)`);
+    await c.query(`DELETE FROM exact_boekingen WHERE bron = 'demo'`);
+    await c.query(`DELETE FROM instellingen WHERE sleutel IN ('demo', 'exact_demo')`);
     await c.query('COMMIT');
   } catch (e) { await c.query('ROLLBACK').catch(() => {}); throw e; } finally { c.release(); }
 }

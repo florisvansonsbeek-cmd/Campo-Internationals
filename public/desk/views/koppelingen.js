@@ -1,4 +1,5 @@
-// Koppelingen: Outlook for the invoices, what is printed on the packing slip (with the plant passport), Exact,
+// Koppelingen: Outlook for the invoices, what is printed on the packing slip (with the plant passport), Exact (sign in,
+// the codes of the administration),
 // the regions with their codes, the mailbox, AI reading and what is in the database.
 import { api, h, icon, fNum, fTime, dayWord, dialog, toast, copy, field } from '../core.js';
 
@@ -32,10 +33,27 @@ function slipPanel(b) {
     </form></div></section>`;
 }
 
-function exactPanel() {
-  return `<section class="panel" id="exact"><header><h2>Exact</h2><span class="chip wait">${icon('clock')}Klaarzetten, nog niet gekoppeld</span></header><div class="body stack">
-    <p class="small muted">Elke inkooporder (uit de verzendpapieren) en elke verkoopfactuur (de pakbon) staat in de desk klaar zoals hij in Exact komt: artikel, aantal, prijs en het batchnummer (jaar, week, regio: 264901) als kostendrager. Met <b>Kopieer regels</b> neem je ze over; met <b>Staat in Exact</b> houdt de desk bij wat erin staat.</p>
-    <p class="small muted">Rechtstreeks in Exact zetten kan met een koppeling via Exact Online (een app in het Exact App Center, net als bij Outlook). Die bouwen we als de werkwijze zo blijft.</p>
+function exactPanel(x) {
+  const st = x || {}, v = st.instellingen || {};
+  const head = st.gekoppeld ? state(true, `Gekoppeld${st.administratie ? `: ${st.administratie}` : ''}`, '') : st.demo ? '<span class="chip info">Demo-Exact</span>' : state(false, '', 'Nog niet gekoppeld');
+  return `<section class="panel" id="exact"><header><h2>Exact</h2>${head}</header><div class="body stack">
+    <p class="small muted">Na jouw akkoord zet de desk elke verkoopfactuur (de pakbon) en elke inkooporder (uit het verzendbewijs) in Exact, elke regel met het batchnummer als kostendrager (264901). Bij Controle leest de desk daarna alleen terug wat er in Exact staat en vergelijkt het.</p>
+    ${st.gekoppeld ? `<dl class="kv"><dt>Administratie</dt><dd>${h(st.administratie || st.divisie || '')}</dd><dt>Gebruiker</dt><dd>${h(st.gebruiker || '')}</dd>${st.op ? `<dt>Sinds</dt><dd>${dayWord(st.op)}</dd>` : ''}${st.fout ? `<dt>Laatste fout</dt><dd style="color:var(--warn)">${h(st.fout)}</dd>` : ''}</dl>
+        <p><button class="btn btn-ghost" data-act="exact-los">Ontkoppelen</button></p>`
+      : st.ingesteld ? `<p><a class="btn btn-leaf" href="/api/exact/start">${icon('db')}Koppel Exact</a></p><p class="small muted">Je logt één keer in bij Exact Online met Jans account.</p>`
+      : `<ol class="plainlist small"><li>Maak in het Exact App Center (apps.exactonline.com) een eigen app aan voor de administratie van Campo.</li>
+          <li>Zet als redirect-URI: <code style="overflow-wrap:anywhere">${h(st.terug || '')}</code> <button class="lnk small" data-act="copy" data-text="${h(st.terug || '')}">kopieer</button></li>
+          <li>Zet in Railway onder Variables: <code>EXACT_CLIENT_ID</code> en <code>EXACT_CLIENT_SECRET</code>.</li>
+          <li>Kom hier terug, klik op Koppel Exact en vul hieronder de codes in.</li></ol>
+        ${st.demo ? '<p class="small muted">Tot die tijd doet de desk na hoe Exact eruit zou zien (demo-Exact), zodat je Zet in Exact en de controle kunt proberen. Bij echte gegevens: koppel Exact, of lees bij Controle een export uit Exact in.</p>' : ''}`}
+    <details${st.gekoppeld && st.ontbreekt?.length ? ' open' : ''}><summary class="small"><b>Codes in Exact</b>${st.ontbreekt?.length ? ' <span class="chip wait">btw-codes nog invullen</span>' : ''}</summary>
+      <form data-form="exact" class="form" style="margin-top:10px">
+        ${field('dagboek_verkoop', 'Dagboek verkoop', v.dagboek_verkoop)}${field('dagboek_inkoop', 'Dagboek inkoop', v.dagboek_inkoop)}
+        ${field('gb_omzet_nl', 'Omzet Nederland (grootboek)', v.gb_omzet_nl)}${field('gb_omzet_eu', 'Omzet EU, btw verlegd', v.gb_omzet_eu)}${field('gb_omzet_export', 'Omzet export', v.gb_omzet_export)}${field('gb_inkoop', 'Inkoop (grootboek)', v.gb_inkoop)}
+        ${field('btw_nl', 'Btw-code 9%', v.btw_nl)}${field('btw_eu', 'Btw-code verlegd (EU)', v.btw_eu)}${field('btw_export', 'Btw-code export', v.btw_export)}${field('btw_inkoop', 'Btw-code inkoop (import)', v.btw_inkoop)}
+        <p class="wide small muted">Deze codes verschillen per administratie; de boekhouder weet ze. Klanten hebben een debiteurnummer en leveranciers een crediteurnummer nodig.</p>
+        <p class="wide"><button class="btn btn-line" type="submit">Codes opslaan</button></p>
+      </form></details>
   </div></section>`;
 }
 
@@ -62,14 +80,18 @@ export async function render(params, query) {
   const backMsg = back === 'ok' ? '<div class="okbox">' + icon('check') + '<span>Outlook is gekoppeld. Nieuwe concepten komen voortaan bij Concepten.</span></div>'
     : back === 'fout' ? `<div class="warnbox">${icon('warn')}<span>Koppelen lukte niet: ${h(query.get('reden') || 'onbekende fout')}</span></div>`
     : back === 'niet-ingesteld' ? `<div class="warnbox wait">${icon('info')}<span>Eerst moeten MS_CLIENT_ID en MS_CLIENT_SECRET in Railway staan. Zie hieronder.</span></div>` : '';
+  const ex = query && query.get('exact');
+  const exMsg = ex === 'gekoppeld' ? `<div class="okbox">${icon('check')}<span>Exact is gekoppeld. Vul de codes in; daarna zet de desk na jouw akkoord alles erin.</span></div>`
+    : ex === 'fout' ? `<div class="warnbox">${icon('warn')}<span>Koppelen met Exact lukte niet: ${h(query.get('melding') || 'onbekende fout')}</span></div>`
+    : ex === 'niet-ingesteld' ? `<div class="warnbox wait">${icon('info')}<span>Eerst moeten EXACT_CLIENT_ID en EXACT_CLIENT_SECRET in Railway staan. Zie bij Exact.</span></div>` : '';
   const db = d.database;
   return `<div class="page wk">
     <div class="ph"><div><h1>Koppelingen</h1><p>Waar de facturen naartoe gaan, wat er op de pakbon staat, en wat de desk leest. Bestellen, betalen en versturen blijft bij Jan.</p></div></div>
-    ${backMsg}
+    ${backMsg}${exMsg}
     <div class="grid2e">
       ${outlookPanel(d.outlook)}
       ${slipPanel(w.bedrijf)}
-      ${exactPanel()}
+      ${exactPanel(d.exact)}
       ${regionPanel(w)}
       <section class="panel"><header><h2>Mail</h2>${state(d.mail.aan, 'Leest mee', 'Nog niet gekoppeld')}</header><div class="body stack">
         ${d.mail.aan ? `<dl class="kv"><dt>Mailbox</dt><dd>${h(d.mail.user)} via ${h(d.mail.host)}</dd><dt>Laatst gekeken</dt><dd>${d.mail.laatsteKeer ? `${dayWord(d.mail.laatsteKeer)} ${fTime(d.mail.laatsteKeer)}` : 'nog niet'}${d.mail.laatsteAantal ? `, ${d.mail.laatsteAantal} nieuw` : ''}</dd>${d.mail.laatsteFout ? `<dt>Fout</dt><dd style="color:var(--warn)">${h(d.mail.laatsteFout)}</dd>` : ''}</dl>
@@ -97,6 +119,7 @@ export const actions = {
   async 'ai-test'(el, ctx) { el.disabled = true; const r = await api('/koppelingen/ai-test', { method: 'POST', body: {} }); toast(r.ok ? `Verbinding goed: ${r.model}.` : `Niet gelukt: ${r.reden}`); ctx.refresh(); },
   copy(el) { copy(el.dataset.text); },
   async 'outlook-los'(el, ctx) { await api('/outlook/los', { method: 'POST', body: {} }); toast('Outlook ontkoppeld.'); ctx.refresh(); },
+  async 'exact-los'(el, ctx) { await api('/week/exact/ontkoppel', { method: 'POST', body: {} }); toast('Exact ontkoppeld.'); ctx.refresh(); },
 
   'demo-weg'(el, ctx) {
     dialog({ title: 'Demo-data verwijderen', ok: 'Verwijderen', danger: true, body: '<p>Alle verzonnen kwekers, klanten, facturen, zendingen en berichten gaan weg. De plantencatalogus en alles wat je zelf hebt toegevoegd blijven staan. Dit kun je niet terugdraaien.</p><label class="f">Typ VERWIJDER om te bevestigen<input type="text" name="bevestig" autocomplete="off"></label>',
@@ -115,6 +138,12 @@ export const actions = {
 };
 
 export function mount(ctx) {
+  const fx = document.querySelector('[data-form="exact"]');
+  if (fx) fx.addEventListener('submit', async e => {
+    e.preventDefault();
+    try { await api('/week/exact/instellingen', { method: 'PATCH', body: Object.fromEntries(new FormData(fx).entries()) }); toast('Codes voor Exact opgeslagen.'); ctx.refresh(); }
+    catch (x) { toast(x.message); }
+  });
   const f = document.querySelector('[data-form="bedrijf"]');
   if (f) f.addEventListener('submit', async e => {
     e.preventDefault();

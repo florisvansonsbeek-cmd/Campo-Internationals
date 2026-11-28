@@ -1,4 +1,5 @@
-// Inkoop: the goods of one week, in two views behind one big switch.
+// Overzicht (the Inkoop tab): the goods of one week, in two views behind one big switch, with on top what has no
+// destination yet.
 // Leverancier → loods: one lane per order. The supplier, the route to Nootdorp with every stop and its time on the line,
 //   the loods, and the customers it fans out to. A click opens the whole order: the shipping papers next to what the desk
 //   read, the sizes and numbers, the purchase order for Exact and to whom it goes.
@@ -17,7 +18,8 @@ const open = new Set();       // the orders Jan opened stay open when the page r
 const openK = new Set();      // the same for customers, per batch (klant-batch)
 const docSel = new Map();     // which paper is shown per order
 const slips = new Map();      // the packing slip per customer, for the open ones
-const ROW = 28, FORK = 64, MAXK = 6, MAXS = 5;
+// compact: four customers per order, the rest in one line; an order that is in shows two
+const ROW = 24, FORK = 56, MAXK = 4, MAXK_IN = 2, MAXS = 5;
 // in the loods is green: Jan ticks a shipment off on Maandag and it turns green here
 const TONE = { groen: ['ok', 'Op schema'], oranje: ['wait', 'Let op'], rood: ['bad', 'In gevaar'], binnen: ['in', 'Binnen'] };
 const TZ = 'Europe/Amsterdam';
@@ -46,12 +48,6 @@ function track(p) {
     return { s: 'onderweg', pct: air ? 30 + 50 * f(a, landed) : 80 + 18 * f(landed, b), tone, air };
   }
   return { s: 'gepland', pct: 0, tone };
-}
-
-function progress(p, d) {
-  if (p.stage === 'binnen') { const ks = p.stroom?.klanten || []; return d.geteld ? (ks.length && ks.every(k => k.pakbon) ? 100 : 92) : 85; }
-  if (p.stage === 'verzonden') return Math.round(55 + 0.25 * track(p).pct);
-  return p.stage === 'bevestigd' ? 35 : 15;
 }
 
 function stageText(p) {
@@ -86,12 +82,13 @@ function routeOnLine(p) {
 export function laneHtml(p, d, { interactive = true } = {}) {
   const r = p.risico || {}, st = p.stroom || { klanten: [], rest: 0 }, tr = track(p), isOpen = interactive && open.has(p.id);
   const [tone, word] = TONE[r.licht] || ['ok', 'Op schema'];
-  const ks = st.klanten.slice(0, MAXK), others = st.klanten.slice(MAXK);
+  const max = r.licht === 'binnen' ? MAXK_IN : MAXK;
+  const ks = st.klanten.slice(0, max), others = st.klanten.slice(max);
   const rows = ks.map(k => ({ k }));
   if (others.length) rows.push({ andere: others.length, dozen: sum(others, k => k.dozen), kort: sum(others, k => k.tekort || 0), klaar: others.every(k => k.pakbon) });
   if (st.rest > 0) rows.push({ vrij: st.rest });
   if (!rows.length) rows.push({ leeg: true });
-  const n = rows.length, H = Math.max(n * ROW, 64), top = (H - n * ROW) / 2, mid = H / 2;
+  const n = rows.length, H = Math.max(n * ROW, 56), top = (H - n * ROW) / 2, mid = H / 2;
   const counted = !!d.geteld || p.stage === 'binnen';
   const curves = rows.map((x, i) => {
     const y = top + i * ROW + ROW / 2;
@@ -113,7 +110,6 @@ export function laneHtml(p, d, { interactive = true } = {}) {
       <span class="ct">${k.pakbon ? icon('check') : ''}${fNum(k.dozen)} dz${k.tekort ? ` <span class="lt t-wait">−${fNum(k.tekort)}</span>` : ''}</span></li>`;
   };
   const rt = routeOnLine(p);
-  const pr = progress(p, d);
   const label = `${p.leverancier}, batch ${p.nummer}: ${fNum(p.dozen)} dozen naar ${st.klanten.length} klanten. ${rt.title}. ${word}${r.licht === 'oranje' || r.licht === 'rood' ? `: ${r.kop}` : ''}. Klik voor de hele bestelling.`;
   return `<article class="lane t-${tone}${isOpen ? ' is-open' : ''}"${interactive ? ` id="p${p.id}"` : ''}>
     <div class="lane-top">
@@ -126,7 +122,6 @@ export function laneHtml(p, d, { interactive = true } = {}) {
         <ul class="custs" style="padding-top:${top}px">${rows.map(row).join('')}</ul>
       </div>
       <div class="ft">
-        <span class="pbar" role="img" aria-label="${pr}% van de week"><i style="width:${pr}%"></i></span>
         <span class="stg">${h(stageText(p))}</span>
         <span class="st t-${tone}"><i aria-hidden="true"></i>${word}</span>
       </div>
@@ -173,7 +168,7 @@ function more(p, d) {
       <div class="om-info stack">
         ${doubts(p)}
         <div><h3 class="h3s">In deze bestelling</h3>${lines(p)}</div>
-        ${exactBox(p)}
+        ${exactBox(p, d.exactKan)}
         ${why ? `<div><h3 class="h3s">Waarom dit licht</h3>${why}</div>` : ''}
       </div>
     </div>
@@ -243,7 +238,7 @@ export function customerLaneHtml(k, d) {
   const rows = vs.map(v => ({ v }));
   if (others.length) rows.push({ andere: others.length, dozen: sum(others, v => v.dozen) });
   if (!rows.length) rows.push({ leeg: true });
-  const n = rows.length, H = Math.max(n * ROW, 64), top = (H - n * ROW) / 2, mid = H / 2;
+  const n = rows.length, H = Math.max(n * ROW, 56), top = (H - n * ROW) / 2, mid = H / 2;
   const curves = rows.map((x, i) => {
     const y = top + i * ROW + ROW / 2;
     const l = x.v ? lightOf(x.v) : null, t = l === 'rood' ? 'bad' : l === 'oranje' ? 'wait' : 'ok';
@@ -279,7 +274,6 @@ export function customerLaneHtml(k, d) {
           <span class="kd"><b>${fNum(k.dozen)} dz</b>${k.tekort ? ` <span class="lt t-wait" title="Van deze maten ${fNum(k.tekort)} minder dan gevraagd">−${fNum(k.tekort)}</span>` : ''}</span></div>
       </div>
       <div class="ft">
-        <span class="pbar" role="img" aria-label="${pct}% van maandag"><i style="width:${pct}%"></i></span>
         <span class="stg">${h(customerText(k, d))}</span>
         <span class="st t-${tone}"><i aria-hidden="true"></i>${word}</span>
       </div>
@@ -373,6 +367,20 @@ function sources(d) {
 
 const dots = list => list.filter(([, n]) => n).map(([t, n, l]) => `<span class="sw-d t-${t}" title="${h(l)}"><i aria-hidden="true"></i>${fNum(n)}</span>`).join('');
 
+// at the top: what has no destination yet (in the loods or on its way), or that everything has one
+function freeBar(d) {
+  const w = d.stroom, v = w.vrij || [];
+  const n = v.reduce((t, x) => t + x.dozen, 0);
+  if (!w.in) return '';
+  if (w.teVeel > 0) return `<div class="vrij t-bad">${icon('warn')}<b>${fNum(w.teVeel)} ${w.teVeel === 1 ? 'doos' : 'dozen'} meer verdeeld dan er is</b><span class="vrij-w">pas het aan bij Maandag</span><a class="btn btn-sm btn-line" href="#/maandag?maandag=${d.maandag}&deel=check">Naar controleren</a></div>`;
+  if (!n) return `<div class="vrij t-ok">${icon('check')}<b>Alles heeft een bestemming</b><span class="vrij-w">${fNum(w.in)} dozen naar ${fNum(w.klanten.length)} ${w.klanten.length === 1 ? 'klant' : 'klanten'}</span></div>`;
+  const binnen = v.reduce((t, x) => t + x.binnen, 0), weg = n - binnen;
+  return `<div class="vrij t-wait">${icon('stock')}<b>${fNum(n)} ${n === 1 ? 'doos' : 'dozen'} zonder bestemming</b>
+    <span class="vrij-w">${[binnen ? `${fNum(binnen)} in de loods` : '', weg ? `${fNum(weg)} onderweg` : ''].filter(Boolean).join(' · ')}</span>
+    <span class="vrij-p" data-n="${v.length}">${v.slice(0, 12).map(x => `<span class="vp" title="${h(x.batches.join(', '))}">${h(x.naam)} ${h(x.maat)} <b>${fNum(x.dozen)}</b></span>`).join('')}<span class="vp vp-more" hidden></span></span>
+    <a class="btn btn-sm btn-line" href="#/handel?deel=deals">Koper zoeken</a></div>`;
+}
+
 export async function render(params, query) {
   const m = query.get('maandag');
   kant = query.get('kant') === 'klant' ? 'klant' : 'lev';
@@ -391,9 +399,9 @@ export async function render(params, query) {
   const ktone = new Map(ks.map(k => [k.id, customerTone(k)[0]]));
   const kcount = t => ks.filter(k => ktone.get(k.id) === t).length;
   const sw = (key, ic, title, sub, d2) => `<a role="tab" class="fl-sw${kant === key ? ' on' : ''}" aria-selected="${kant === key}" href="#/inkoop?maandag=${d.maandag}${key === 'klant' ? '&kant=klant' : ''}">
-      <span class="sw-i" aria-hidden="true">${icon(ic)}</span><span class="sw-t"><b>${title}</b><small>${sub}</small></span><span class="sw-ds">${d2}</span></a>`;
+      <span class="sw-i" aria-hidden="true">${icon(ic)}</span><b>${title}</b><small>${sub}</small><span class="sw-ds">${d2}</span></a>`;
   const head = `<div class="fl-top">
-      <h1 class="vh">Inkoop week ${d.week}</h1>
+      <h1 class="vh">Overzicht week ${d.week}</h1>
       <div class="fl-switch" role="tablist" aria-label="Bekijk de week">
         ${sw('lev', 'grower', 'Leverancier → loods', `${fNum(ps.length)} ${ps.length === 1 ? 'bestelling' : 'bestellingen'} · ${fNum(w.in)} dozen`,
           dots([['bad', count('rood'), 'in gevaar'], ['wait', count('oranje'), 'let op'], ['ok', count('groen'), 'op schema'], ['in', count('binnen'), 'binnen']]))}
@@ -403,6 +411,7 @@ export async function render(params, query) {
       <div class="fl-acts">${weekNav('inkoop', d.maandag, kant === 'klant' ? '&kant=klant' : '')}
         ${kant === 'lev' ? `<button type="button" class="btn btn-line btn-sm" data-act="melding" title="Melding over de route: staking, as, een weg dicht">${icon('plus')}Melding</button>` : ''}</div>
     </div>
+    ${freeBar(d)}
     ${d.vorige.length ? `<div class="warnbox wait">${icon('info')}<span>Nog niet in Exact van week ${d.vorige[0].week}: ${d.vorige.map(p => `<a href="#/inkoop?maandag=${p.maandag}&p=${p.id}">${h(short(p.leverancier))} ${h(p.nummer)}</a>`).join(', ')}.</span></div>` : ''}`;
 
   if (kant === 'klant') {
@@ -411,7 +420,7 @@ export async function render(params, query) {
       ${ks.length ? `${bs.map(b => batchHtml(b, d)).join('')}
         ${none.length ? `<section class="bsec" aria-label="Nog zonder batch"><header class="bsec-h"><span class="bt"><b>Nog zonder batch</b><small>Vroegen iets wat deze week niet komt</small></span></header>
           <div class="lanes">${none.map(k => customerLaneHtml(k, d)).join('')}</div></section>` : ''}`
-        : `<section class="panel"><p class="empty">Voor deze week heeft nog geen klant besteld. <a href="#/bestellen?maandag=${d.maandag}">Naar bestellen</a></p></section>`}
+        : `<section class="panel"><p class="empty">Voor deze week heeft nog geen klant besteld. <a href="#/handel?deel=bestellen&maandag=${d.maandag}">Naar bestellen</a></p></section>`}
     </div>`;
   }
   const att = ps.filter(p => ['rood', 'oranje'].includes(p.risico?.licht)).sort((a, b) => (a.risico.licht === 'rood' ? 0 : 1) - (b.risico.licht === 'rood' ? 0 : 1)), ok = ps.filter(p => !['rood', 'oranje', 'binnen'].includes(p.risico?.licht)), inn = ps.filter(p => p.risico?.licht === 'binnen');
@@ -421,11 +430,40 @@ export async function render(params, query) {
       ${ok.length ? `<h2 class="grp">${att.length ? 'Op schema' : 'Alles loopt op schema'}</h2><div class="lanes">${ok.map(p => laneHtml(p, d)).join('')}</div>` : ''}
       ${inn.length ? `<h2 class="grp">Binnen</h2><div class="lanes">${inn.map(p => laneHtml(p, d)).join('')}</div>` : ''}
       ${sources(d)}
-    </section>` : `<section class="panel"><p class="empty">Voor deze week is nog niets besteld. <a href="#/bestellen?maandag=${d.maandag}">Naar bestellen</a></p></section>`}
+    </section>` : `<section class="panel"><p class="empty">Voor deze week is nog niets besteld. <a href="#/handel?deel=bestellen&maandag=${d.maandag}">Naar bestellen</a></p></section>`}
   </div>`;
 }
 
+// One line of chips under "zonder bestemming": as many as fit, then "+ 6" for the rest (the deals part lists them all).
+function fitChips(bar) {
+  const box = bar?.querySelector('.vrij-p');
+  if (!box || !box.isConnected) return;
+  const chips = [...box.querySelectorAll('.vp:not(.vp-more)')], more = box.querySelector('.vp-more'), total = Number(box.dataset.n) || chips.length;
+  chips.forEach(c => { c.hidden = false; });
+  more.hidden = true;
+  const avail = box.clientWidth, gap = 6, widths = chips.map(c => c.offsetWidth);
+  more.textContent = `+ ${total}`; more.hidden = false;
+  const moreW = more.offsetWidth;
+  let used = 0, shown = 0;
+  for (let i = 0; i < chips.length; i++) {
+    const next = used + (i ? gap : 0) + widths[i];
+    if (next + (total - i - 1 ? gap + moreW : 0) > avail) break;
+    used = next; shown = i + 1;
+  }
+  chips.forEach((c, i) => { c.hidden = i >= shown; });
+  const rest = total - shown;
+  more.textContent = `+ ${fNum(rest)}`; more.hidden = !rest;
+  more.title = rest ? `en nog ${rest} ${rest === 1 ? 'soort' : 'soorten'}: zie Deals` : '';
+}
+let fitObs = null;
+
 export function mount() {
+  const bar = document.querySelector('.vrij.t-wait');
+  if (fitObs) { fitObs.disconnect(); fitObs = null; }
+  if (bar) {
+    fitChips(bar);
+    if (window.ResizeObserver) { fitObs = new ResizeObserver(() => fitChips(bar)); fitObs.observe(bar); }
+  }
   const q = new URLSearchParams(location.hash.split('?')[1] || '');
   const el = (q.get('p') && document.getElementById(`p${q.get('p')}`)) || (q.get('k') && (document.getElementById(`k${q.get('k')}`) || document.querySelector(`.klane[id^="k${q.get('k')}-"]`)));
   if (el) setTimeout(() => el.scrollIntoView({ block: 'start' }), 30);

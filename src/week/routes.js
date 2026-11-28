@@ -11,9 +11,13 @@ import { slipDoc, slipPdfById, slipConcept } from './mail.js';
 import { customerList, customerDetail, yearData } from './stats.js';
 import { yearWorkbook, sheetRows } from './excel.js';
 import { readShipping, matchProduct } from './read.js';
-import { assess, lateHistory, riskJson, routeOf, parseRoute, PLEKKEN } from './risk.js';
+import { assess, lateHistory, riskJson, routeOf, parseRoute, PLEKKEN, transportOutlook } from './risk.js';
 import { streams, customerStreams } from './flow.js';
 import { relations, customerAnalysis, supplierStat, supplierHistory, deals, onTheWay, leads, forget, plantStats } from './partners.js';
+import { rules } from './rules.js';
+import { archiveTree, archiveZip, documentText, offerText, backupZip, databaseLists, DB_SIZE_SQL, sizeNl } from './archief.js';
+import { exactStatus, exactCan, exactPush, exactCheck, exactImport, exactImportRemove, exactSettings, saveExactSettings, exactDisconnect } from '../exact.js';
+import { slipPdf } from './docs.js';
 
 export const week = express.Router();
 const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -135,7 +139,7 @@ week.get('/inkoop', wrap(async (req, res) => {
     maandag: m, week: d.week, jaar: d.jaar, vandaag: today(), dagen: { bevestiging: addDays(m, -4), verzonden: addDays(m, -3) }, geteld: d.counted,
     partijen: d.partijen.map(p => ({ ...partijJson(p, m), risico: riskJson(risk.per.get(p.id)), stroom: flow.partijen.find(x => x.partij_id === p.id) || null })),
     stroom: flow.week, klanten: customerStreams(d), regios: await rows('SELECT code, naam, land, nummer FROM regios ORDER BY nummer NULLS LAST, code'),
-    koers: d.koers, bronnen: risk.bronnen, plekken: PLEKKEN,
+    koers: d.koers, bronnen: risk.bronnen, plekken: PLEKKEN, exactKan: await exactCan(),
     afwijkingen: dev,
     vorige: prev.partijen.filter(p => p.exact === 'open' && p.stage !== 'gepland').map(p => ({ id: p.id, nummer: p.nummer, leverancier: p.leverancier, maandag: prev.maandag, week: prev.week })),
   });
@@ -324,7 +328,7 @@ week.get('/pakbonnen', wrap(async (req, res) => {
   const slips = d.slips.map(s => ({ ...s, regels: s.regels.map(l => ({ product: l.product, maat: l.maat, soort: l.soort, partij: l.partij, dozen: l.dozen, stuks: l.stuks, prijs_usd: Number(l.prijs_usd), prijs_eur: l.prijs_eur == null ? null : Number(l.prijs_eur), bedrag: l.bedrag == null ? null : Number(l.bedrag), herkomst: l.herkomst, product_exact: l.product_exact || l.product_code })) }));
   const done = slips.filter(s => s.status === 'akkoord');
   res.json({
-    maandag: m, week: d.week, jaar: d.jaar, vandaag: today(), koers: d.koers, geteld: d.counted, outlook: await outlookState(),
+    maandag: m, week: d.week, jaar: d.jaar, vandaag: today(), koers: d.koers, geteld: d.counted, outlook: await outlookState(), exact: await exactCan(),
     bedrijf: { iban: co.iban, pp_b: co.pp_b, pp_b_voorbeeld: co.pp_b_voorbeeld, naam: co.naam },
     slips,
     totalen: { klanten: slips.length, dozen: sum(slips, s => s.dozen), omzet: r2(sum(slips, s => s.totaal)), klaar: slips.filter(s => s.status === 'klaar').length, akkoord: done.length,
@@ -343,7 +347,7 @@ week.get('/pakbonnen/klant/:klant', wrap(async (req, res) => {
   const co = await company();
   if (s.pakbon && s.pakbon.status === 'akkoord') {
     const doc = await slipDoc(s.pakbon.id);
-    return res.json({ ...doc, L: undefined, ppLocal: doc.L.ppLocal, status: s.status, gewijzigd: s.gewijzigd, pakbon: s.pakbon, concept: s.concept, email: s.email, klant_id: kid, live: false, outlook: await outlookState() });
+    return res.json({ ...doc, L: undefined, ppLocal: doc.L.ppLocal, status: s.status, gewijzigd: s.gewijzigd, pakbon: s.pakbon, concept: s.concept, email: s.email, klant_id: kid, live: false, outlook: await outlookState(), exactKan: await exactCan() });
   }
   const k = d.K.get(kid);
   const pass = new Map();
@@ -361,12 +365,26 @@ week.post('/pakbonnen/akkoord', wrap(async (req, res) => {
   if (!isMonday(m)) return bad(res, 'Kies de week.');
   const ids = Array.isArray(req.body?.klant_ids) ? req.body.klant_ids.map(int).filter(Boolean) : null;
   const made = await approveSlips(m, ids, who(req));
+  await freezePdfs(made.map(x => x.id));
   const o = await outlookState();
   let inOutlook = 0;
   if (o.doel) inOutlook = (await one(`SELECT count(*) AS n FROM concepten WHERE pakbon_id = ANY($1) AND status = 'in_outlook'`, [made.map(x => x.id)])).n;
   res.json({ ok: true, akkoord: made.length, nummers: made.map(x => x.nummer), outlook: o.doel, inOutlook });
 }));
-week.post('/pakbonnen/:id/heropen', wrap(async (req, res) => { await reopenSlip(int(req.params.id), who(req)); res.json({ ok: true }); }));
+// the packing slip with invoice exactly as it went out, kept as a file for the archive
+async function freezePdfs(ids) {
+  for (const id of ids) {
+    try {
+      const d = await slipDoc(id);
+      if (!d) continue;
+      const pdf = Buffer.from(await slipPdf(d));
+      const b = await one(`INSERT INTO bestanden (naam, mime, grootte, sha256, data) VALUES ($1, 'application/pdf', $2, $3, $4) RETURNING id`,
+        [`Pakbon en factuur ${d.nummer}.pdf`, pdf.length, crypto.createHash('sha256').update(pdf).digest('hex'), pdf]);
+      await q('UPDATE pakbonnen SET pdf_id = $2 WHERE id = $1', [id, b.id]);
+    } catch (e) { console.error('[pdf]', e.message); }
+  }
+}
+week.post('/pakbonnen/:id/heropen', wrap(async (req, res) => { await reopenSlip(int(req.params.id), who(req)); await q('UPDATE pakbonnen SET pdf_id = NULL WHERE id = $1', [int(req.params.id)]); res.json({ ok: true }); }));
 week.post('/pakbonnen/exact', wrap(async (req, res) => {
   let ids = Array.isArray(req.body?.ids) ? req.body.ids.map(int).filter(Boolean) : [];
   if (!ids.length && isMonday(req.body?.maandag)) ids = (await rows(`SELECT id FROM pakbonnen WHERE maandag = $1 AND status = 'akkoord' AND exact = ${req.body?.terug ? `'in_exact'` : `'open'`}`, [req.body.maandag])).map(r => r.id);
@@ -629,7 +647,7 @@ week.post('/meldingen', wrap(async (req, res) => {
   const uren = b.vertraging_uren === '' || b.vertraging_uren == null ? null : Number(b.vertraging_uren);
   if (uren != null && (!Number.isInteger(uren) || uren < 0 || uren > 240)) return bad(res, 'Vertraging in hele uren, 0 tot 240.');
   const r = await one(`INSERT INTO risico_meldingen (soort, ernst, titel, tekst, plek, partij_id, vertraging_uren, van, tot, bron, door) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'jan',$10) RETURNING id`,
-    [soort, ernst, titel, b.tekst ? String(b.tekst).slice(0, 800) : null, plek, int(b.partij_id), uren, van, tot, who(req)]);
+    [soort, ernst, titel, b.tekst ? String(b.tekst).slice(0, 800) : null, plek, int(b.partij_id) || null, uren, van, tot, who(req)]);
   await log(who(req), `Melding: ${titel}`, 'melding', r.id, { plek, ernst });
   res.json({ ok: true, id: r.id });
 }));
@@ -730,6 +748,115 @@ week.patch('/kansen/:id', wrap(async (req, res) => {
 }));
 
 // ---------------------------------------------------------------- paid (until Exact tells the desk itself)
+// ---------------------------------------------------------------- Bestellen en relaties: one line per part, for the slider
+week.get('/handel', wrap(async (req, res) => {
+  const m = await pickMonday(req, orderMonday);
+  const [book, dl, kn, rel, risk] = await Promise.all([
+    orderBook(m), deals(m).catch(() => ({ deals: [] })), leads().catch(() => ({ kansen: [] })), relations().catch(() => ({ klanten: [], leveranciers: [] })),
+    (async () => { const f = focusMonday(); await syncProposal(f).catch(() => 0); const d = await weekData(f); return { f, d, r: await risksOf(d) }; })().catch(() => null),
+  ]);
+  const placed = book.partijen.filter(p => passed(p.besteld_op));
+  const open = (dl.deals || []).filter(x => x.status === 'open');
+  const vrij = risk ? streams(risk.d).week.vrij : [];
+  const lights = risk ? risk.d.partijen.map(p => risk.r.per.get(p.id)?.licht).filter(Boolean) : [];
+  const meld = await one(`SELECT count(*)::int AS n FROM risico_meldingen WHERE opgelost_op IS NULL AND (tot IS NULL OR tot > now())`);
+  const kl = rel.klanten || [], lv = rel.leveranciers || [];
+  let plant = null;
+  try { const pl = await plantStats(); plant = { inkoop: pl.index.inkoopNu != null ? pl.index.inkoopNu / 100 - 1 : null, verkoop: pl.index.verkoopNu != null ? pl.index.verkoopNu / 100 - 1 : null, producten: pl.producten.length }; } catch { plant = null; }
+  res.json({
+    maandag: m, week: isoWeek(m).week,
+    bestellen: { klanten: new Set(book.orders.map(o => o.klant_id)).size, dozen: sum(book.orders, o => o.dozen), besteld: placed.length ? placed[0].besteld_op : null, bestellen: addDays(m, -6), vandaag: today(), nogNiet: book.regular.length },
+    deals: { open: open.length, marge: r2(sum(open, x => x.marge_eur || 0)), vrij: sum(vrij, x => x.dozen) },
+    kansen: { open: (kn.kansen || []).filter(k => ['nieuw', 'benaderd', 'in_gesprek'].includes(k.status)).length, klanten: (kn.kansen || []).filter(k => k.soort === 'klant' && ['nieuw', 'benaderd', 'in_gesprek'].includes(k.status)).length },
+    vervoer: { rood: lights.filter(l => l === 'rood').length, oranje: lights.filter(l => l === 'oranje').length, meldingen: meld.n, zendingen: lights.length },
+    leveranciers: { aantal: lv.length, letop: lv.filter(x => x.score != null && x.score < 55).length, gem: lv.length ? Math.round(sum(lv.filter(x => x.score != null), x => x.score) / Math.max(1, lv.filter(x => x.score != null).length)) : null },
+    klanten: { aantal: kl.length, slapend: kl.filter(c => c.tags.some(t => t.naam === 'slapend')).length, top: kl.filter(c => c.label.naam === 'Topklant').length, kansen: kl.filter(c => c.kansen.some(k => k.soort !== 'risico')).length },
+    planten: plant,
+  });
+}));
+
+// ---------------------------------------------------------------- Vervoer: what could stop the plants on the way
+week.get('/vervoer', wrap(async (req, res) => {
+  const f = focusMonday();
+  await syncProposal(f).catch(() => 0);
+  const d = await weekData(f);
+  const [risk, outlook, hist] = await Promise.all([risksOf(d), transportOutlook(), lateHistory(f)]);
+  const lev = await rows(`SELECT l.id, l.naam, l.regio, l.route FROM leveranciers l WHERE EXISTS (SELECT 1 FROM partijen p WHERE p.leverancier_id = l.id) ORDER BY l.naam`);
+  res.json({
+    maandag: f, week: d.week, ...outlook,
+    zendingen: d.partijen.filter(p => p.besteld_op).map(p => { const r = risk.per.get(p.id); return { id: p.id, nummer: p.nummer, leverancier: p.leverancier, regio: p.regio, route: routeOf(p), licht: r?.licht || null, kop: r?.kop || '', aankomst: r?.aankomst || null, redenen: (r?.redenen || []).filter(x => x.ernst !== 'info').slice(0, 4) }; }),
+    leveranciers: lev.map(l => ({ id: l.id, naam: l.naam, regio: l.regio, route: routeOf({ regio: l.regio, lev_route: l.route }), laat: hist[l.id]?.laat ?? null, n: hist[l.id]?.n ?? null })),
+  });
+}));
+
+// ---------------------------------------------------------------- Controle: the rules, Exact, the archive and the database
+week.get('/controle', wrap(async (req, res) => {
+  const jaar = int(req.query.jaar) || Number(today().slice(0, 4));
+  const [r, e, a, g] = await Promise.all([rules({ jaar }), exactCheck({ jaar }), archiveTree(jaar),
+    one(`SELECT (${DB_SIZE_SQL}) AS b, (SELECT count(*) FROM producten) AS planten`)]);
+  res.json({ jaar, jaren: a.jaren, regels: r.samen, exact: { ...e.samen, bron: e.bron }, archief: a.samen, database: { grootte: sizeNl(g?.b), planten: Number(g?.planten || 0) } });
+}));
+week.get('/controle/regels', wrap(async (req, res) => res.json(await rules({ jaar: int(req.query.jaar) || Number(today().slice(0, 4)) }))));
+week.get('/controle/exact', wrap(async (req, res) => res.json(await exactCheck({ jaar: int(req.query.jaar) || Number(today().slice(0, 4)), lezen: req.query.lezen === '1' }))));
+week.get('/exact/status', wrap(async (req, res) => res.json({ ...(await exactStatus()), kan: await exactCan() })));
+week.patch('/exact/instellingen', wrap(async (req, res) => { const v = await saveExactSettings(req.body || {}); await log(who(req), 'Instellingen Exact bijgewerkt'); res.json({ ok: true, instellingen: v }); }));
+week.post('/exact/ontkoppel', wrap(async (req, res) => { await exactDisconnect(); await log(who(req), 'Exact ontkoppeld'); res.json({ ok: true }); }));
+// put approved invoices and shipped purchase orders into Exact; nothing without this click
+week.post('/exact/zet', wrap(async (req, res) => {
+  const b = req.body || {};
+  let pk = Array.isArray(b.pakbonnen) ? b.pakbonnen.map(int).filter(Boolean) : [], pt = Array.isArray(b.partijen) ? b.partijen.map(int).filter(Boolean) : [];
+  if (isMonday(b.maandag)) {
+    if (b.soort !== 'inkoop') pk = pk.concat((await rows(`SELECT id FROM pakbonnen WHERE maandag = $1 AND status = 'akkoord' AND exact = 'open'`, [b.maandag])).map(r => r.id));
+    if (b.soort !== 'verkoop') pt = pt.concat((await rows(`SELECT id FROM partijen WHERE maandag = $1 AND exact = 'open' AND verzonden_op <= now()`, [b.maandag])).map(r => r.id));
+  }
+  if (b.alles) {
+    const y = int(b.jaar) || Number(today().slice(0, 4));
+    pk = pk.concat((await rows(`SELECT id FROM pakbonnen WHERE status = 'akkoord' AND exact = 'open' AND extract(year FROM datum) = $1`, [y])).map(r => r.id));
+    pt = pt.concat((await rows(`SELECT id FROM partijen WHERE exact = 'open' AND verzonden_op <= now() AND extract(year FROM maandag) = $1`, [y])).map(r => r.id));
+  }
+  if (!pk.length && !pt.length) return bad(res, 'Er staat niets klaar om in Exact te zetten.');
+  res.json(await exactPush({ pakbonnen: [...new Set(pk)], partijen: [...new Set(pt)] }, who(req)));
+}));
+week.post('/exact/import', wrap(async (req, res) => {
+  const b = req.body || {};
+  if (!b.data) return bad(res, 'Kies een bestand.');
+  const data = Buffer.from(String(b.data).replace(/^data:[^,]*,/, ''), 'base64');
+  if (!data.length || data.length > 15 * 1024 * 1024) return bad(res, 'Het bestand is leeg of groter dan 15 MB.');
+  res.json(await exactImport({ naam: b.naam, data }, who(req)));
+}));
+week.delete('/exact/import', wrap(async (req, res) => { await exactImportRemove(); res.json({ ok: true }); }));
+
+week.get('/archief', wrap(async (req, res) => res.json(await archiveTree(int(req.query.jaar) || Number(today().slice(0, 4))))));
+week.get('/archief.zip', wrap(async (req, res) => {
+  const m = isMonday(req.query.maandag) ? req.query.maandag : null;
+  const out = await archiveZip({ jaar: int(req.query.jaar) || Number(today().slice(0, 4)), maandag: m });
+  res.set('Content-Type', 'application/zip');
+  res.set('Content-Disposition', `attachment; filename="${out.naam.replace(/[^\w .()-]/g, '')}"; filename*=UTF-8''${encodeURIComponent(out.naam)}`);
+  res.send(out.zip);
+}));
+week.get('/archief/document/:id', wrap(async (req, res) => {
+  const t = await documentText(int(req.params.id));
+  if (!t) return res.status(404).send('Niet gevonden');
+  res.set('Content-Type', 'text/plain; charset=utf-8');
+  res.set('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(t.naam)}`);
+  res.send(t.tekst);
+}));
+week.get('/archief/aanbod/:id', wrap(async (req, res) => {
+  const t = await offerText(int(req.params.id));
+  if (!t) return res.status(404).send('Niet gevonden');
+  res.set('Content-Type', 'text/plain; charset=utf-8');
+  res.set('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(t.naam)}`);
+  res.send(t.tekst);
+}));
+week.get('/database', wrap(async (req, res) => res.json(await databaseLists(int(req.query.jaar) || Number(today().slice(0, 4))))));
+week.get('/backup.zip', wrap(async (req, res) => {
+  const out = await backupZip();
+  await log(who(req), 'Back-up van de database gedownload', null, null, { tabellen: out.tabellen });
+  res.set('Content-Type', 'application/zip');
+  res.set('Content-Disposition', `attachment; filename="${out.naam}"`);
+  res.send(out.zip);
+}));
+
 week.post('/pakbonnen/:id/betaald', wrap(async (req, res) => {
   const id = int(req.params.id), d = req.body?.datum;
   if (d != null && d !== '' && !isDay(d)) return bad(res, 'Kies de dag van betaling.');

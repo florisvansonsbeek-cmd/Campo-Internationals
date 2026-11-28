@@ -302,6 +302,47 @@ export async function assess(partijen, { now = new Date(), hist = {} } = {}) {
   };
 }
 
+// ---------------------------------------------------------------- the routes, the coming days: what could stop the plants
+// For the Vervoer part of Bestellen en relaties: per airport on Campo's routes the coming days, tropical storms and how far
+// they are from those airports, Jan's open notices and the busy cargo weeks of the calendar.
+export async function transportOutlook({ routes = Object.values(DEFAULT_ROUTE), days = 7, now = new Date() } = {}) {
+  const codes = [...new Set([...routes.flat(), 'NTD'])].filter(c => PLEKKEN[c]);
+  const [weer, storm] = await Promise.all([weatherFor(codes), stormsNow()]);
+  const dagen = Array.from({ length: days }, (_, i) => ymd(new Date(+now + i * 864e5)));
+  const plekken = codes.map(c => {
+    const p = PLEKKEN[c], per = weer.per[c] || {};
+    return {
+      code: c, naam: p.naam, stad: p.stad, land: p.land, europa: EUROPE.has(p.land),
+      dagen: dagen.map(dg => {
+        const w = per[dg];
+        const v = w ? weatherVerdict(w, { code: c, stad: p.stad, naam: p.naam, land: p.land, dag: dg, soort: c === 'NTD' ? 'loods' : 'vlucht' }) : null;
+        return { dag: dg, ernst: v ? v.ernst : w ? 'ok' : null, tekst: v ? v.tekst : null, wind: w ? Math.round((w.gust ?? w.wind) * 3.6) : null, regen: w ? Math.round(w.regen) : null, sneeuw: w ? Math.round(w.sneeuw) : null, onweer: !!(w && w.onweer) };
+      }),
+    };
+  });
+  const far = codes.filter(c => !EUROPE.has(PLEKKEN[c].land));
+  const stormen = storm.lijst.map(st => {
+    const near = far.map(c => ({ code: c, stad: PLEKKEN[c].stad, km: Math.round(km(PLEKKEN[c], st)) })).sort((a, b) => a.km - b.km)[0] || null;
+    const hur = st.klasse === 'HU', ts = st.klasse === 'TS' || st.klasse === 'STS';
+    const ernst = near && ((hur && near.km <= 300)) ? 'probleem' : near && ((hur && near.km <= 750) || (ts && near.km <= 450) || near.km <= 250) ? 'let_op' : 'info';
+    return { naam: st.naam, klasse: st.klasse, kn: st.kn, soort: hur ? 'Orkaan' : ts ? 'Tropische storm' : 'Tropische depressie', dichtst: near, ernst };
+  });
+  const meldingen = await rows(`SELECT id, soort, ernst, titel, tekst, plek, van, tot, bron, vertraging_uren, partij_id FROM risico_meldingen
+    WHERE opgelost_op IS NULL AND (tot IS NULL OR tot > $1) ORDER BY CASE ernst WHEN 'probleem' THEN 0 ELSE 1 END, van`, [now]);
+  const kalender = [];
+  let last = null;
+  for (let i = 0; i < 70; i++) {
+    const d = ymd(new Date(+now + i * 864e5)), t = calendarNote(d);
+    if (t && t !== last) kalender.push({ van: d, tekst: t });
+    if (!t && last && kalender.length) kalender[kalender.length - 1].tot = ymd(new Date(+now + (i - 1) * 864e5));
+    last = t;
+  }
+  return {
+    dagen, plekken, stormen, meldingen, kalender,
+    bronnen: { weer: { status: weer.status, op: weer.op ? new Date(weer.op) : null, fout: weer.fout || null }, storm: { status: storm.status, op: storm.op ? new Date(storm.op) : null, aantal: storm.lijst.length, fout: storm.fout || null } },
+  };
+}
+
 // how often a supplier's boxes came later than Monday morning, over its last thirteen shipments
 export async function lateHistory(before) {
   const r = await rows(`SELECT leverancier_id, count(*) AS n, count(*) FILTER (WHERE binnen_op > (maandag + time '12:00')) AS laat

@@ -87,8 +87,9 @@ export function toWhom(p) {
   return `<ul class="whom">${rows.join('')}</ul><p class="small faint">${st.basis === 'geteld' ? 'Zoals Jan het maandag verdeelde.' : 'Voorstel van de desk uit de telefoonbestellingen. Maandag na het tellen verdeel je het echt.'}</p>`;
 }
 
-export function exactBox(p) {
+export function exactBox(p, kan = null) {
   const ready = p.verzonden_op && !p.twijfels;
+  const push = kan && kan.kan;
   return `<div class="exact ${p.exact === 'in_exact' ? 'is-in' : ''}">
     <div class="exact-h"><b>Inkooporder voor Exact</b><span class="small muted">${h(p.leverancier)} · valuta USD · kostendrager <b>${h(p.nummer)}</b> · ${fUsd(p.totaal_usd)}</span></div>
     <details><summary>De ${p.exactRegels.length} regels zoals ze in Exact komen</summary>
@@ -98,6 +99,7 @@ export function exactBox(p) {
     <div class="exact-a">
       <button type="button" class="btn btn-sm btn-line" data-act="exact-copy" data-id="${p.id}">${icon('copy')}Kopieer regels</button>
       ${p.exact === 'in_exact' ? `<span class="chip ok">${icon('check')}Staat in Exact${p.exact_op ? ` sinds ${h(dayTime(p.exact_op))}` : ''}</span><button type="button" class="lnk small" data-act="exact-back" data-id="${p.id}">Terugzetten</button>`
+        : push ? `<button type="button" class="btn btn-sm btn-leaf" data-act="exact-zet-p" data-id="${p.id}"${ready ? '' : ' disabled'} title="${ready ? '' : p.verzonden_op ? 'Kijk eerst de twijfels na' : 'Wacht op het verzendbewijs'}">${icon('check')}Zet in ${kan.bron === 'demo' ? 'demo-Exact' : 'Exact'}</button><button type="button" class="lnk small" data-act="exact-in" data-id="${p.id}"${ready ? '' : ' disabled'}>met de hand gezet</button>`
         : `<button type="button" class="btn btn-sm btn-leaf" data-act="exact-in" data-id="${p.id}"${ready ? '' : ' disabled'} title="${ready ? '' : p.verzonden_op ? 'Kijk eerst de twijfels na' : 'Wacht op het verzendbewijs'}">${icon('check')}Staat in Exact</button>
            ${ready ? '' : `<span class="small faint">${p.verzonden_op ? 'Eerst de regels nakijken waar de desk over twijfelt.' : 'De inkooporder komt uit het verzendbewijs.'}</span>`}`}
     </div>
@@ -210,6 +212,12 @@ export function partijActions(find) {
       body: `${field('nummer', 'Nummer van de inkooporder in Exact (mag leeg)', '')}`,
       onOk: async v => { await api(`/week/partijen/${el.dataset.id}/exact`, { method: 'POST', body: { nummer: v.nummer || null } }); toast('Inkooporder staat in Exact.'); ctx.refresh(); },
     }),
+    'exact-zet-p': async (el, ctx) => {
+      el.disabled = true;
+      const r = await api('/week/exact/zet', { method: 'POST', body: { partijen: [Number(el.dataset.id)] } }).catch(x => { el.disabled = false; throw x; });
+      toast(r.gezet ? 'De inkooporder staat in Exact. Controle kijkt of het klopt.' : r.fouten[0]?.fout || 'Niet gelukt.');
+      ctx.refresh();
+    },
     'exact-back': async (el, ctx) => { await api(`/week/partijen/${el.dataset.id}/exact`, { method: 'POST', body: { terug: true } }); toast('Teruggezet.'); ctx.refresh(); },
     'melding-weg': async (el, ctx) => { await api(`/week/meldingen/${el.dataset.id}/opgelost`, { method: 'POST', body: {} }); toast('Melding op opgelost gezet.'); ctx.refresh(); },
   };

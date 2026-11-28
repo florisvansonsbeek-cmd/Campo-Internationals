@@ -1,39 +1,37 @@
 // Campo desk: the shell, sign-in, menu, search and the router.
 import { api, h, icon, MARK, toast, dialog, waLink, mailLink, copy, fTime } from './core.js';
 import { chartEvents } from './charts.js';
-import * as bestellen from './views/bestellen.js';
 import * as inkoop from './views/inkoop.js';
 import * as maandag from './views/maandag.js';
 import * as pakbonnen from './views/pakbonnen.js';
+import * as handel from './views/handel.js';
+import * as controle from './views/controle.js';
 import * as klanten from './views/klanten.js';
-import * as relaties from './views/relaties.js';
 import * as leverancier from './views/leverancier.js';
-import * as jaar from './views/jaar.js';
 import * as koppelingen from './views/koppelingen.js';
 import * as uitleg from './views/uitleg.js';
 
 const app = document.getElementById('app');
 let me = null, badge = { inkoop: 0, pakbonnen: 0 };
 
-// the desk follows Jan's week: Tuesday order, Thursday and Friday the papers, Monday the hall and the packing slips
+// the desk in the order Jan uses it: the overview first, Monday in the hall, the packing slips with invoices, then ordering
+// and everything about customers, suppliers and prices, and the check of what went into Exact with the archive
 const ROUTES = [
-  { re: /^(inkoop|week)?$/, nav: 'inkoop', title: 'Inkoop', view: inkoop.render, actions: inkoop.actions, mount: inkoop.mount, every: inkoop.refreshEvery },
-  { re: /^bestellen$/, nav: 'bestellen', title: 'Bestellen', view: bestellen.render, actions: bestellen.actions, mount: bestellen.mount, change: bestellen.onChange },
+  { re: /^(inkoop|overzicht|week)?$/, nav: 'inkoop', title: 'Overzicht', view: inkoop.render, actions: inkoop.actions, mount: inkoop.mount, every: inkoop.refreshEvery },
   { re: /^maandag$/, nav: 'maandag', title: 'Maandag', view: maandag.render, actions: maandag.actions, mount: maandag.mount, change: maandag.onChange },
-  { re: /^pakbonnen$/, nav: 'pakbonnen', title: 'Pakbon en factuur', view: pakbonnen.render, actions: pakbonnen.actions },
-  { re: /^pakbon\/(\d+)$/, keys: ['klant'], nav: 'pakbonnen', title: 'Pakbon', view: pakbonnen.renderOne, actions: pakbonnen.actions },
-  { re: /^relaties$/, nav: 'relaties', title: 'Relaties', view: relaties.render, actions: relaties.actions, input: relaties.onInput },
-  { re: /^klanten$/, nav: 'relaties', title: 'Relaties', view: relaties.render, actions: relaties.actions, input: relaties.onInput },
-  { re: /^klant\/(\d+)$/, keys: ['id'], nav: 'relaties', title: 'Klant', view: klanten.renderDetail, actions: klanten.detailActions, mount: klanten.mountDetail },
-  { re: /^leverancier\/(\d+)$/, keys: ['id'], nav: 'relaties', title: 'Leverancier', view: leverancier.render, actions: leverancier.actions },
-  { re: /^jaar$/, nav: 'jaar', title: 'Jaar en Excel', view: jaar.render, actions: jaar.actions },
+  { re: /^pakbonnen$/, nav: 'pakbonnen', title: 'Pakbonnen en facturen', view: pakbonnen.render, actions: pakbonnen.actions },
+  { re: /^pakbon\/(\d+)$/, keys: ['klant'], nav: 'pakbonnen', title: 'Pakbon en factuur', view: pakbonnen.renderOne, actions: pakbonnen.actions },
+  { re: /^(handel|bestellen|relaties|klanten)$/, keys: ['pad'], nav: 'handel', title: 'Bestellen en relaties', view: handel.render, actions: handel.actions, mount: handel.mount, change: handel.onChange, input: handel.onInput },
+  { re: /^klant\/(\d+)$/, keys: ['id'], nav: 'handel', title: 'Klant', view: klanten.renderDetail, actions: klanten.detailActions, mount: klanten.mountDetail },
+  { re: /^leverancier\/(\d+)$/, keys: ['id'], nav: 'handel', title: 'Leverancier', view: leverancier.render, actions: leverancier.actions },
+  { re: /^(controle|jaar)$/, keys: ['pad'], nav: 'controle', title: 'Controle', view: controle.render, actions: controle.actions, mount: controle.mount, change: controle.onChange, input: controle.onInput },
   { re: /^koppelingen$/, nav: 'koppelingen', title: 'Koppelingen', view: koppelingen.render, actions: koppelingen.actions, change: koppelingen.onChange, mount: koppelingen.mount },
   { re: /^uitleg$/, nav: 'uitleg', title: 'Zo werkt het', view: uitleg.render, actions: uitleg.actions },
 ];
 // key, label, icon, short label on phones, the day it belongs to
 const NAV = [
-  ['inkoop', 'Inkoop', 'in', 'Inkoop'], ['bestellen', 'Bestellen', 'phone', 'Bestel', 'di'],
-  ['maandag', 'Maandag', 'shed', 'Maandag', 'ma'], ['pakbonnen', 'Pakbonnen', 'file', 'Pakbon', 'ma'], ['relaties', 'Relaties', 'rel', 'Relaties'], ['jaar', 'Jaar en Excel', 'db', 'Jaar'],
+  ['inkoop', 'Overzicht', 'flow', 'Overzicht'], ['maandag', 'Maandag', 'shed', 'Maandag', 'ma'], ['pakbonnen', 'Pakbonnen en facturen', 'file', 'Pakbon'],
+  ['handel', 'Bestellen en relaties', 'rel', 'Handel'], ['controle', 'Controle', 'shield', 'Controle'],
 ];
 const NAV2 = [['koppelingen', 'Koppelingen', 'plug'], ['uitleg', 'Zo werkt het', 'book']];
 
@@ -145,7 +143,7 @@ function setupSearch() {
   const q = document.getElementById('q'), box = document.getElementById('sres');
   let t = null;
   const go = {
-    klant: id => `#/klant/${id}`, leverancier: id => `#/leverancier/${id}`, product: () => '#/jaar',
+    klant: id => `#/klant/${id}`, leverancier: id => `#/leverancier/${id}`, product: () => '#/controle?deel=database',
     partij: id => { const [m, p] = String(id).split('#p'); return `#/inkoop?maandag=${m}&p=${p}`; },
     pakbon: id => { const [m, k] = String(id).split(':'); return `#/pakbon/${k}?maandag=${m}`; },
   };

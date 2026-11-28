@@ -1,5 +1,5 @@
-// Pakbon en factuur: one per customer per week. It is the invoice as well and carries the plant passport.
-// After Jan's approval the desk puts each one as a draft in Outlook (with the pdf) and lists the lines for Exact.
+// Pakbonnen en facturen: one per customer per week. It is the invoice as well and carries the plant passport.
+// After Jan's approval the desk puts each one as a draft in Outlook (with the pdf) and, on his click, into Exact.
 import { api, h, icon, fNum, toast, dialog } from '../core.js';
 import { weekNav, fKoers, fEur2 } from '../wk.js';
 import { VAT, slipStatus as statusOf, slipPaper as paper, slipNext, slipActions } from '../slip.js';
@@ -20,8 +20,8 @@ export async function render(params, query) {
   else if (!d.geteld) warn.push(`<div class="warnbox wait">${icon('clock')}<span>Nog niet alle zendingen zijn afgevinkt als binnen. <a href="#/maandag?maandag=${d.maandag}&deel=binnen">Naar Maandag</a></span></div>`);
   if (d.bedrijf.pp_b_voorbeeld || !d.bedrijf.iban) warn.push(`<div class="warnbox wait">${icon('info')}<span>${d.bedrijf.pp_b_voorbeeld ? `Op het plantenpaspoort staat nog een voorbeeldnummer bij B (${h(d.bedrijf.pp_b)}). ` : ''}${!d.bedrijf.iban ? 'Er staat nog geen IBAN op de factuur. ' : ''}<a href="#/koppelingen?deel=pakbon">Invullen bij Koppelingen</a></span></div>`);
   return `<div class="page wk">
-    <div class="ph"><div><p class="kick">Week ${d.week} · ${d.koers ? `koers 1 € = $ ${fKoers(d.koers)}` : 'koers nog niet vast'}</p><h1>Pakbon en factuur</h1>
-      <p>Eén pakbon per klant. Hij is ook de factuur, met het plantenpaspoort erop. Na jouw akkoord staat elke factuur als concept in Outlook, met de pdf erbij.</p></div>
+    <div class="ph"><div><p class="kick">Week ${d.week} · ${d.koers ? `koers 1 € = $ ${fKoers(d.koers)}` : 'koers nog niet vast'}</p><h1>Pakbonnen en facturen</h1>
+      <p>Eén pakbon per klant. Hij is ook de factuur, met het plantenpaspoort erop. Na jouw akkoord staat elke factuur als concept in Outlook, met de pdf erbij, en zet de desk hem op jouw klik in Exact.</p></div>
       <div class="acts">${weekNav('pakbonnen', d.maandag)}</div></div>
     ${warn.join('')}
     <div class="kpis">
@@ -33,7 +33,8 @@ export async function render(params, query) {
     <div class="bulk">
       <button type="button" class="btn btn-leaf" data-act="approve-all"${ready.length ? '' : ' disabled'}>${icon('check')}Alles akkoord${ready.length ? ` (${ready.length})` : ''}</button>
       <button type="button" class="btn btn-line" data-act="outlook-all"${notOutlook.length ? '' : ' disabled'}>${icon('mail')}In Outlook zetten${notOutlook.length ? ` (${notOutlook.length})` : ''}</button>
-      <button type="button" class="btn btn-line" data-act="exact-all"${notExact.length ? '' : ' disabled'}>${icon('db')}Staan in Exact${notExact.length ? ` (${notExact.length})` : ''}</button>
+      ${d.exact && d.exact.kan ? `<button type="button" class="btn btn-line" data-act="exact-zet-all"${notExact.length ? '' : ' disabled'}>${icon('db')}Zet in ${d.exact.bron === 'demo' ? 'demo-Exact' : 'Exact'}${notExact.length ? ` (${notExact.length})` : ''}</button>`
+        : `<button type="button" class="btn btn-line" data-act="exact-all"${notExact.length ? '' : ' disabled'}>${icon('db')}Staan in Exact${notExact.length ? ` (${notExact.length})` : ''}</button>`}
       <a class="btn btn-line${done.length ? '' : ' is-off'}" href="${done.length ? `/api/week/weken/${d.maandag}/pakbonnen.pdf` : '#'}" target="_blank" rel="noopener"${done.length ? '' : ' aria-disabled="true" tabindex="-1"'}>${icon('file')}Alles printen</a>
       <span class="small faint">${d.outlook.doel ? `Outlook: ${h(d.outlook.account || '')}` : 'Outlook is nog niet gekoppeld: elke mail opent met één klik.'}</span>
     </div>
@@ -91,6 +92,11 @@ export const actions = {
     toast(`${r.gezet} in Outlook gezet.${r.fouten.length ? ` ${r.fouten[0]}` : ''}`);
     ctx.refresh();
   },
+  'exact-zet-all': (el, ctx) => dialog({
+    title: 'In Exact zetten', ok: 'Zet in Exact',
+    body: `<p>Alle pakbonnen van week ${last.week} die akkoord zijn gaan als verkoopfactuur naar ${last.exact.bron === 'demo' ? 'het demo-Exact' : 'Exact'}, elke regel met het batchnummer als kostendrager.</p><p class="small faint">Controle leest daarna terug wat er in Exact staat.</p>`,
+    onOk: async () => { const r = await api('/week/exact/zet', { method: 'POST', body: { maandag: last.maandag, soort: 'verkoop' } }); toast(`${r.gezet} in Exact gezet${r.fouten.length ? `; niet gelukt: ${r.fouten[0].ref}` : ''}.`); ctx.refresh(); },
+  }),
   'exact-all': (el, ctx) => dialog({
     title: 'Staan in Exact', ok: 'Ja, ze staan erin',
     body: `<p>Zet je alle pakbonnen van week ${last.week} die akkoord zijn als verkoopfactuur in Exact? De regels staan per klant klaar, met het batchnummer als kostendrager.</p>`,

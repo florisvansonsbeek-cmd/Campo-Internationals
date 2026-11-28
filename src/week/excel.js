@@ -81,7 +81,7 @@ export async function yearWorkbook(jaar, { now = new Date() } = {}) {
     // in the hall: what was counted; on the invoice of the supplier: what flew (the shipping papers)
     const dozen = x.geteld ?? verz ?? bev ?? x.besteld ?? 0, stuks = (verz ?? bev ?? x.besteld ?? 0) * x.per_doos, usd = r2(stuks * Number(x.prijs_usd));
     const eur = x.koers ? r2(usd / Number(x.koers)) : '';
-    inkoopRows.push({ maandag: x.maandag, nummer: x.nummer, regio: x.regio, leverancier: x.leverancier, dozen, uitval: x.uitval, eur: eur === '' ? 0 : eur, usd, besteld: x.besteld, bev, verz, geteld: x.geteld });
+    inkoopRows.push({ maandag: x.maandag, nummer: x.nummer, regio: x.regio, leverancier: x.leverancier, artikel: x.exact_code || x.code, dozen, uitval: x.uitval, eur: eur === '' ? 0 : eur, usd, besteld: x.besteld, bev, verz, geteld: x.geteld });
     wsI.addRow({
       week: isoWeek(x.maandag).week, maandag: xd(x.maandag), nummer: x.nummer, regio: x.regio, leverancier: x.leverancier, crediteur: x.crediteur, artikel: x.exact_code || x.code,
       product: x.naam, soort: x.soort, maat: x.maat, per: x.per_doos, besteld: x.besteld, bevestigd: bev, verzonden: verz, geteld: x.geteld, uitval: x.uitval,
@@ -105,7 +105,7 @@ export async function yearWorkbook(jaar, { now = new Date() } = {}) {
   const verkoopRows = [];
   verkoop.forEach((x, i) => {
     const n = i + 2, btw = Number(x.btw_pct) / 100, bedrag = Number(x.bedrag);
-    verkoopRows.push({ maandag: x.maandag, klant: x.klant, partij: x.partij, leverancier: x.leverancier, dozen: x.dozen, bedrag, regel: x.regelnr });
+    verkoopRows.push({ maandag: x.maandag, klant: x.klant, partij: x.partij, leverancier: x.leverancier, artikel: x.exact_code || x.code, dozen: x.dozen, stuks: x.stuks, bedrag, regel: x.regelnr });
     wsV.addRow({
       week: isoWeek(x.maandag).week, maandag: xd(x.maandag), nummer: x.nummer, datum: xd(x.datum), klant: x.klant, land: x.land, debiteur: x.debiteur, artikel: x.exact_code || x.code,
       product: x.naam, soort: x.soort, maat: x.maat, partij: x.partij, regio: x.regio, dozen: x.dozen, stuks: x.stuks, usd: Number(x.prijs_usd), koers: Number(x.koers),
@@ -196,6 +196,26 @@ export async function yearWorkbook(jaar, { now = new Date() } = {}) {
   });
   const nK = klanten.length + 1;
   wsK.autoFilter = { from: 'A1', to: `I${Math.max(2, nK)}` };
+
+  // ---------- Planten: every plant Campo trades, with what came in and went out this year (formulas on Inkoop and Verkoop)
+  const plants = await rows(`SELECT d.id, d.code, d.exact_code, d.naam, d.soort, d.maat, d.per_doos, d.prijs_usd, d.actief,
+      (SELECT string_agg(DISTINCT l.naam, ', ') FROM partij_regels r JOIN partijen p ON p.id = r.partij_id JOIN leveranciers l ON l.id = p.leverancier_id WHERE r.product_id = d.id) AS leveranciers
+    FROM producten d ORDER BY d.naam, d.per_doos DESC, d.maat`);
+  const wsPl = sheet(wb, 'Planten', [
+    { h: 'Artikel', k: 'artikel', w: 10 }, { h: 'Product', k: 'naam', w: 18 }, { h: 'Botanische naam (A)', k: 'soort', w: 22 }, { h: 'Maat', k: 'maat', w: 8 },
+    { h: 'Stuks per doos', k: 'per', w: 9, fmt: NUM.int }, { h: 'Lijstprijs $/st', k: 'prijs', w: 11, fmt: NUM.usd4 }, { h: 'Leveranciers', k: 'lev', w: 34 },
+    { h: 'Dozen in', k: 'in', w: 9, fmt: NUM.int }, { h: 'Dozen uit', k: 'uit', w: 9, fmt: NUM.int }, { h: 'Stuks verkocht', k: 'stuks', w: 11, fmt: NUM.int },
+    { h: 'Omzet € (excl. btw)', k: 'omzet', w: 14, fmt: NUM.eur }, { h: 'Inkoop €', k: 'ink', w: 12, fmt: NUM.eur }, { h: 'In de handel', k: 'actief', w: 9 },
+  ]);
+  plants.forEach((x, i) => {
+    const n = i + 2, art = x.exact_code || x.code;
+    const inn = inkoopRows.filter(y => y.artikel === art), out = verkoopRows.filter(y => y.artikel === art);
+    wsPl.addRow({ artikel: art, naam: x.naam, soort: x.soort, maat: x.maat, per: x.per_doos, prijs: Number(x.prijs_usd), lev: x.leveranciers || '',
+      in: f(`SUMIFS(${I('Q')},${I('G')},A${n})`, inn.reduce((t, y) => t + y.dozen, 0)), uit: f(`SUMIFS(${V('N')},${V('H')},A${n})`, out.reduce((t, y) => t + y.dozen, 0)),
+      stuks: f(`SUMIFS(${V('O')},${V('H')},A${n})`, out.reduce((t, y) => t + y.stuks, 0)), omzet: f(`SUMIFS(${V('S')},${V('H')},A${n})`, r2(out.reduce((t, y) => t + y.bedrag, 0))),
+      ink: f(`SUMIFS(${I('V')},${I('G')},A${n})`, r2(inn.reduce((t, y) => t + (y.eur || 0), 0))), actief: x.actief === false ? 'nee' : 'ja' });
+  });
+  wsPl.autoFilter = { from: 'A1', to: `M${Math.max(2, plants.length + 1)}` };
 
   // ---------- Koersen
   const wsR = sheet(wb, 'Koersen', [{ h: 'Week', k: 'week', w: 7, fmt: '0' }, { h: 'Maandag', k: 'maandag', w: 11, fmt: NUM.date }, { h: 'Dollar voor 1 euro', k: 'koers', w: 12, fmt: NUM.koers },
