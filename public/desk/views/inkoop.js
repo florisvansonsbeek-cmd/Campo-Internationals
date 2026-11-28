@@ -106,7 +106,7 @@ export function laneHtml(p, d, { interactive = true } = {}) {
     const title = `${k.pakbon ? `Pakbon ${k.pakbon} is akkoord` : counted ? 'Verdeeld na het tellen' : 'Voorstel uit de telefoonbestellingen'}${k.tekort ? `; van deze maten ${k.tekort} ${k.tekort === 1 ? 'doos' : 'dozen'} minder dan gevraagd` : ''}`;
     return `<li class="cust t-${k.tekort ? 'wait' : 'ok'} s-${state}" title="${h(title)}">
       <span class="bl" aria-hidden="true"><i style="width:${state === 'gepland' ? 0 : 100}%"></i></span><span class="cd" aria-hidden="true"></span>
-      <a class="cn" href="#/klant/${k.id}"><b>${h(k.naam)}</b><span>${h(k.plaats || '')}</span></a>
+      ${interactive ? `<span class="cn"><b>${h(k.naam)}</b><span>${h(k.plaats || '')}</span></span>` : `<a class="cn" href="#/klant/${k.id}"><b>${h(k.naam)}</b><span>${h(k.plaats || '')}</span></a>`}
       <span class="ct">${k.pakbon ? icon('check') : ''}${fNum(k.dozen)} dz${k.tekort ? ` <span class="lt t-wait">−${fNum(k.tekort)}</span>` : ''}</span></li>`;
   };
   const rt = routeOnLine(p);
@@ -251,7 +251,7 @@ export function customerLaneHtml(k, d) {
     const v = x.v, l = lightOf(v), here = inHall(v), t = here ? 'ok' : l === 'rood' ? 'bad' : l === 'oranje' ? 'wait' : 'ok';
     const what = v.regels.map(r => `${fNum(r.dozen)} × ${r.naam} ${r.maat}`).join(', ');
     return `<li class="kf t-${t} ${here ? 's-in' : 's-weg'}" title="${h(`${v.leverancier}, batch ${v.nummer}: ${what}`)}">
-      <a class="sn" href="#/inkoop?maandag=${d.maandag}&p=${v.partij_id}"><b>${h(short(v.leverancier))}</b>${k.nr ? '' : `<span>${h(v.nummer)}</span>`}</a>
+      <span class="sn"><b>${h(short(v.leverancier))}</b>${k.nr ? '' : `<span>${h(v.nummer)}</span>`}</span>
       <span class="sd">${fNum(v.dozen)} dz</span><span class="cd" aria-hidden="true"></span><span class="bl" aria-hidden="true"><i style="width:${here ? 100 : 0}%"></i></span></li>`;
   };
   const steps = customerSteps(k, d), done = steps.filter(s => s.on).length;
@@ -270,7 +270,7 @@ export function customerLaneHtml(k, d) {
         <div class="hub${d.geteld ? ' on' : ''}" title="De loods in Nootdorp"><span aria-hidden="true">${icon('shed')}</span><em>loods</em></div>
         <div class="in kout ${d.geteld ? 's-onderweg' : 's-gepland'} t-ok" style="--p:${fill}%"><span class="tk" aria-hidden="true"><i></i></span>${ticks}
           <span class="rtm">${steps.map(s => `<span class="${s.on ? 'on' : ''}">${s.k} ${h(s.t)}</span>`).join('<i aria-hidden="true">·</i>')}</span></div>
-        <div class="kl"><a class="kn-n" href="#/klant/${k.id}"><b>${h(k.naam)}</b></a><span>${h([k.plaats, k.land].filter(Boolean).join(' · '))}</span>
+        <div class="kl"><span class="kn-n"><b>${h(k.naam)}</b></span><span>${h([k.plaats, k.land].filter(Boolean).join(' · '))}</span>
           <span class="kd"><b>${fNum(k.dozen)} dz</b>${k.tekort ? ` <span class="lt t-wait" title="Van deze maten ${fNum(k.tekort)} minder dan gevraagd">−${fNum(k.tekort)}</span>` : ''}</span></div>
       </div>
       <div class="ft">
@@ -457,7 +457,7 @@ function fitChips(bar) {
 }
 let fitObs = null;
 
-export function mount() {
+export function mount(ctx, how = {}) {
   const bar = document.querySelector('.vrij.t-wait');
   if (fitObs) { fitObs.disconnect(); fitObs = null; }
   if (bar) {
@@ -465,11 +465,21 @@ export function mount() {
     if (window.ResizeObserver) { fitObs = new ResizeObserver(() => fitChips(bar)); fitObs.observe(bar); }
   }
   const q = new URLSearchParams(location.hash.split('?')[1] || '');
-  const el = (q.get('p') && document.getElementById(`p${q.get('p')}`)) || (q.get('k') && (document.getElementById(`k${q.get('k')}`) || document.querySelector(`.klane[id^="k${q.get('k')}-"]`)));
+  const el = how.nav === false ? null : (q.get('p') && document.getElementById(`p${q.get('p')}`)) || (q.get('k') && (document.getElementById(`k${q.get('k')}`) || document.querySelector(`.klane[id^="k${q.get('k')}-"]`)));
   if (el) setTimeout(() => el.scrollIntoView({ block: 'start' }), 30);
   drawPapers(document);
 }
 export const refreshEvery = 60000;
+
+// Opening a lane keeps the page still, so Jan stays where he clicked. Only when the details start low on the
+// screen does the page move down a little to show them; it never jumps back up to the supplier.
+function reveal(box) {
+  if (!box || box.hidden) return;
+  requestAnimationFrame(() => {
+    const top = box.getBoundingClientRect().top, vh = window.innerHeight;
+    if (top > vh * 0.62) window.scrollBy({ top: Math.round(top - vh * 0.38), behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  });
+}
 
 function show(id, on) {
   const box = document.getElementById(`more${id}`), btn = document.querySelector(`button.lane-link[data-p="${id}"]`), art = document.getElementById(`p${id}`);
@@ -499,14 +509,15 @@ export const actions = {
   lane: (el, ctx, e) => {
     if (e && e.target.closest('a')) return 'default';
     const id = Number(el.dataset.p), on = !open.has(id);
-    show(id, on);
-    if (on) setTimeout(() => document.getElementById(`p${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 20);
+    const box = show(id, on);
+    if (on) reveal(box);
   },
   klane: (el, ctx, e) => {
     if (e && e.target.closest('a')) return 'default';
     const id = Number(el.dataset.k), key = el.dataset.key || String(id), on = !openK.has(key);
-    if (on) setTimeout(() => document.getElementById(`k${key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 20);
-    return showK(id, key, on);
+    const done = showK(id, key, on);
+    if (on) reveal(document.getElementById(`kmore${key}`));
+    return done;
   },
   'om-doc': el => { docSel.set(Number(el.dataset.p), Number(el.dataset.d)); show(Number(el.dataset.p), true); },
   melding: (el, ctx) => noticeDialog(ctx, { plekken: last.plekken }),

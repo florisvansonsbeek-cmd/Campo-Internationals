@@ -145,7 +145,6 @@ p,dl,dd{margin:0}
 .top-nav a{color:var(--ink-2);text-decoration:none;padding-block:6px;border-bottom:2px solid transparent}
 .top-nav a:hover{color:var(--ink)}
 .top-nav a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--sprout)}
-.top-cta{flex:none}
 .lang{position:relative;flex:none}
 .lang summary{list-style:none;display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:5px 10px;border:1px solid var(--line-2);background:var(--sheet);font-weight:600;font-size:13.5px;letter-spacing:.06em;color:var(--ink);cursor:pointer;user-select:none}
 .lang summary::-webkit-details-marker{display:none}
@@ -298,9 +297,8 @@ p,dl,dd{margin:0}
 }
 @media (max-width:760px){
   .top-bar{flex-wrap:wrap;gap:10px 12px;padding-block:10px}
-  .top-cta{order:2;margin-left:auto}
+  .top-bar > .lang{order:2;margin-left:auto}
   .top-nav{order:3;flex:1 0 60%;margin-left:0;flex-wrap:wrap;gap:2px 16px;font-size:14.5px}
-  .top-bar > .lang{order:4}
   .top-nav a{padding-block:6px;white-space:nowrap}
   .hero-facts{grid-template-columns:minmax(0,1fr)}
   .visit-facts{grid-template-columns:minmax(0,1fr)}
@@ -332,7 +330,6 @@ p,dl,dd{margin:0}
   .wordmark .mark{height:34px}
   .wm-txt b{font-size:21px}
   .wm-txt i{font-size:6.7px}
-  .top-cta{font-size:13px;padding-inline:10px}
   .top-nav{gap:2px 12px;font-size:14px}
 }
 
@@ -1414,7 +1411,7 @@ const TX = {
 
   flowK: { en: 'How an order travels', nl: 'Zo reist een bestelling', de: 'So reist eine Bestellung', fr: 'Le parcours d’une commande', es: 'El recorrido de un pedido', it: 'Il percorso di un ordine', pl: 'Droga zamówienia' },
   flowH: { en: "Your order, step by step.", nl: "Uw bestelling, stap voor stap.", de: "Ihre Bestellung, Schritt für Schritt.", fr: "Votre commande, étape par étape.", es: "Su pedido, paso a paso.", it: "Il vostro ordine, passo dopo passo.", pl: "Zamówienie krok po kroku." },
-  flowP: { en: "From the grower to your door in four steps. You can follow every order online.", nl: "In vier stappen van de kweker naar uw deur. Elke bestelling kunt u online volgen.", de: "In vier Schritten vom Erzeuger zu Ihnen. Jede Bestellung können Sie online verfolgen.", fr: "Du producteur à votre porte en quatre étapes. Vous pouvez suivre chaque commande en ligne.", es: "Del productor a su puerta en cuatro pasos. Puede seguir cada pedido en línea.", it: "Dal produttore alla vostra porta in quattro fasi. Ogni ordine si può seguire online.", pl: "Od producenta pod Państwa drzwi w czterech krokach. Każde zamówienie można śledzić online." },
+  flowP: { en: "From the grower to your door in four steps.", nl: "In vier stappen van de kweker naar uw deur.", de: "In vier Schritten vom Erzeuger zu Ihnen.", fr: "Du producteur à votre porte en quatre étapes.", es: "Del productor a su puerta en cuatro pasos.", it: "Dal produttore alla vostra porta in quattro fasi.", pl: "Od producenta pod Państwa drzwi w czterech krokach." },
   flow1: { en: 'We have your order and have placed it with the grower.', nl: 'Wij hebben uw bestelling ontvangen en bij de kweker geplaatst.', de: 'Wir haben Ihre Bestellung erhalten und beim Erzeuger aufgegeben.', fr: 'Nous avons reçu votre commande et l’avons passée au producteur.', es: 'Hemos recibido su pedido y lo hemos encargado al productor.', it: 'Abbiamo ricevuto il vostro ordine e lo abbiamo passato al produttore.', pl: 'Otrzymaliśmy Państwa zamówienie i złożyliśmy je u producenta.' },
   flow2: { en: 'Your plants are picked and packed, at the grower or in Nootdorp.', nl: 'Uw planten worden verzameld en verpakt, bij de kweker of in Nootdorp.', de: 'Ihre Pflanzen werden kommissioniert und verpackt, beim Erzeuger oder in Nootdorp.', fr: 'Vos plantes sont préparées et emballées, chez le producteur ou à Nootdorp.', es: 'Sus plantas se preparan y embalan, en el productor o en Nootdorp.', it: 'Le vostre piante vengono preparate e imballate, dal produttore o a Nootdorp.', pl: 'Państwa rośliny są kompletowane i pakowane u producenta lub w Nootdorp.' },
   flow3: { en: 'Your order is loaded and on its way to the delivery address.', nl: 'Uw bestelling is geladen en onderweg naar het afleveradres.', de: 'Ihre Bestellung ist verladen und unterwegs zur Lieferadresse.', fr: 'Votre commande est chargée et en route vers l’adresse de livraison.', es: 'Su pedido está cargado y en camino a la dirección de entrega.', it: 'Il vostro ordine è caricato e in viaggio verso l’indirizzo di consegna.', pl: 'Zamówienie jest załadowane i w drodze pod adres dostawy.' },
@@ -1426,9 +1423,8 @@ const TX = {
   copyAddr: { en: 'Copy address', nl: 'Adres kopiëren', de: 'Adresse kopieren', fr: 'Copier l’adresse', es: 'Copiar dirección', it: 'Copia indirizzo', pl: 'Kopiuj adres' },
   growMore: { en: 'More for growers →', nl: 'Meer voor kwekers →', de: 'Mehr für Erzeuger →', fr: 'Plus pour les producteurs →', es: 'Más para productores →', it: 'Altro per i produttori →', pl: 'Więcej dla producentów →' },
   custK: { en: 'For customers', nl: 'Voor klanten', de: 'Für Kunden', fr: 'Pour les clients', es: 'Para clientes', it: 'Per i clienti', pl: 'Dla klientów' },
-  custH: { en: 'Where is my order?', nl: 'Waar is mijn bestelling?', de: 'Wo ist meine Bestellung?', fr: 'Où en est ma commande ?', es: '¿Dónde está mi pedido?', it: 'Dov’è il mio ordine?', pl: 'Gdzie jest moje zamówienie?' },
-  custP: { en: "Follow your orders online, from confirmation to delivery.", nl: "Volg uw bestellingen online, van bevestiging tot levering.", de: "Verfolgen Sie Ihre Bestellungen online, von der Bestätigung bis zur Lieferung.", fr: "Suivez vos commandes en ligne, de la confirmation à la livraison.", es: "Siga sus pedidos en línea, desde la confirmación hasta la entrega.", it: "Seguite i vostri ordini online, dalla conferma alla consegna.", pl: "Śledź zamówienia online, od potwierdzenia do dostawy." },
-  custNote: { en: 'Questions? Mail us at {mail}.', nl: 'Vragen? Mail ons op {mail}.', de: 'Fragen? Schreiben Sie uns an {mail}.', fr: 'Une question ? Écrivez-nous à {mail}.', es: '¿Preguntas? Escríbanos a {mail}.', it: 'Domande? Scriveteci a {mail}.', pl: 'Pytania? Napisz do nas: {mail}.' },
+  custH: { en: 'Ordering from Campo', nl: 'Bestellen bij Campo', de: 'Bei Campo bestellen', fr: 'Commander chez Campo', es: 'Hacer un pedido a Campo', it: 'Ordinare da Campo', pl: 'Zamawianie w Campo' },
+  custP: { en: "Ordering is personal: call or email us with what you need.", nl: "Bestellen gaat persoonlijk: bel of mail ons wat u nodig heeft.", de: "Bestellen geht persönlich: Rufen Sie uns an oder schreiben Sie uns, was Sie brauchen.", fr: "Commander se fait en direct : appelez-nous ou écrivez-nous ce dont vous avez besoin.", es: "Los pedidos se hacen en persona: llámenos o escríbanos con lo que necesita.", it: "Gli ordini si fanno di persona: chiamateci o scriveteci di cosa avete bisogno.", pl: "Zamówienia przyjmujemy osobiście: zadzwoń lub napisz, czego potrzebujesz." },
 
   contactK: { en: 'Contact', nl: 'Contact', de: 'Kontakt', fr: 'Contact', es: 'Contacto', it: 'Contatti', pl: 'Kontakt' },
   address: { en: 'Address', nl: 'Adres', de: 'Adresse', fr: 'Adresse', es: 'Dirección', it: 'Indirizzo', pl: 'Adres' },
@@ -1595,14 +1591,14 @@ const country = () => countryName('NL', CO.country);
 function pubTop(active, plain) {
   const item = (href, label, key, go) => `<a href="${href}"${go ? ` data-goto="${go}"` : ''}${active === key ? ' aria-current="page"' : ''}>${label}</a>`;
   const nav = plain ? '' : `<nav class="top-nav" aria-label="${t('menu')}">${item('#/', t('navRange'), 'range', 'range')}${item('#/suppliers', t('navGrowers'), 'suppliers')}${item('#/', t('navContact'), 'contact', 'contact')}</nav>
-    ${langMenu()}<a class="btn btn-leaf btn-sm top-cta" href="#/login/customer"${active === 'customer' ? ' aria-current="page"' : ''}>${t('track')}</a>`;
+    ${langMenu()}`;
   return `<header class="site-top"><div class="wrap top-bar${plain ? ' plain' : ''}">${wordmark()}${nav}</div></header>`;
 }
 function pubFoot() {
   return `<footer class="foot" id="contact"><div class="wrap foot-in">
   <div class="foot-brand">${wordmark()}<p>${t('footTag')}</p></div>
   <div><h2>${t('contactK')}</h2><p>${CO.street}<br>${CO.postcode} ${CO.town}<br>${country()}<br><a href="tel:${CO.tel}">${CO.phone}</a><br><a href="mailto:${CO.mail}">${CO.mail}</a></p></div>
-  <nav aria-label="${t('footLinks')}"><h2>${t('footLinks')}</h2><p><a href="#/suppliers">${t('growersBtn')}</a><br><a href="#/login/customer">${t('track')}</a><br><a href="/desk/">Campo desk</a></p></nav>
+  <nav aria-label="${t('footLinks')}"><h2>${t('footLinks')}</h2><p><a href="#/suppliers">${t('growersBtn')}</a><br><a href="/desk/">Campo desk</a></p></nav>
   <div><h2>${t('footCompany')}</h2><p>${CO.name}<br>KvK ${CO.kvk}<br>${t('vat')} ${CO.vat}</p></div>
 </div><div class="wrap"><div class="foot-base"><span>© ${TODAY.getFullYear()} ${CO.name}</span></div></div></footer>`;
 }
@@ -1676,7 +1672,7 @@ function viewHome() {
         <h1 id="hero-h"${(t('h1a') + t('h1b')).length > 42 ? ' class="long"' : ''}>${t('h1a')} <em>${t('h1b')}</em></h1>
         <p class="lede">${t('lede')}</p>
         <div class="actions">
-          <a class="btn btn-leaf" href="#/login/customer">${t('track')}</a>
+          <a class="btn btn-leaf" href="#/" data-goto="range">${t('rangeK')}</a>
           <a class="btn btn-outline" href="#/suppliers">${t('growersBtn')}</a>
         </div>
         <dl class="hero-facts">
@@ -1726,8 +1722,8 @@ function viewHome() {
         <p class="kicker">${t('custK')}</p>
         <h2>${t('custH')}</h2>
         <p>${t('custP')}</p>
-        <a class="btn btn-leaf door-btn" href="#/login/customer">${t('track')}</a>
-        <p class="door-note">${t('custNote', { mail: `<a href="mailto:${CO.mail}">${CO.mail}</a>` })}</p>
+        <div class="mailchip"><span>${CO.mail}</span><button class="btn btn-line btn-sm" data-act="copy" data-text="${CO.mail}">${t('copyAddr')}</button></div>
+        <a class="go" href="#/" data-goto="contact">${t('navContact')} →</a>
       </article>
     </div>
   </section>
@@ -1870,7 +1866,7 @@ function pageTitle(r) {
   if (r === 'desk/score' || r === 'desk/rules') return 'Score instellen · Offertes · Campo desk';
   if (r === 'desk/log') return 'Logboek · Campo desk';
   if (r.indexOf('desk') === 0) { const item = DESK_NAV.find(x => x[0] === r.split('/')[1]); return `${item ? item[1] : 'Vandaag'} · Campo desk`; }
-  const name = { suppliers: t('growersBtn'), 'login/customer': t('track'), customer: t('sideK'), track: t('trackOneH') }[r];
+  const name = { suppliers: t('growersBtn') }[r];
   return name ? `${name} · Campo International` : 'Campo International';
 }
 
@@ -1933,14 +1929,9 @@ const APP = document.getElementById('app');
 const route = () => location.hash.replace(/^#\/?/, '');
 function view(r) {
   if (r === 'login/desk' || r.indexOf('desk') === 0) { location.replace('/desk/'); return ''; }
-  if (r === 'login/customer' && S.session && S.session.role === 'customer') { history.replaceState(null, '', '#/customer'); return viewCustomer(); }
-  if (r === 'login/customer') return viewLogin('customer');
   if (r === 'suppliers') return viewSuppliers();
-  if (r === 'track') return viewTrack();
-  if (r === 'customer') {
-    if (S.session && S.session.role === 'customer') return viewCustomer();
-    history.replaceState(null, '', '#/login/customer'); return viewLogin('customer');
-  }
+  // following an order online is no longer offered: the old customer addresses lead to the front page
+  if (r === 'login/customer' || r === 'customer' || r === 'track') history.replaceState(null, '', '#/');
   return viewHome();
 }
 let lastRoute = null;

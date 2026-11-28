@@ -114,7 +114,7 @@ async function route({ keepScroll = false } = {}) {
     if (my !== seq) return;
     main.innerHTML = html;
     document.title = `${r.title} · Campo desk`;
-    if (r.mount) r.mount(ctx);
+    if (r.mount) r.mount(ctx, { nav: !keepScroll });
     if (changed && !keepScroll) { window.scrollTo(0, 0); main.focus({ preventScroll: true }); } else window.scrollTo(0, y);
     // ?deel=koers opens the page at that part
     const deel = query.get('deel');
