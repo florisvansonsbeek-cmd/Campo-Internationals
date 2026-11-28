@@ -22,7 +22,7 @@ const serial = s => (s ? Date.UTC(...String(s).slice(0, 10).split('-').map((v, i
 
 function sheet(wb, name, cols, { freeze = 1 } = {}) {
   const ws = wb.addWorksheet(name, { views: [{ state: 'frozen', ySplit: freeze, xSplit: 0 }] });
-  ws.columns = cols.map(c => ({ header: c.h, key: c.k, width: c.w || 12, style: { font: FONT, numFmt: c.fmt, alignment: c.right ? { horizontal: 'right' } : undefined } }));
+  ws.columns = cols.map(c => ({ header: c.h, key: c.k, width: c.w || 12, style: { font: FONT, numFmt: c.fmt, alignment: c.right ? { horizontal: 'right' } : c.center ? { horizontal: 'center' } : undefined } }));
   const head = ws.getRow(1);
   head.height = 30;
   head.eachCell(cell => { cell.font = HEAD.font; cell.fill = HEAD.fill; cell.alignment = HEAD.alignment; });
@@ -304,4 +304,82 @@ export async function sheetRows(partijId) {
   ]);
   return { jaar, inkoop: ink.map(x => Number(x.rij)), regels: Object.fromEntries(ink.map(x => [x.regel_id, Number(x.rij)])), partijen: par ? Number(par.rij) : null, leveranciers: lev ? Number(lev.rij) : null,
     verkoop: ver.map(x => ({ ...x, rij: Number(x.rij) })) };
+}
+
+// ---------------------------------------------------------------- the Excel for Exact, one week
+// Per sales line, in Jan's order: plant, size, how many, price per piece, plant passport number, customer, plant
+// passport number again (the cost unit). After that what Exact needs to put the lines on the right invoice.
+// The plant passport number is the batch number: year, week, region (264901), C on the passport.
+export async function exactWorkbook(maandag) {
+  const lines = await rows(`SELECT s.nummer AS factuur, s.datum, s.koers, s.btw_pct, k.naam AS klant, k.exact_code AS debiteur,
+      d.naam AS product, d.soort, d.maat, r.regelnr, r.stuks, r.prijs_eur, r.bedrag, r.partij
+    FROM pakbonnen s JOIN pakbon_regels r ON r.pakbon_id = s.id JOIN klanten k ON k.id = s.klant_id JOIN producten d ON d.id = r.product_id
+    WHERE s.maandag = $1 AND s.status = 'akkoord' ORDER BY s.nummer, r.regelnr`, [maandag]);
+  const w = isoWeek(maandag);
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Campo desk';
+  wb.created = new Date();
+  const ws = sheet(wb, 'Exact', [
+    { h: 'Plantensoort', k: 'plant', w: 38 }, { h: 'Grootte', k: 'maat', w: 10 }, { h: 'Hoeveelheid', k: 'stuks', w: 13, fmt: NUM.int },
+    { h: 'Prijs per eenheid', k: 'prijs', w: 17, fmt: NUM.eur4 }, { h: 'Plantenpaspoortnummer', k: 'pp', w: 25, center: true }, { h: 'Klant', k: 'klant', w: 30 },
+    { h: 'Plantenpaspoortnummer (kostendrager)', k: 'pp2', w: 25, center: true },
+    { h: 'Factuurnummer', k: 'factuur', w: 16, center: true }, { h: 'Factuurdatum', k: 'datum', w: 15, fmt: NUM.date, center: true }, { h: 'Debiteurnummer', k: 'debiteur', w: 17, center: true }, { h: 'Bedrag', k: 'bedrag', w: 13, fmt: NUM.eur },
+  ]);
+  // what Jan asked for in the first seven columns; the rest is grey, it only tells Exact where the line belongs
+  for (let c = 8; c <= 11; c++) ws.getRow(1).getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF5F6963' } };
+  lines.forEach((x, i) => {
+    const n = i + 2, bedrag = Number(x.bedrag);
+    ws.addRow({
+      plant: `${x.product} (${x.soort})`, maat: x.maat, stuks: Number(x.stuks), prijs: Number(x.prijs_eur), pp: String(x.partij), klant: x.klant, pp2: String(x.partij),
+      factuur: x.factuur, datum: xd(x.datum), debiteur: x.debiteur || '', bedrag: f(`ROUND(C${n}*D${n},2)`, bedrag),
+    });
+  });
+  ws.autoFilter = { from: 'A1', to: `K${Math.max(2, lines.length + 1)}` };
+  const print = { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: '1:1' };   // A4, one page wide
+  ws.pageSetup = { ...print };
+
+  // one row per invoice: lines and totals as formulas over the Exact sheet
+  const inv = [];
+  for (const x of lines) if (!inv.some(v => v.factuur === x.factuur)) inv.push(x);
+  const wf = sheet(wb, 'Facturen', [
+    { h: 'Factuurnummer', k: 'factuur', w: 16 }, { h: 'Datum', k: 'datum', w: 13, fmt: NUM.date }, { h: 'Klant', k: 'klant', w: 30 }, { h: 'Debiteurnummer', k: 'debiteur', w: 17 },
+    { h: 'Regels', k: 'regels', w: 8, fmt: NUM.int }, { h: 'Totaal excl. btw', k: 'excl', w: 15, fmt: NUM.eur }, { h: 'Btw %', k: 'pct', w: 8, fmt: NUM.pct },
+    { h: 'Btw', k: 'btw', w: 12, fmt: NUM.eur }, { h: 'Totaal incl. btw', k: 'incl', w: 15, fmt: NUM.eur }, { h: 'Valuta', k: 'valuta', w: 8 }, { h: '1 euro = dollar', k: 'koers', w: 14, fmt: NUM.koers },
+  ]);
+  wf.pageSetup = { ...print };
+  const last = lines.length + 1;
+  inv.forEach((x, i) => {
+    const n = i + 2, mine = lines.filter(l => l.factuur === x.factuur);
+    const excl = r2(mine.reduce((t, l) => t + Number(l.bedrag), 0)), pct = Number(x.btw_pct || 0) / 100, btw = r2(excl * pct);
+    wf.addRow({
+      factuur: x.factuur, datum: xd(x.datum), klant: x.klant, debiteur: x.debiteur || '',
+      regels: f(`COUNTIF(Exact!$H$2:$H$${last},A${n})`, mine.length), excl: f(`SUMIF(Exact!$H$2:$H$${last},A${n},Exact!$K$2:$K$${last})`, excl),
+      pct, btw: f(`ROUND(F${n}*G${n},2)`, btw), incl: f(`F${n}+H${n}`, r2(excl + btw)), valuta: 'EUR', koers: x.koers == null ? null : Number(x.koers),
+    });
+  });
+  if (inv.length) {
+    const a = 2, b = inv.length + 1;
+    const tot = wf.addRow({
+      klant: 'Samen', regels: f(`SUM(E${a}:E${b})`, lines.length), excl: f(`SUM(F${a}:F${b})`, r2(lines.reduce((t, l) => t + Number(l.bedrag), 0))),
+      btw: f(`SUM(H${a}:H${b})`, r2(inv.reduce((t, x) => t + r2(r2(lines.filter(l => l.factuur === x.factuur).reduce((s, l) => s + Number(l.bedrag), 0)) * Number(x.btw_pct || 0) / 100), 0))),
+    });
+    tot.getCell('incl').value = f(`SUM(I${a}:I${b})`, r2(Number(tot.getCell('excl').value.result) + Number(tot.getCell('btw').value.result)));
+    tot.font = { ...FONT, bold: true };
+    tot.eachCell(c => { c.border = { top: { style: 'thin', color: { argb: 'FF1F5138' } } }; });
+  }
+
+  const wu = wb.addWorksheet('Uitleg');
+  wu.columns = [{ width: 30 }, { width: 90 }];
+  const note = [
+    ['Week', `Week ${w.week} van ${w.jaar}, maandag ${String(maandag).split('-').reverse().join('-')}`],
+    ['Waar het vandaan komt', 'De pakbonnen die akkoord zijn in de Campo desk. Elke regel is een regel op de factuur.'],
+    ['Plantensoort', 'Het artikel en de botanische naam (A op het plantenpaspoort).'],
+    ['Hoeveelheid', 'Stuks (dozen maal stuks per doos).'],
+    ['Prijs per eenheid', 'Euro per stuk: de dollarprijs omgerekend met de koers van deze week (staat bij Facturen).'],
+    ['Plantenpaspoortnummer', 'Het batchnummer: jaar, week, regio (264901 = 2026, week 49, regio 01). C op het plantenpaspoort.'],
+    ['Plantenpaspoortnummer (kostendrager)', 'Hetzelfde nummer, als kostendrager in Exact. Zo telt Exact per regio en per week wat erin en eruit gaat.'],
+    ['Grijze kolommen', 'Factuurnummer, datum, debiteur en bedrag: alleen om de regels op de juiste factuur te zetten.'],
+  ];
+  note.forEach(([a, b], i) => { const r = wu.getRow(i + 1); r.getCell(1).value = a; r.getCell(2).value = b; r.getCell(1).font = { ...FONT, bold: true }; r.getCell(2).font = FONT; r.getCell(2).alignment = { wrapText: true, vertical: 'top' }; });
+  return { wb, naam: `Exact week ${w.week} ${w.jaar}.xlsx`, regels: lines.length, facturen: inv.length };
 }

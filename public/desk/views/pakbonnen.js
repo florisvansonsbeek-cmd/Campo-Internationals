@@ -17,7 +17,7 @@ export async function render(params, query) {
   const notOutlook = done.filter(s => !s.concept || s.concept.status === 'concept'), notExact = done.filter(s => s.pakbon.exact === 'open');
   const warn = [];
   if (!d.koers) warn.push(`<div class="warnbox wait">${icon('clock')}<span>De koers van week ${d.week} staat er nog niet in, dus de bedragen ontbreken nog. <a href="#/maandag?maandag=${d.maandag}&deel=koers">Koers invullen</a></span></div>`);
-  else if (!d.geteld) warn.push(`<div class="warnbox wait">${icon('clock')}<span>De dozen zijn nog niet geteld. <a href="#/maandag?maandag=${d.maandag}&deel=tellen">Tellen</a></span></div>`);
+  else if (!d.geteld) warn.push(`<div class="warnbox wait">${icon('clock')}<span>Nog niet alle zendingen zijn afgevinkt als binnen. <a href="#/maandag?maandag=${d.maandag}&deel=binnen">Naar Maandag</a></span></div>`);
   if (d.bedrijf.pp_b_voorbeeld || !d.bedrijf.iban) warn.push(`<div class="warnbox wait">${icon('info')}<span>${d.bedrijf.pp_b_voorbeeld ? `Op het plantenpaspoort staat nog een voorbeeldnummer bij B (${h(d.bedrijf.pp_b)}). ` : ''}${!d.bedrijf.iban ? 'Er staat nog geen IBAN op de factuur. ' : ''}<a href="#/koppelingen?deel=pakbon">Invullen bij Koppelingen</a></span></div>`);
   return `<div class="page wk">
     <div class="ph"><div><p class="kick">Week ${d.week} · ${d.koers ? `koers 1 € = $ ${fKoers(d.koers)}` : 'koers nog niet vast'}</p><h1>Pakbon en factuur</h1>

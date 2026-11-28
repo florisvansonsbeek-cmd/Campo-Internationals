@@ -112,7 +112,7 @@ export async function weekData(maandag, { now = new Date() } = {}) {
     if (frozen) status = 'akkoord';
     else if (!live.length) status = 'leeg';
     else if (!koers) { status = 'wacht'; reden = 'De koers van deze week staat er nog niet in.'; }
-    else if (!counted) { status = 'wacht'; reden = 'De dozen zijn nog niet geteld.'; }
+    else if (!counted) { status = 'wacht'; reden = 'Nog niet alle zendingen zijn afgevinkt als binnen.'; }
     else if (live.some(l => l.rest < 0)) { status = 'wacht'; reden = 'Er is meer verdeeld dan er binnen is.'; }
     if (status === 'leeg' && !s) continue;
     const totaal = r2(sum(lines, l => l.bedrag || 0));
@@ -254,6 +254,75 @@ export async function countBoxes(maandag, regels = [], wie) {
   } catch (e) { await c.query('ROLLBACK').catch(() => {}); throw e; } finally { c.release(); }
   await log(wie, 'Dozen geteld', 'week', null, { maandag, aangepast: regels.length });
   await syncProposal(maandag);
+}
+
+// Monday in the hall, one shipment at a time: Jan ticks it off as in. It counts as the papers said, unless he typed
+// another number. On Inkoop it turns green. When every shipment of the week is in, the week counts as counted.
+export async function markArrived(id, { binnen = true, regels = [] } = {}, wie) {
+  const p = await one('SELECT id, maandag, nummer FROM partijen WHERE id = $1', [id]);
+  if (!p) throw fail('Deze zending bestaat niet meer.', 404);
+  const d = await weekData(p.maandag);
+  const mine = d.regels.filter(r => r.partij_id === id);
+  if (!mine.length) throw fail('Deze zending heeft geen regels.');
+  await ensureWeek(p.maandag);
+  const c = await pool.connect();
+  try {
+    await c.query('BEGIN');
+    if (binnen) {
+      for (const r of mine) {
+        const x = regels.find(y => Number(y.id) === r.id) || {};
+        const g = x.geteld != null && x.geteld !== '' ? Number(x.geteld) : r.geteld ?? r.verzonden ?? r.bevestigd ?? r.besteld ?? 0;
+        const u = x.uitval != null && x.uitval !== '' ? Number(x.uitval) : r.uitval || 0;
+        if (!Number.isInteger(g) || g < 0 || g > 100000 || !Number.isInteger(u) || u < 0 || u > g) throw fail(`Kijk ${r.product} ${r.maat} nog even na: hele dozen, kapot niet meer dan geteld.`);
+        await c.query('UPDATE partij_regels SET geteld = $2, uitval = $3 WHERE id = $1', [r.id, g, u]);
+      }
+      await c.query('UPDATE partijen SET binnen_op = coalesce(binnen_op, now()) WHERE id = $1', [id]);
+      const open = (await c.query(`SELECT count(*)::int AS n FROM partijen x WHERE x.maandag = $1 AND x.binnen_op IS NULL AND EXISTS (SELECT 1 FROM partij_regels r WHERE r.partij_id = x.id)`, [p.maandag])).rows[0].n;
+      if (!open) await c.query('UPDATE weken SET geteld_op = coalesce(geteld_op, now()), geteld_door = coalesce(geteld_door, $2) WHERE maandag = $1', [p.maandag, wie]);
+    } else {
+      const used = (await c.query(`SELECT s.nummer FROM pakbon_regels r JOIN pakbonnen s ON s.id = r.pakbon_id JOIN partij_regels x ON x.id = r.regel_id
+        WHERE x.partij_id = $1 AND s.status = 'akkoord' LIMIT 1`, [id])).rows[0];
+      if (used) throw fail(`Pakbon ${used.nummer} heeft dozen uit deze zending en is al akkoord. Heropen die eerst.`);
+      await c.query('UPDATE partij_regels SET geteld = NULL WHERE partij_id = $1', [id]);
+      await c.query('UPDATE partijen SET binnen_op = NULL WHERE id = $1', [id]);
+      await c.query('UPDATE weken SET geteld_op = NULL, geteld_door = NULL, nagekeken_op = NULL, nagekeken_door = NULL WHERE maandag = $1', [p.maandag]);
+    }
+    await c.query('COMMIT');
+  } catch (e) { await c.query('ROLLBACK').catch(() => {}); throw e; } finally { c.release(); }
+  await log(wie, binnen ? `Zending ${p.nummer} binnen` : `Zending ${p.nummer} weer op onderweg`, 'partij', id, { regels: regels.length });
+  await syncProposal(p.maandag);
+}
+
+// Something went wrong with an order: this customer gets nothing this week. A zero per product he asked for keeps the
+// proposal from giving him anything; his boxes go to whoever asked more, or stay free. Back with the proposal reset.
+export async function excludeCustomer(maandag, klant_id, wie) {
+  const slip = await one(`SELECT nummer FROM pakbonnen WHERE maandag = $1 AND klant_id = $2 AND status = 'akkoord'`, [maandag, klant_id]);
+  if (slip) throw fail(`De pakbon ${slip.nummer} van deze klant is al akkoord. Heropen hem eerst.`);
+  const d = await weekData(maandag);
+  const pids = new Set([...d.orders.filter(o => o.klant_id === klant_id).map(o => o.product_id), ...d.regels.filter(r => r.verdeling.some(v => v.klant_id === klant_id)).map(r => r.product_id)]);
+  if (!pids.size) throw fail('Deze klant heeft deze week niets.');
+  const c = await pool.connect();
+  try {
+    await c.query('BEGIN');
+    for (const r of d.regels.filter(x => pids.has(x.product_id))) {
+      await c.query(`INSERT INTO verdeling (regel_id, klant_id, dozen, door) VALUES ($1, $2, 0, 'jan') ON CONFLICT (regel_id, klant_id) DO UPDATE SET dozen = 0, door = 'jan'`, [r.id, klant_id]);
+    }
+    await c.query('COMMIT');
+  } catch (e) { await c.query('ROLLBACK').catch(() => {}); throw e; } finally { c.release(); }
+  await log(wie, `${d.K.get(klant_id)?.naam || 'Klant'} deze week eruit`, 'klant', klant_id, { maandag });
+  await syncProposal(maandag);
+}
+
+// Jan looked the hand-out over and says it is right (or takes that back)
+export async function markChecked(maandag, terug, wie) {
+  await ensureWeek(maandag);
+  if (terug) await q('UPDATE weken SET nagekeken_op = NULL, nagekeken_door = NULL WHERE maandag = $1', [maandag]);
+  else {
+    const d = await weekData(maandag);
+    if (d.regels.some(r => r.rest < 0)) throw fail('Er is meer verdeeld dan er is. Pas dat eerst aan.');
+    await q('UPDATE weken SET nagekeken_op = now(), nagekeken_door = $2 WHERE maandag = $1', [maandag, wie]);
+  }
+  await log(wie, terug ? 'Verdeling weer open' : 'Verdeling nagekeken', 'week', null, { maandag });
 }
 
 export async function uncount(maandag, wie) {
@@ -527,10 +596,10 @@ export function weekTasks(d, { now = new Date() } = {}) {
   }
   const arrived = nowDay >= m;
   if (arrived && !d.koers) t.push({ stap: 'maandag', toon: 'wait', titel: 'Koers van deze week invullen', tekst: 'Dollars voor één euro. De desk rekent er alle pakbonnen en facturen van deze week mee.', href: href('maandag', '&deel=koers'), knop: 'Koers invullen' });
-  if (arrived && !d.counted && d.partijen.some(p => p.stage === 'verzonden' || p.stage === 'binnen')) t.push({ stap: 'maandag', toon: 'wait', titel: 'Dozen tellen', tekst: `${sum(d.regels, r => r.dozen)} dozen verwacht volgens de verzendbewijzen.`, href: href('maandag', '&deel=tellen'), knop: 'Tellen' });
+  if (arrived && !d.counted && d.partijen.some(p => p.stage === 'verzonden' || p.stage === 'binnen')) t.push({ stap: 'maandag', toon: 'wait', titel: 'Zendingen afvinken als binnen', tekst: `${sum(d.regels, r => r.dozen)} dozen verwacht volgens de verzendbewijzen.`, href: href('maandag', '&deel=binnen'), knop: 'Afvinken' });
   const over = d.regels.filter(r => r.rest > 0), short = d.regels.filter(r => r.rest < 0);
-  if (d.counted && over.length) t.push({ stap: 'maandag', toon: 'wait', titel: `${sum(over, r => r.rest)} dozen hebben nog geen klant`, tekst: over.slice(0, 3).map(r => `${r.product} ${r.maat} (${r.nummer})`).join(', '), href: href('maandag', '&deel=verdelen'), knop: 'Verdelen' });
-  if (short.length) t.push({ stap: 'maandag', toon: 'bad', titel: 'Meer verdeeld dan er binnen is', tekst: short.slice(0, 3).map(r => `${r.product} ${r.maat} (${r.nummer}): ${-r.rest} te veel`).join(', '), href: href('maandag', '&deel=verdelen'), knop: 'Verdelen' });
+  if (d.counted && over.length) t.push({ stap: 'maandag', toon: 'wait', titel: `${sum(over, r => r.rest)} dozen hebben nog geen klant`, tekst: over.slice(0, 3).map(r => `${r.product} ${r.maat} (${r.nummer})`).join(', '), href: href('maandag', '&deel=check'), knop: 'Controleren' });
+  if (short.length) t.push({ stap: 'maandag', toon: 'bad', titel: 'Meer verdeeld dan er binnen is', tekst: short.slice(0, 3).map(r => `${r.product} ${r.maat} (${r.nummer}): ${-r.rest} te veel`).join(', '), href: href('maandag', '&deel=check'), knop: 'Controleren' });
   const ready = d.slips.filter(s => s.status === 'klaar'), done = d.slips.filter(s => s.status === 'akkoord');
   if (ready.length) t.push({ stap: 'pakbonnen', toon: 'info', titel: `${ready.length} pakbonnen klaar voor akkoord`, tekst: 'Klopt alles, dan staan ze met één klik als concept in Outlook, met de pdf en het plantenpaspoort.', href: href('pakbonnen'), knop: 'Pakbonnen' });
   const changed = d.slips.filter(s => s.gewijzigd);
@@ -556,7 +625,7 @@ export function deviations(d) {
   return out;
 }
 
-// ---------------------------------------------------------------- the Deze week page
+// ---------------------------------------------------------------- the week in steps (Zo werkt het)
 export async function overview(maandag = focusMonday(), { now = new Date() } = {}) {
   await syncProposal(maandag).catch(() => 0);
   const d = await weekData(maandag, { now });
@@ -569,19 +638,19 @@ export async function overview(maandag = focusMonday(), { now = new Date() } = {
   const sumOrders = sum(d.orders, o => o.dozen);
   const steps = [
     step('bestellen', 'di', days.bestellen, 'Bestellen', placed.length > 0, nowDay >= days.bestellen,
-      placed.length ? [`${placed.length === 1 ? '1 zending' : `${placed.length} zendingen`}: ${placed.map(p => p.nummer).join(', ')}`, `${sum(d.regels, r => r.besteld || 0)} dozen besteld`]
+      placed.length ? [`${placed.length === 1 ? '1 zending' : `${placed.length} zendingen`}: ${[...new Set(placed.map(p => p.nummer))].join(', ')}`, `${sum(d.regels, r => r.besteld || 0)} dozen besteld`]
         : [`${new Set(d.orders.map(o => o.klant_id)).size} klanten belden, ${sumOrders} dozen`], `#/bestellen?maandag=${maandag}`),
     step('bevestiging', 'do', days.bevestiging, 'Bevestiging', placed.length > 0 && conf.length === placed.length, placed.length > 0 && nowDay >= days.bevestiging,
       placed.length ? [`${conf.length} van ${placed.length} bevestigd`, ...deviations(d).filter(x => x.stap === 'bevestigd').slice(0, 2).map(x => `${x.product}: ${x.verschil > 0 ? '+' : ''}${x.verschil} (${x.pct > 0 ? '+' : ''}${x.pct}%)`)] : ['Na het bestellen'], `#/inkoop?maandag=${maandag}`),
     step('verzonden', 'vr', days.verzonden, 'Verzonden', placed.length > 0 && flown.length === placed.length && placed.every(p => p.exact === 'in_exact'), flown.length > 0 || (placed.length > 0 && nowDay >= days.verzonden),
       flown.length ? [`${flown.length} van ${placed.length} verzendbewijzen binnen`, `${flown.filter(p => p.exact === 'in_exact').length} inkooporders in Exact`] : ['Vrijdag op het vliegtuig'], `#/inkoop?maandag=${maandag}`,
       flown.some(p => p.twijfels) ? 'wait' : null),
-    step('maandag', 'ma', maandag, 'Binnen en verdelen', !!d.koers && d.counted && !d.regels.some(r => r.rest !== 0), nowDay >= maandag,
-      [d.koers ? `Koers 1 € = $ ${String(d.koers.toFixed(4)).replace('.', ',')}` : 'Koers nog invullen', d.counted ? `${sum(d.regels, r => r.geteld || 0)} dozen geteld` : `${sum(d.regels, r => r.dozen)} dozen verwacht`,
-        d.regels.length ? (d.regels.some(r => r.rest > 0) ? `${sum(d.regels.filter(r => r.rest > 0), r => r.rest)} dozen nog zonder klant` : d.regels.some(r => r.rest < 0) ? 'Te veel verdeeld' : 'Alles heeft een klant') : ''].filter(Boolean),
+    step('maandag', 'ma', maandag, 'Binnen en controleren', !!d.koers && d.counted && !d.regels.some(r => r.rest < 0) && (!!d.wk?.nagekeken_op || akkoord.length > 0), nowDay >= maandag,
+      [d.koers ? `Koers 1 € = $ ${String(d.koers.toFixed(4)).replace('.', ',')}` : 'Koers nog invullen', d.counted ? `${sum(d.regels, r => r.geteld || 0)} dozen binnen` : `${sum(d.regels, r => r.dozen)} dozen verwacht`,
+        d.regels.length ? (d.regels.some(r => r.rest > 0) ? `${sum(d.regels.filter(r => r.rest > 0), r => r.rest)} dozen vrij` : d.regels.some(r => r.rest < 0) ? 'Te veel verdeeld' : 'Alles heeft een klant') : ''].filter(Boolean),
       `#/maandag?maandag=${maandag}`, d.regels.some(r => r.rest < 0) ? 'bad' : null),
     step('pakbonnen', 'ma', maandag, 'Pakbon en factuur', d.slips.length > 0 && akkoord.length === d.slips.length && akkoord.every(s => s.pakbon.exact === 'in_exact' && (!s.concept || s.concept.status === 'verstuurd')), nowDay >= maandag,
-      d.slips.length ? [`${akkoord.length} van ${d.slips.length} akkoord`, `${akkoord.filter(s => s.pakbon.exact === 'in_exact').length} in Exact · ${akkoord.filter(s => s.concept && s.concept.status === 'verstuurd').length} verstuurd`] : ['Na het verdelen'], `#/pakbonnen?maandag=${maandag}`),
+      d.slips.length ? [`${akkoord.length} van ${d.slips.length} akkoord`, `${akkoord.filter(s => s.pakbon.exact === 'in_exact').length} in Exact · ${akkoord.filter(s => s.concept && s.concept.status === 'verstuurd').length} verstuurd`] : ['Na het controleren'], `#/maandag?maandag=${maandag}&deel=pakbon`),
   ];
   // the step Jan is in now: the first one not done whose day has come
   const cur = steps.find(s => s.status === 'nu');

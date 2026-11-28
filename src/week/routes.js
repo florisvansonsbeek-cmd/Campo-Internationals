@@ -3,11 +3,10 @@ import express from 'express';
 import crypto from 'node:crypto';
 import { PDFDocument } from 'pdf-lib';
 import { pool, rows, one, q, log, setting, setSetting } from '../db.js';
-import { addDays, focusMonday, isMonday, isoWeek, mondayOf, today, passed, r2, sum, isDay } from './util.js';
+import { addDays, focusMonday, isMonday, isoWeek, mondayOf, today, passed, r2, sum, isDay, groupBy } from './util.js';
 import {
   weekData, syncProposal, setAllocation, resetAllocation, setRate, countBoxes, uncount, approveSlips, reopenSlip, markSlipsExact, markPartijExact,
-  orderBook, addOrder, copyPrevious, placeOrders, updateLine, setStage, updatePartij, overview, badges, company, DEFAULT_COMPANY, weekTasks, deviations, proposeBatchNumber,
-} from './model.js';
+  orderBook, addOrder, copyPrevious, placeOrders, updateLine, setStage, updatePartij, overview, badges, company, DEFAULT_COMPANY, weekTasks, deviations, proposeBatchNumber, markArrived, excludeCustomer, markChecked } from './model.js';
 import { slipDoc, slipPdfById, slipConcept } from './mail.js';
 import { customerList, customerDetail, yearData } from './stats.js';
 import { yearWorkbook, sheetRows } from './excel.js';
@@ -248,8 +247,14 @@ week.get('/maandag', wrap(async (req, res) => {
   const slipsDone = d.slips.filter(s => s.pakbon && s.pakbon.status === 'akkoord').map(s => s.klant_id);
   res.json({
     maandag: m, week: d.week, jaar: d.jaar, vandaag: today(), koers: d.koers, koers_op: d.wk.koers_op, koers_door: d.wk.koers_door, koersen: lastRates.reverse(),
-    geteld: d.counted, geteld_op: d.wk.geteld_op, geteld_door: d.wk.geteld_door, akkoord: slipsDone,
-    partijen: d.partijen.map(p => ({ id: p.id, nummer: p.nummer, regio: p.regio, leverancier: p.leverancier, stage: p.stage, docsIn: passed(p.verzonden_op),
+    geteld: d.counted, geteld_op: d.wk.geteld_op, geteld_door: d.wk.geteld_door, nagekeken: !!d.wk.nagekeken_op, nagekeken_op: d.wk.nagekeken_op, akkoord: slipsDone,
+    regios: await rows('SELECT code, naam, land, nummer FROM regios ORDER BY nummer NULLS LAST, code'),
+    gevraagd: Object.fromEntries([...groupBy(d.orders, o => o.klant_id)].map(([k, os]) => [k, sum(os, o => o.dozen)])),
+    eruit: [...groupBy(d.orders, o => o.klant_id)].filter(([k]) => {
+      const vs = d.regels.flatMap(r => r.verdeling.filter(v => v.klant_id === k));
+      return vs.length && vs.every(v => v.door === 'jan' && v.dozen === 0);
+    }).map(([k, os]) => ({ klant_id: k, klant: d.K.get(k)?.naam || '?', plaats: d.K.get(k)?.plaats || '', gevraagd: sum(os, o => o.dozen) })),
+    partijen: d.partijen.map(p => ({ id: p.id, nummer: p.nummer, regio: p.regio, leverancier: p.leverancier, plaats: p.lev_plaats, binnen_op: p.binnen_op, stage: p.stage, docsIn: passed(p.verzonden_op),
       regels: p.regels.map(r => ({ id: r.id, product_id: r.product_id, product: r.product, maat: r.maat, soort: r.soort, per_doos: r.per_doos, besteld: r.besteld, bevestigd: r.bevestigd, verzonden: r.verzonden, geteld: r.geteld, uitval: r.uitval,
         dozen: r.dozen, basis: r.basis, avail: r.avail, gegeven: r.gegeven, rest: r.rest, verdeling: r.verdeling.filter(v => v.dozen > 0 || v.door !== 'desk') })) })),
     tekort, nietIn, over, klanten: [...perKlant.values()].sort((a, b) => a.klant.localeCompare(b.klant, 'nl')),
@@ -266,6 +271,33 @@ week.post('/weken/:maandag/tellen', wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 week.post('/weken/:maandag/telling-terug', wrap(async (req, res) => { await uncount(req.params.maandag, who(req)); res.json({ ok: true }); }));
+week.post('/partijen/:id/binnen', wrap(async (req, res) => {
+  await markArrived(int(req.params.id), { binnen: req.body?.binnen !== false, regels: Array.isArray(req.body?.regels) ? req.body.regels : [] }, who(req));
+  res.json({ ok: true });
+}));
+week.post('/weken/:maandag/nagekeken', wrap(async (req, res) => {
+  if (!isMonday(req.params.maandag)) return bad(res, 'Geen maandag.');
+  await markChecked(req.params.maandag, !!req.body?.terug, who(req));
+  res.json({ ok: true });
+}));
+week.post('/weken/:maandag/klant-eruit', wrap(async (req, res) => {
+  if (!isMonday(req.params.maandag)) return bad(res, 'Geen maandag.');
+  const k = int(req.body?.klant_id);
+  if (!k) return bad(res, 'Welke klant?');
+  await excludeCustomer(req.params.maandag, k, who(req));
+  res.json({ ok: true });
+}));
+// the Excel for Exact: per sales line the plant, the size, how many, the price per piece, the plant passport number,
+// the customer and the plant passport number again (as cost unit)
+week.get('/weken/:maandag/exact.xlsx', wrap(async (req, res) => {
+  if (!isMonday(req.params.maandag)) return bad(res, 'Geen maandag.');
+  const { exactWorkbook } = await import('./excel.js');
+  const { wb, naam } = await exactWorkbook(req.params.maandag);
+  res.set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.set('Content-Disposition', `attachment; filename="${naam}"`);
+  await wb.xlsx.write(res);
+  res.end();
+}));
 week.put('/verdeling', wrap(async (req, res) => {
   const r = int(req.body?.regel_id), k = int(req.body?.klant_id), dz = int(req.body?.dozen);
   if (!r || !k || dz == null || dz < 0 || dz > 9999) return bad(res, 'Een heel aantal dozen.');

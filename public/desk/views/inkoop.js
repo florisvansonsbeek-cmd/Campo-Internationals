@@ -7,7 +7,7 @@
 //   steps on Monday (counted, packing slip, mail, Exact) on the line, and the customer. A click opens the packing slip that
 //   is also the invoice, with the plant passport, exactly as on the Pakbonnen tab, and where every box came from.
 import { api, h, icon, fNum } from '../core.js';
-import { weekNav, dayTime, tTime, delta, fUsd, fUsdUnit, fEur2 } from '../wk.js';
+import { weekNav, dayTime, tTime, delta, fUsd, fUsdUnit } from '../wk.js';
 import { reasons, toWhom, exactBox, doubts, partijActions, noticeDialog, DOC } from '../partij.js';
 import { paperHtml, drawPapers } from '../paper.js';
 import { slipPaper, slipNext, slipActions } from '../slip.js';
@@ -18,7 +18,8 @@ const openK = new Set();      // the same for customers, per batch (klant-batch)
 const docSel = new Map();     // which paper is shown per order
 const slips = new Map();      // the packing slip per customer, for the open ones
 const ROW = 28, FORK = 64, MAXK = 6, MAXS = 5;
-const TONE = { groen: ['ok', 'Op schema'], oranje: ['wait', 'Let op'], rood: ['bad', 'In gevaar'], binnen: ['done', 'Binnen'] };
+// in the loods is green: Jan ticks a shipment off on Maandag and it turns green here
+const TONE = { groen: ['ok', 'Op schema'], oranje: ['wait', 'Let op'], rood: ['bad', 'In gevaar'], binnen: ['in', 'Binnen'] };
 const TZ = 'Europe/Amsterdam';
 const WD = new Intl.DateTimeFormat('nl-NL', { timeZone: TZ, weekday: 'short', hour: '2-digit', minute: '2-digit' });
 const DD = new Intl.DateTimeFormat('nl-NL', { timeZone: TZ, weekday: 'short', day: 'numeric' });
@@ -53,26 +54,27 @@ function progress(p, d) {
   return p.stage === 'bevestigd' ? 35 : 15;
 }
 
-function stageText(p, d) {
-  const r = p.risico || {}, st = p.stroom, n = st ? st.klanten.length : 0;
-  const where = p.stage === 'binnen' ? `Binnen ${dayTime(r.binnen || p.binnen_op)}${d.geteld ? ', geteld' : ', nog tellen'}`
+function stageText(p) {
+  const r = p.risico || {};
+  return p.stage === 'binnen' ? `In de loods sinds ${dayTime(r.binnen || p.binnen_op)}`
     : p.stage === 'verzonden' ? `In de lucht sinds ${dayTime(p.verzonden_op)}`
-      : p.stage === 'bevestigd' ? `Bevestigd ${dayTime(p.bevestigd_op)}, vliegt ${dayName(r.vertrek)}`
-        : `Besteld ${dayTime(p.besteld_op)}, de bevestiging komt donderdag`;
-  return `${where}; ${n ? `naar ${n} ${n === 1 ? 'klant' : 'klanten'}` : 'nog geen klant'}${st && st.rest ? `, ${st.rest} vrij` : ''}`;
+      : p.stage === 'bevestigd' ? `Bevestigd, vliegt ${dayName(r.vertrek)}`
+        : 'Besteld, de bevestiging komt donderdag';
 }
 
 // the route on the line itself: the farm, every airport with its day or time, and the time in the loods at the hub
 function routeOnLine(p) {
   const r = p.risico || {}, stops = r.stops || [];
   const farm = stops.find(s => s.soort === 'herkomst'), air = stops.filter(s => s.code && s.soort !== 'loods');
-  const when = s => (s.soort === 'vertrek' && s.voorbij && r.vertrek ? wd(r.vertrek) : dd(s.dag));
+  // once it is in the loods, every stop on the way is behind it
+  const past = s => r.licht === 'binnen' || s.voorbij;
+  const when = s => (s.soort === 'vertrek' && past(s) && r.vertrek ? wd(r.vertrek) : dd(s.dag));
   const pos = i => (air.length > 1 ? 30 + (50 * i) / (air.length - 1) : 55);
   const arrive = r.licht === 'binnen' ? wd(r.binnen || p.binnen_op) : r.verwacht ? wd(r.verwacht) : '';
   const late = r.licht !== 'binnen' && r.vertraging ? r.vertraging : 0;
   const ticks = [
-    farm ? `<span class="ap ap0${farm.voorbij ? ' done' : ''}" data-l="${h(farm.licht)}"><b>kwekerij</b><em>${h(dd(farm.dag))}</em></span>` : '',
-    ...air.map((s, i) => `<span class="ap${s.voorbij ? ' done' : ''}" data-l="${h(s.licht)}" style="left:${pos(i)}%"><i></i><b>${h(s.code)}</b><em>${h(when(s))}</em></span>`),
+    farm ? `<span class="ap ap0${past(farm) ? ' done' : ''}" data-l="${h(r.licht === 'binnen' ? '' : farm.licht)}"><b>kwekerij</b><em>${h(dd(farm.dag))}</em></span>` : '',
+    ...air.map((s, i) => `<span class="ap${past(s) ? ' done' : ''}" data-l="${h(r.licht === 'binnen' ? '' : s.licht)}" style="left:${pos(i)}%"><i></i><b>${h(s.code)}</b><em>${h(when(s))}</em></span>`),
   ].join('');
   const parts = [...(farm ? [{ t: `${farm.stad || 'kwekerij'} ${dd(farm.dag)}`, l: farm.licht }] : []), ...air.map(s => ({ t: `${s.code} ${when(s)}`, l: s.licht }))];
   const mobile = parts.map(x => `<span data-l="${h(x.l || '')}">${h(x.t)}</span>`).join('<i aria-hidden="true">→</i>');
@@ -90,7 +92,7 @@ export function laneHtml(p, d, { interactive = true } = {}) {
   if (st.rest > 0) rows.push({ vrij: st.rest });
   if (!rows.length) rows.push({ leeg: true });
   const n = rows.length, H = Math.max(n * ROW, 64), top = (H - n * ROW) / 2, mid = H / 2;
-  const counted = !!d.geteld;
+  const counted = !!d.geteld || p.stage === 'binnen';
   const curves = rows.map((x, i) => {
     const y = top + i * ROW + ROW / 2;
     const cls = x.k ? `${x.k.pakbon || counted ? 'go' : 'not'} t-${x.k.tekort ? 'wait' : 'ok'}` : x.vrij ? 'stock' : x.andere && (counted || x.klaar) ? 'go t-ok' : 'not';
@@ -111,21 +113,21 @@ export function laneHtml(p, d, { interactive = true } = {}) {
       <span class="ct">${k.pakbon ? icon('check') : ''}${fNum(k.dozen)} dz${k.tekort ? ` <span class="lt t-wait">−${fNum(k.tekort)}</span>` : ''}</span></li>`;
   };
   const rt = routeOnLine(p);
-  const pr = progress(p, d), maten = p.regels.length;
+  const pr = progress(p, d);
   const label = `${p.leverancier}, batch ${p.nummer}: ${fNum(p.dozen)} dozen naar ${st.klanten.length} klanten. ${rt.title}. ${word}${r.licht === 'oranje' || r.licht === 'rood' ? `: ${r.kop}` : ''}. Klik voor de hele bestelling.`;
   return `<article class="lane t-${tone}${isOpen ? ' is-open' : ''}"${interactive ? ` id="p${p.id}"` : ''}>
     <div class="lane-top">
       ${interactive ? `<button type="button" class="lane-link" data-act="lane" data-p="${p.id}" aria-expanded="${isOpen}" aria-controls="more${p.id}" aria-label="${h(label)}"></button>` : ''}
       <div class="ln" style="--h:${H}px">
-        <div class="gr"><b>${h(short(p.leverancier))}</b><span>${h([p.lev_plaats, p.nummer].filter(Boolean).join(' · '))}</span><span>${fNum(p.dozen)} dozen, ${maten} ${maten === 1 ? 'maat' : 'maten'}</span></div>
+        <div class="gr"><b>${h(short(p.leverancier))}</b><span>${h([p.nummer, p.lev_plaats].filter(Boolean).join(' · '))}</span><span>${fNum(p.dozen)} dozen</span></div>
         <div class="in s-${tr.s} t-${tr.tone}" style="--p:${tr.pct}%" title="${h(rt.title)}"><span class="tk" aria-hidden="true"><i></i>${tr.s === 'onderweg' ? `<span class="truck">${icon(tr.air ? 'plane' : 'truck')}</span>` : ''}</span>${rt.ticks}<span class="rtm">${rt.mobile}</span></div>
         <div class="hub${tr.s === 'binnen' ? ' on' : ''}" title="In de loods in Nootdorp"><span aria-hidden="true">${icon('shed')}</span><em class="${rt.late ? `t-${tone === 'bad' ? 'bad' : 'wait'}` : ''}">${h(rt.arrive)}${rt.late ? ` +${rt.late} u` : ''}</em></div>
         <svg class="fork" viewBox="0 0 ${FORK} ${H}" width="${FORK}" height="${H}" aria-hidden="true" focusable="false">${curves}</svg>
         <ul class="custs" style="padding-top:${top}px">${rows.map(row).join('')}</ul>
       </div>
       <div class="ft">
-        <span class="pbar" role="img" aria-label="${pr}% van de week"><i style="width:${pr}%"></i></span><b class="pct">${pr}%</b>
-        <span class="stg">${h(stageText(p, d))}</span>
+        <span class="pbar" role="img" aria-label="${pr}% van de week"><i style="width:${pr}%"></i></span>
+        <span class="stg">${h(stageText(p))}</span>
         <span class="st t-${tone}"><i aria-hidden="true"></i>${word}</span>
       </div>
       ${r.licht === 'oranje' || r.licht === 'rood' ? `<p class="why t-${tone}">${icon(r.licht === 'rood' ? 'warn' : 'clock')}<span>${h(r.kop)}</span></p>` : ''}
@@ -195,6 +197,7 @@ function customerTone(k) {
   if (k.van.some(v => lateOf(v) > 0)) return ['wait', 'Komt later'];
   if (k.slip?.gewijzigd) return ['wait', 'Let op'];
   if (!k.van.length) return ['wait', 'Krijgt niets'];
+  if (k.van.every(inHall)) return ['in', 'In de loods'];
   return ['ok', 'Op schema'];
 }
 
@@ -210,17 +213,15 @@ function customerSteps(k, d) {
 }
 
 function customerText(k, d) {
-  const s = k.slip, srcs = k.van.length;
-  const from = srcs ? `${fNum(k.dozen)} dozen${k.nr ? ` uit ${k.nr}` : ''} van ${srcs} ${srcs === 1 ? 'leverancier' : 'leveranciers'}${k.totaal > k.dozen ? ` (samen ${fNum(k.totaal)})` : ''}` : 'Nog niets';
+  const s = k.slip;
+  if (!k.van.length) return 'Krijgt deze week niets';
   if (s?.status === 'akkoord') {
-    const how = s.mail === 'verstuurd' ? 'verstuurd' : s.mail === 'in_outlook' ? 'in Outlook' : s.gedrukt ? 'met de goederen meegegeven' : 'mail staat klaar';
-    return `Pakbon ${s.nummer} akkoord${d.koers && s.totaal ? `, ${fEur2(s.totaal)}` : ''}; ${how}${s.exact === 'in_exact' ? ', in Exact' : ''}`;
+    const how = s.mail === 'verstuurd' ? 'verstuurd' : s.mail === 'in_outlook' ? 'concept in Outlook' : s.gedrukt ? 'met de goederen meegegeven' : 'mail staat klaar';
+    return `Pakbon ${s.nummer} · ${how}${s.exact === 'in_exact' ? ' · in Exact' : ''}`;
   }
-  if (!d.geteld) {
-    const eta = k.van.map(v => P(v.partij_id)?.risico?.verwacht).filter(Boolean).sort().pop();
-    return `${from}${k.gevraagd ? `, vroeg ${fNum(k.gevraagd)}` : ''}; voorstel uit de telefoonbestellingen${eta ? `, in de loods ${wd(eta)}` : ''}`;
-  }
-  return `${from}; ${s?.status === 'klaar' ? 'pakbon klaar voor akkoord' : s?.reden ? s.reden.replace(/\.$/, '').toLowerCase() : 'geteld en verdeeld'}`;
+  if (k.van.every(inHall)) return s?.status === 'klaar' ? 'In de loods · pakbon klaar' : 'In de loods';
+  const eta = k.van.filter(v => !inHall(v)).map(v => P(v.partij_id)?.risico?.verwacht).filter(Boolean).sort().pop();
+  return `Voorstel${eta ? ` · in de loods ${wd(eta)}` : ''}`;
 }
 
 function customerWhy(k) {
@@ -275,10 +276,10 @@ export function customerLaneHtml(k, d) {
         <div class="in kout ${d.geteld ? 's-onderweg' : 's-gepland'} t-ok" style="--p:${fill}%"><span class="tk" aria-hidden="true"><i></i></span>${ticks}
           <span class="rtm">${steps.map(s => `<span class="${s.on ? 'on' : ''}">${s.k} ${h(s.t)}</span>`).join('<i aria-hidden="true">·</i>')}</span></div>
         <div class="kl"><a class="kn-n" href="#/klant/${k.id}"><b>${h(k.naam)}</b></a><span>${h([k.plaats, k.land].filter(Boolean).join(' · '))}</span>
-          <span class="kd"><b>${fNum(k.dozen)} dz</b>${k.tekort ? ` <span class="lt t-wait" title="Van deze maten ${fNum(k.tekort)} minder dan gevraagd">−${fNum(k.tekort)}</span>` : ''}${k.totaal > k.dozen ? `<small>van ${fNum(k.totaal)}</small>` : k.gevraagd && k.gevraagd !== k.dozen ? `<small>vroeg ${fNum(k.gevraagd)}</small>` : ''}</span></div>
+          <span class="kd"><b>${fNum(k.dozen)} dz</b>${k.tekort ? ` <span class="lt t-wait" title="Van deze maten ${fNum(k.tekort)} minder dan gevraagd">−${fNum(k.tekort)}</span>` : ''}</span></div>
       </div>
       <div class="ft">
-        <span class="pbar" role="img" aria-label="${pct}% van maandag"><i style="width:${pct}%"></i></span><b class="pct">${pct}%</b>
+        <span class="pbar" role="img" aria-label="${pct}% van maandag"><i style="width:${pct}%"></i></span>
         <span class="stg">${h(customerText(k, d))}</span>
         <span class="st t-${tone}"><i aria-hidden="true"></i>${word}</span>
       </div>
@@ -317,12 +318,12 @@ function customerMore(k, d) {
     </div>
     <p class="om-f"><a class="btn btn-sm btn-line" href="#/klant/${k.id}">${icon('customer')}Alles over ${h(k.naam)}</a>
       <a class="btn btn-sm btn-ghost" href="#/pakbon/${k.id}?maandag=${d.maandag}">Bij Pakbonnen</a>
-      <a class="btn btn-sm btn-ghost" href="#/maandag?maandag=${d.maandag}&deel=verdelen">Verdeling aanpassen</a></p>`;
+      <a class="btn btn-sm btn-ghost" href="#/maandag?maandag=${d.maandag}&deel=check">Verdeling aanpassen</a></p>`;
 }
 
 // ---------------------------------------------------------------- per batch: every region its own number this week
 // A customer who gets boxes from two regions has a lane under both batches, each with only that batch's boxes.
-const TONE_ORDER = { bad: 0, wait: 1, ok: 2, done: 3 };
+const TONE_ORDER = { bad: 0, wait: 1, ok: 2, in: 3, done: 4 };
 function batches(d, ks) {
   const by = new Map();
   for (const p of d.partijen.filter(p => p.regels.length)) {
@@ -346,11 +347,11 @@ function batchHtml(b, d) {
   const g = (d.regios || []).find(x => x.code === b.regio);
   const inn = sum(b.partijen, p => p.dozen), uit = sum(b.delen, x => x.dozen), vrij = sum(b.partijen, p => p.stroom?.rest || 0);
   const lights = b.partijen.map(p => p.risico?.licht);
-  const [t, w] = lights.includes('rood') ? ['bad', 'In gevaar'] : lights.includes('oranje') ? ['wait', 'Let op'] : lights.every(l => l === 'binnen') ? ['done', 'Binnen'] : ['ok', 'Op schema'];
+  const [t, w] = lights.every(l => l === 'binnen') ? ['in', 'In de loods'] : lights.includes('rood') ? ['bad', 'In gevaar'] : lights.includes('oranje') ? ['wait', 'Let op'] : ['ok', 'Op schema'];
   return `<section class="bsec" aria-label="Batch ${h(b.nummer)}">
     <header class="bsec-h">
       <span class="bnr">${h(b.nummer)}</span>
-      <span class="bt"><b>${h(g ? g.naam : b.regio)}${g?.nummer ? ` · regio ${String(g.nummer).padStart(2, '0')}` : ''}</b><small>${b.partijen.map(p => h(short(p.leverancier))).join(' · ')} · ${fNum(inn)} dozen naar ${fNum(b.delen.length)} ${b.delen.length === 1 ? 'klant' : 'klanten'}${vrij ? ` · ${fNum(vrij)} vrij` : uit === inn ? ' · netto nul' : ''}</small></span>
+      <span class="bt"><b>${h(g ? g.naam : b.regio)}${g?.nummer ? ` · regio ${String(g.nummer).padStart(2, '0')}` : ''}</b><small>${b.partijen.map(p => h(short(p.leverancier))).join(' · ')} · ${fNum(b.delen.length)} ${b.delen.length === 1 ? 'klant' : 'klanten'}${vrij ? ` · ${fNum(vrij)} vrij` : uit === inn ? ' · netto nul' : ''}</small></span>
       <span class="st t-${t}"><i aria-hidden="true"></i>${w}</span>
     </header>
     <div class="lanes">${b.delen.map(k => customerLaneHtml(k, d)).join('')}</div>
@@ -394,10 +395,10 @@ export async function render(params, query) {
   const head = `<div class="fl-top">
       <h1 class="vh">Inkoop week ${d.week}</h1>
       <div class="fl-switch" role="tablist" aria-label="Bekijk de week">
-        ${sw('lev', 'grower', 'Leverancier → loods', `${fNum(ps.length)} ${ps.length === 1 ? 'bestelling' : 'bestellingen'} · ${fNum(w.in)} dozen · ${w.teVeel ? `${fNum(w.teVeel)} te veel verdeeld` : w.rest ? `${fNum(w.rest)} vrij` : 'netto nul'}`,
-          dots([['bad', count('rood'), 'in gevaar'], ['wait', count('oranje'), 'let op'], ['ok', count('groen'), 'op schema'], ['done', count('binnen'), 'binnen']]))}
-        ${sw('klant', 'customer', 'Loods → klant', `${fNum(ks.length)} klanten · ${fNum(new Set(ps.map(p => p.nummer)).size)} batches · ${kcount('done') ? `${fNum(kcount('done'))} pakbonnen akkoord` : w.kortKlanten ? `${fNum(w.kortKlanten)} krijgen minder` : 'iedereen krijgt wat hij vroeg'}`,
-          dots([['bad', kcount('bad'), 'in gevaar'], ['wait', kcount('wait'), 'let op'], ['ok', kcount('ok'), 'op schema'], ['done', kcount('done'), 'pakbon akkoord']]))}
+        ${sw('lev', 'grower', 'Leverancier → loods', `${fNum(ps.length)} ${ps.length === 1 ? 'bestelling' : 'bestellingen'} · ${fNum(w.in)} dozen`,
+          dots([['bad', count('rood'), 'in gevaar'], ['wait', count('oranje'), 'let op'], ['ok', count('groen'), 'op schema'], ['in', count('binnen'), 'binnen']]))}
+        ${sw('klant', 'customer', 'Loods → klant', `${fNum(ks.length)} klanten · ${fNum(new Set(ps.map(p => p.nummer)).size)} batches`,
+          dots([['bad', kcount('bad'), 'in gevaar'], ['wait', kcount('wait'), 'let op'], ['ok', kcount('ok'), 'op schema'], ['in', kcount('in'), 'in de loods'], ['done', kcount('done'), 'pakbon klaar']]))}
       </div>
       <div class="fl-acts">${weekNav('inkoop', d.maandag, kant === 'klant' ? '&kant=klant' : '')}
         ${kant === 'lev' ? `<button type="button" class="btn btn-line btn-sm" data-act="melding" title="Melding over de route: staking, as, een weg dicht">${icon('plus')}Melding</button>` : ''}</div>

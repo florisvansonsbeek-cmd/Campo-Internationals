@@ -266,12 +266,13 @@ table.klanten td{vertical-align:middle}
   .print-only{display:block}
   .hall h1{font:600 22px var(--serif);margin:0 0 10px}
   .hall-k{break-inside:avoid;border:1px solid #999;border-radius:3px;padding:8px 10px;margin:0 0 8px}
-  .hall-k h2{font:700 14px var(--sans);margin:0 0 4px}
-  .hall-k h2 small{font-weight:400;color:#555}
+  .hall h2{font:700 16px var(--sans);margin:14px 0 6px;padding-bottom:3px;border-bottom:2px solid #333}
+  .hall-k h3{font:700 14px var(--sans);margin:0 0 4px}
+  .hall-k h3 small{font-weight:400;color:#555}
   .hall-k table{width:100%;border-collapse:collapse;font-size:12.5px}
   .hall-k td{padding:3px 6px;border-top:1px solid #ddd}
   .hall-k td:first-child{width:44px;text-align:right;font-weight:700}
-  .hall-k td.tick{width:24px;border:1px solid #999}
+  .hall-k td.ht{width:24px;border:1px solid #999}
 }
 
 /* =====================================================================================================================
@@ -291,27 +292,6 @@ table.klanten td{vertical-align:middle}
 .lt-k{display:block;font-size:12.5px;line-height:1.35;margin-top:2px;color:var(--ink-3)}
 .lt-k[data-l=oranje]{color:var(--o-ink)}.lt-k[data-l=rood]{color:var(--r);font-weight:600}.lt-k[data-l=groen]{color:var(--g)}
 .ships-b b{display:flex;align-items:center;flex-wrap:wrap}
-
-/* ---------- does it arrive on Monday ---------- */
-.arrive{border-left:5px solid var(--g);margin-bottom:16px}
-.arrive[data-l=oranje]{border-left-color:var(--o)}.arrive[data-l=rood]{border-left-color:var(--r)}
-.arr{list-style:none;margin:0;padding:0}
-.arr li+li{border-top:1px solid var(--line)}
-.arr-a{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 14px;align-items:center;padding:12px 18px;color:inherit;text-decoration:none}
-.arr-a:hover{background:var(--paper)}
-.arr-l .sl{margin:0;transform:scale(1.15)}
-.arr-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;font-size:15px}
-.arr-h small{color:var(--ink-3);font-size:12.5px}
-.arr-k{display:block;font-size:14px;line-height:1.4;color:var(--ink-2);margin-top:3px}
-.arr li[data-l=rood] .arr-k{color:var(--r);font-weight:600}.arr li[data-l=oranje] .arr-k{color:var(--o-ink)}
-.arr-t{text-align:right}
-.arr-t b{display:block;font:600 17px/1.15 var(--serif);color:var(--forest);white-space:nowrap}
-.arr-t small{color:var(--ink-3);font-size:12px}
-.arr li[data-l=rood] .arr-t b{color:var(--r)}
-.srcs{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:10px 18px 14px;border-top:1px solid var(--line);margin:0}
-.srcs>svg{width:15px;height:15px;flex:none}
-.srcs span{flex:1 1 220px}
-@media (max-width:560px){.arr-a{grid-template-columns:auto minmax(0,1fr);padding:12px 14px}.arr-t{grid-column:2;text-align:left}.arr-t b{display:inline;margin-right:6px;white-space:normal}}
 
 /* ---------- the route: farm, airports, truck, hall ---------- */
 .rt{display:grid;gap:10px}
@@ -724,3 +704,105 @@ table.tb.ksrc td{vertical-align:top}
 .bsec-h .bt small{font-size:12.5px;color:var(--ink-3)}
 .bsec-h .st{margin-left:auto}
 @media (max-width:520px){.bsec-h .bnr{font-size:24px}.bsec-h .st{margin-left:0}}
+
+/* =====================================================================================================================
+   Maandag in six steps: rate, in, per region and customer, check, packing slip and invoice, Exact
+   ===================================================================================================================== */
+.mon-top{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end;justify-content:space-between;margin-bottom:12px}
+.mon-top h1{margin:0;font:600 30px/1.1 var(--serif);color:var(--forest)}
+.mon-top p{margin:4px 0 0}
+.stepper{list-style:none;margin:0 0 14px;padding:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;counter-reset:s}
+.stepper a{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line-2);border-radius:5px;background:var(--sheet);color:var(--ink-2);text-decoration:none;font-size:13px;font-weight:600;min-width:0}
+.stepper a:hover{background:var(--paper-2)}
+.stepper .n{display:inline-grid;place-items:center;width:22px;height:22px;flex:none;border-radius:50%;background:var(--paper-2);color:var(--ink-2);font:700 12px/1 var(--sans)}
+.stepper .n svg{width:13px;height:13px}
+.stepper li.is-done a{color:var(--leaf)}
+.stepper li.is-done .n{background:var(--leaf);color:#fff}
+.stepper li.is-up a{border-color:var(--forest);box-shadow:inset 0 -2px 0 var(--forest);color:var(--forest)}
+.stepper li.is-up .n{background:var(--forest);color:#fff}
+@media (max-width:900px){.stepper{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:420px){.stepper{grid-template-columns:repeat(2,minmax(0,1fr))}.stepper a{font-size:12.5px;padding:7px 8px}}
+.mon2{display:grid;gap:10px}
+.mstep{scroll-margin-top:70px}
+.mstep>header{padding:0;border-bottom:0}
+.mstep-h{display:flex;align-items:center;gap:12px;width:100%;padding:13px 18px;border:0;background:transparent;text-align:left;cursor:pointer;color:var(--ink)}
+.mstep-h .n{display:inline-grid;place-items:center;width:26px;height:26px;flex:none;border-radius:50%;background:var(--paper-2);color:var(--ink-2);font:700 13px/1 var(--sans)}
+.mstep-h .n svg{width:14px;height:14px}
+.mstep-h b{font:600 19px/1.2 var(--serif);color:var(--forest)}
+.mstep-h .mstep-s{margin-left:auto;font-size:13px;color:var(--ink-3);white-space:nowrap}
+.mstep.is-done .mstep-h .n{background:var(--leaf);color:#fff}
+.mstep.is-done .mstep-h .mstep-s{color:var(--leaf);font-weight:600}
+.mstep.is-open>header{border-bottom:1px solid var(--line)}
+.mstep.is-open .mstep-h .n{background:var(--forest);color:#fff}
+.mstep.is-open.is-done .mstep-h .n{background:var(--leaf)}
+/* 2 in: one row per shipment, a big tick */
+.arr{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.arr-i{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:4px 14px;align-items:center;padding:10px 12px;border:1px solid var(--line-2);border-radius:6px;background:var(--sheet)}
+.arr-i.is-in{border-color:var(--leaf);background:var(--leaf-bg)}
+.tick{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;border:2px solid var(--line-2);background:var(--sheet);color:transparent;cursor:pointer;padding:0}
+.tick svg{width:20px;height:20px}
+.tick:hover{border-color:var(--leaf);color:var(--leaf)}
+.tick[aria-pressed=true]{background:var(--leaf);border-color:var(--leaf);color:#fff}
+.arr-t{display:grid;min-width:0}
+.arr-t b{font-size:15px}
+.arr-t span{font-size:12.5px;color:var(--ink-3)}
+.arr-s{display:grid;justify-items:end;gap:2px;text-align:right}
+.arr-s small{font-size:12px;color:var(--ink-3)}
+.arr-d{grid-column:2/-1}
+.arr-d summary{cursor:pointer;font-size:13px;color:var(--ink-2);padding:2px 0;list-style:revert}
+.arr-d table{margin-top:6px}
+@media (max-width:560px){.arr-i{grid-template-columns:40px minmax(0,1fr)}.arr-s{grid-column:2;justify-items:start;text-align:left}.arr-d{grid-column:1/-1}}
+/* 3 per region and customer */
+.lay+.lay{margin-top:16px}
+.lay header{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+.lay header .bnr{font:600 24px/1 var(--serif);color:var(--forest);font-variant-numeric:tabular-nums}
+.lay header span:last-child{display:grid}
+.lay header b{font-size:14px}
+.lay header small{font-size:12.5px;color:var(--ink-3)}
+.lay ul{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.lay li{display:grid;grid-template-columns:minmax(160px,220px) minmax(0,1fr);gap:4px 14px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.lay .its{display:flex;flex-wrap:wrap;gap:4px 14px;color:var(--ink-2)}
+.lay .it em{font-style:normal;font-weight:700;color:var(--ink)}
+@media (max-width:560px){.lay li{grid-template-columns:minmax(0,1fr)}}
+/* 4 check and change */
+.rv{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.rv>li{padding:10px 0;border-bottom:1px solid var(--line)}
+.rv>li.is-locked{opacity:.75}
+.rv-h{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-bottom:6px}
+.rv-h b{font-size:15px}
+.rv-a{margin-left:auto;display:flex;gap:8px;align-items:center}
+.rv-i{display:flex;flex-wrap:wrap;gap:6px}
+.rv-i .hk small{color:var(--ink-3);font-size:11.5px}
+.btn.danger{color:var(--warn)}
+.btn.danger:hover{background:var(--warn-bg)}
+.free,.outk{margin-top:14px}
+.free-i,.outk-i{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
+.free-i small,.outk-i small{color:var(--ink-3)}
+.free-s{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto}
+.outk-i .btn{margin-left:auto}
+/* 5 packing slip and invoice */
+.mk{display:grid;gap:6px;justify-items:start;margin-bottom:12px}
+.mslips{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.mslips li{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.mslips li a b{color:var(--ink)}
+.mslips-s{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto}
+.mslips-s a.chip{text-decoration:none}
+/* 6 Exact */
+.xcols{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin:0 0 12px;font-size:13px;color:var(--ink-2)}
+.xcols span{padding:3px 8px;border:1px solid var(--line-2);border-radius:4px;background:var(--paper)}
+.xcols i{font-style:normal;color:var(--ink-3)}
+@media print{.hall h2{font-size:15pt;margin:14pt 0 6pt}.hall h3{font-size:12pt;margin:8pt 0 4pt}}
+
+/* in the loods = green: ticked off on Maandag */
+.lane.t-in{box-shadow:inset 3px 0 0 var(--leaf);background:linear-gradient(90deg,var(--leaf-bg) 0,var(--sheet) 46%)}
+.lanes .lane.t-in:hover{background:linear-gradient(90deg,var(--leaf-bg) 0,var(--paper) 46%)}
+.lane.t-in .pbar i{background:var(--leaf)}
+.st.t-in{color:var(--leaf)}.st.t-in i{background:var(--leaf);box-shadow:0 0 0 3px var(--leaf-bg)}
+.sw-d.t-in i{background:var(--leaf)}
+.fl-sw.on .sw-d.t-in i{background:#9fd3b0}
+.klane.t-in .kl{border-left-color:var(--leaf)}
+.free{border:1px solid var(--line-2);border-radius:6px;padding:10px 14px;background:var(--paper)}
+.free summary{cursor:pointer;list-style:revert}
+.free[open] summary{margin-bottom:6px}
+.free .free-i:last-child{border-bottom:0}
+.ok-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}

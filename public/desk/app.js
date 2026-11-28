@@ -1,7 +1,6 @@
 // Campo desk: the shell, sign-in, menu, search and the router.
 import { api, h, icon, MARK, toast, dialog, waLink, mailLink, copy, fTime } from './core.js';
 import { chartEvents } from './charts.js';
-import * as week from './views/week.js';
 import * as bestellen from './views/bestellen.js';
 import * as inkoop from './views/inkoop.js';
 import * as maandag from './views/maandag.js';
@@ -18,9 +17,8 @@ let me = null, badge = { inkoop: 0, pakbonnen: 0 };
 
 // the desk follows Jan's week: Tuesday order, Thursday and Friday the papers, Monday the hall and the packing slips
 const ROUTES = [
-  { re: /^week$/, nav: 'week', title: 'Deze week', view: week.render, actions: week.actions, every: week.refreshEvery },
+  { re: /^(inkoop|week)?$/, nav: 'inkoop', title: 'Inkoop', view: inkoop.render, actions: inkoop.actions, mount: inkoop.mount, every: inkoop.refreshEvery },
   { re: /^bestellen$/, nav: 'bestellen', title: 'Bestellen', view: bestellen.render, actions: bestellen.actions, mount: bestellen.mount, change: bestellen.onChange },
-  { re: /^inkoop$/, nav: 'inkoop', title: 'Inkoop', view: inkoop.render, actions: inkoop.actions, mount: inkoop.mount, every: inkoop.refreshEvery },
   { re: /^maandag$/, nav: 'maandag', title: 'Maandag', view: maandag.render, actions: maandag.actions, mount: maandag.mount, change: maandag.onChange },
   { re: /^pakbonnen$/, nav: 'pakbonnen', title: 'Pakbon en factuur', view: pakbonnen.render, actions: pakbonnen.actions },
   { re: /^pakbon\/(\d+)$/, keys: ['klant'], nav: 'pakbonnen', title: 'Pakbon', view: pakbonnen.renderOne, actions: pakbonnen.actions },
@@ -34,13 +32,13 @@ const ROUTES = [
 ];
 // key, label, icon, short label on phones, the day it belongs to
 const NAV = [
-  ['week', 'Deze week', 'today', 'Week'], ['bestellen', 'Bestellen', 'phone', 'Bestel', 'di'], ['inkoop', 'Inkoop', 'in', 'Inkoop', 'do–vr'],
+  ['inkoop', 'Inkoop', 'in', 'Inkoop'], ['bestellen', 'Bestellen', 'phone', 'Bestel', 'di'],
   ['maandag', 'Maandag', 'shed', 'Maandag', 'ma'], ['pakbonnen', 'Pakbonnen', 'file', 'Pakbon', 'ma'], ['relaties', 'Relaties', 'rel', 'Relaties'], ['jaar', 'Jaar en Excel', 'db', 'Jaar'],
 ];
 const NAV2 = [['koppelingen', 'Koppelingen', 'plug'], ['uitleg', 'Zo werkt het', 'book']];
 
 function parse() {
-  const raw = location.hash.replace(/^#\/?/, '') || 'week';
+  const raw = location.hash.replace(/^#\/?/, '') || 'inkoop';
   const [path, qs] = raw.split('?');
   for (const r of ROUTES) {
     const m = path.match(r.re);
@@ -79,7 +77,7 @@ function loginView(msg = '') {
 // ---------- the frame around every page
 function shell() {
   app.innerHTML = `<header class="top">
-      <a class="wm" href="#/week">${MARK}<b>CAMPO</b><i>Desk</i></a>
+      <a class="wm" href="#/inkoop">${MARK}<b>CAMPO</b><i>Desk</i></a>
       <div class="search"><input type="search" id="q" placeholder="Zoek klant, batchnummer of factuur" autocomplete="off" aria-label="Zoeken">${icon('search')}<div class="sres" id="sres" hidden></div></div>
       <div class="top-r"><span class="clock" id="clock"></span><span class="who">${h(me.naam)}</span><button class="btn btn-sm btn-line" data-act="logout">${icon('logout')}<span class="sr">Uitloggen</span></button></div>
     </header>
