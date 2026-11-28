@@ -370,7 +370,6 @@ export async function render(params, query) {
     const att = [...order('bad'), ...order('wait')], ok = order('ok'), done = order('done');
     return `<div class="page wk flowpage">${head}
       ${ks.length ? `<section class="flow-sec" aria-label="Van de loods naar de klant">
-        <div class="lane-cols kcols" aria-hidden="true"><span>Leverancier en batch</span><span></span><span>Loods</span><span>Maandag</span><span>Klant</span></div>
         ${att.length ? `<h2 class="grp">Let op</h2><div class="lanes">${att.map(k => customerLaneHtml(k, d)).join('')}</div>` : ''}
         ${ok.length ? `<h2 class="grp">${att.length ? 'Op schema' : 'Alles op schema'}</h2><div class="lanes">${ok.map(k => customerLaneHtml(k, d)).join('')}</div>` : ''}
         ${done.length ? `<h2 class="grp">Pakbon akkoord</h2><div class="lanes">${done.map(k => customerLaneHtml(k, d)).join('')}</div>` : ''}
@@ -380,7 +379,6 @@ export async function render(params, query) {
   const att = ps.filter(p => ['rood', 'oranje'].includes(p.risico?.licht)).sort((a, b) => (a.risico.licht === 'rood' ? 0 : 1) - (b.risico.licht === 'rood' ? 0 : 1)), ok = ps.filter(p => !['rood', 'oranje', 'binnen'].includes(p.risico?.licht)), inn = ps.filter(p => p.risico?.licht === 'binnen');
   return `<div class="page wk flowpage">${head}
     ${ps.length ? `<section class="flow-sec" aria-label="Van de leverancier naar de loods">
-      <div class="lane-cols" aria-hidden="true"><span>Leverancier</span><span>Naar Nootdorp</span><span>Loods</span><span></span><span>Naar de klant</span></div>
       ${att.length ? `<h2 class="grp">Let op</h2><div class="lanes">${att.map(p => laneHtml(p, d)).join('')}</div>` : ''}
       ${ok.length ? `<h2 class="grp">${att.length ? 'Op schema' : 'Alles loopt op schema'}</h2><div class="lanes">${ok.map(p => laneHtml(p, d)).join('')}</div>` : ''}
       ${inn.length ? `<h2 class="grp">Binnen</h2><div class="lanes">${inn.map(p => laneHtml(p, d)).join('')}</div>` : ''}
