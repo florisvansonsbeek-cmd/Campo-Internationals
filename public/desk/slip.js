@@ -44,7 +44,7 @@ export function slipNext(x) {
   if (!ok) {
     return `<button type="button" class="btn btn-leaf" data-act="slip-approve" data-k="${k}" data-m="${m}"${x.status === 'klaar' ? '' : ' disabled'}>${icon('check')}Akkoord</button>
       <p class="small faint">${x.status === 'wacht' && x.reden ? `${h(x.reden)} ` : ''}Bij akkoord krijgt hij een factuurnummer en staat de mail met de pdf klaar${x.email ? ` voor ${h(x.email)}` : ''}.</p>
-      <p><a class="lnk small" href="#/maandag?maandag=${m}&deel=check">Verdeling aanpassen</a></p>`;
+      <p><a class="lnk small" href="#/maandag?maandag=${m}&deel=verdelen">Verdeling aanpassen</a></p>`;
   }
   const outlook = x.outlook && x.outlook.doel;
   return `<p class="st-chips">${slipStatus({ status: 'akkoord', pakbon: s, concept: c, gewijzigd: x.gewijzigd })}</p>

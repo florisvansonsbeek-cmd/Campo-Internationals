@@ -312,7 +312,7 @@ function customerMore(k, d) {
     </div>
     <p class="om-f"><a class="btn btn-sm btn-line" href="#/klant/${k.id}">${icon('customer')}Alles over ${h(k.naam)}</a>
       <a class="btn btn-sm btn-ghost" href="#/pakbon/${k.id}?maandag=${d.maandag}">Bij Pakbonnen</a>
-      <a class="btn btn-sm btn-ghost" href="#/maandag?maandag=${d.maandag}&deel=check">Verdeling aanpassen</a></p>`;
+      <a class="btn btn-sm btn-ghost" href="#/maandag?maandag=${d.maandag}&deel=verdelen">Verdeling aanpassen</a></p>`;
 }
 
 // ---------------------------------------------------------------- per batch: every region its own number this week
@@ -372,7 +372,7 @@ function freeBar(d) {
   const w = d.stroom, v = w.vrij || [];
   const n = v.reduce((t, x) => t + x.dozen, 0);
   if (!w.in) return '';
-  if (w.teVeel > 0) return `<div class="vrij t-bad">${icon('warn')}<b>${fNum(w.teVeel)} ${w.teVeel === 1 ? 'doos' : 'dozen'} meer verdeeld dan er is</b><span class="vrij-w">pas het aan bij Maandag</span><a class="btn btn-sm btn-line" href="#/maandag?maandag=${d.maandag}&deel=check">Naar controleren</a></div>`;
+  if (w.teVeel > 0) return `<div class="vrij t-bad">${icon('warn')}<b>${fNum(w.teVeel)} ${w.teVeel === 1 ? 'doos' : 'dozen'} meer verdeeld dan er is</b><span class="vrij-w">pas het aan bij Maandag</span><a class="btn btn-sm btn-line" href="#/maandag?maandag=${d.maandag}&deel=verdelen">Naar verdelen</a></div>`;
   if (!n) return `<div class="vrij t-ok">${icon('check')}<b>Alles heeft een bestemming</b><span class="vrij-w">${fNum(w.in)} dozen naar ${fNum(w.klanten.length)} ${w.klanten.length === 1 ? 'klant' : 'klanten'}</span></div>`;
   const binnen = v.reduce((t, x) => t + x.binnen, 0), weg = n - binnen;
   return `<div class="vrij t-wait">${icon('stock')}<b>${fNum(n)} ${n === 1 ? 'doos' : 'dozen'} zonder bestemming</b>

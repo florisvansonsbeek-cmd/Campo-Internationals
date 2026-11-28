@@ -221,14 +221,11 @@ p,dl,dd{margin:0}
 .season-txt{display:flex;justify-content:space-between;gap:8px;margin-top:6px;font-size:12.5px;color:var(--ink-3)}
 .season-txt span:first-child{font-weight:600;color:var(--ink-2)}
 
-/* how an order travels */
-.flow,.docs{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 24px}
-.flow li,.docs li{position:relative;padding-top:38px}
-.flow li::before{content:"";position:absolute;top:13px;left:0;right:-24px;height:2px;background:var(--sage-2)}
-.flow li:last-child::before{right:0}
-.flow-n{position:absolute;top:0;left:0;width:28px;height:28px;border-radius:50%;background:var(--forest);color:#fff;font:700 13px/28px var(--font-ui);text-align:center;font-variant-numeric:lining-nums!important}
-.flow h3,.docs h2{font:600 26px/1.1 var(--font-display);color:var(--forest)}
-.flow p,.docs p{color:var(--ink-2);margin-top:6px;line-height:1.55;font-size:15.5px;max-width:20rem}
+/* the documents list on the growers' page */
+.docs{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 24px}
+.docs li{position:relative;padding-top:38px}
+.docs h2{font:600 26px/1.1 var(--font-display);color:var(--forest)}
+.docs p{color:var(--ink-2);margin-top:6px;line-height:1.55;font-size:15.5px;max-width:20rem}
 
 /* growers and customers */
 .doors{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
@@ -291,8 +288,6 @@ p,dl,dd{margin:0}
   .hero-copy{padding-bottom:16px}
   .plate.arch{width:min(86%,380px);justify-self:center}
   .plate.drawn{width:min(100%,360px);justify-self:center;margin-bottom:24px}
-  .flow{grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 24px}
-  .flow li::before{right:0}
   .doors{grid-template-columns:minmax(0,1fr)}
 }
 @media (max-width:760px){
@@ -321,7 +316,6 @@ p,dl,dd{margin:0}
   .pcard h3{font-size:clamp(17px,5vw,20px)}
   .p-latin{font-size:15px}
   .p-latin.p-common{font-size:13.5px}
-  .flow{grid-template-columns:minmax(0,1fr)}
   .door{padding:24px 24px 150px}
   .door-art{width:118px}
 }
@@ -1409,13 +1403,6 @@ const TX = {
   allYearAria: { en: 'Available all year', nl: 'Het hele jaar verkrijgbaar', de: 'Ganzjährig erhältlich', fr: 'Disponible toute l’année', es: 'Disponible todo el año', it: 'Disponibile tutto l’anno', pl: 'Dostępne przez cały rok' },
   mothOrchid: { en: 'Moth orchid', nl: 'Vlinderorchidee', de: 'Schmetterlingsorchidee', fr: 'Orchidée papillon', es: 'Orquídea mariposa', it: 'Orchidea farfalla', pl: 'Storczyk ćmówka' },
 
-  flowK: { en: 'How an order travels', nl: 'Zo reist een bestelling', de: 'So reist eine Bestellung', fr: 'Le parcours d’une commande', es: 'El recorrido de un pedido', it: 'Il percorso di un ordine', pl: 'Droga zamówienia' },
-  flowH: { en: "Your order, step by step.", nl: "Uw bestelling, stap voor stap.", de: "Ihre Bestellung, Schritt für Schritt.", fr: "Votre commande, étape par étape.", es: "Su pedido, paso a paso.", it: "Il vostro ordine, passo dopo passo.", pl: "Zamówienie krok po kroku." },
-  flowP: { en: "From the grower to your door in four steps.", nl: "In vier stappen van de kweker naar uw deur.", de: "In vier Schritten vom Erzeuger zu Ihnen.", fr: "Du producteur à votre porte en quatre étapes.", es: "Del productor a su puerta en cuatro pasos.", it: "Dal produttore alla vostra porta in quattro fasi.", pl: "Od producenta pod Państwa drzwi w czterech krokach." },
-  flow1: { en: 'We have your order and have placed it with the grower.', nl: 'Wij hebben uw bestelling ontvangen en bij de kweker geplaatst.', de: 'Wir haben Ihre Bestellung erhalten und beim Erzeuger aufgegeben.', fr: 'Nous avons reçu votre commande et l’avons passée au producteur.', es: 'Hemos recibido su pedido y lo hemos encargado al productor.', it: 'Abbiamo ricevuto il vostro ordine e lo abbiamo passato al produttore.', pl: 'Otrzymaliśmy Państwa zamówienie i złożyliśmy je u producenta.' },
-  flow2: { en: 'Your plants are picked and packed, at the grower or in Nootdorp.', nl: 'Uw planten worden verzameld en verpakt, bij de kweker of in Nootdorp.', de: 'Ihre Pflanzen werden kommissioniert und verpackt, beim Erzeuger oder in Nootdorp.', fr: 'Vos plantes sont préparées et emballées, chez le producteur ou à Nootdorp.', es: 'Sus plantas se preparan y embalan, en el productor o en Nootdorp.', it: 'Le vostre piante vengono preparate e imballate, dal produttore o a Nootdorp.', pl: 'Państwa rośliny są kompletowane i pakowane u producenta lub w Nootdorp.' },
-  flow3: { en: 'Your order is loaded and on its way to the delivery address.', nl: 'Uw bestelling is geladen en onderweg naar het afleveradres.', de: 'Ihre Bestellung ist verladen und unterwegs zur Lieferadresse.', fr: 'Votre commande est chargée et en route vers l’adresse de livraison.', es: 'Su pedido está cargado y en camino a la dirección de entrega.', it: 'Il vostro ordine è caricato e in viaggio verso l’indirizzo di consegna.', pl: 'Zamówienie jest załadowane i w drodze pod adres dostawy.' },
-  flow4: { en: 'Delivered to your door. Any questions afterwards? We are happy to help.', nl: 'Afgeleverd bij u aan de deur. Nog vragen? Wij helpen u graag.', de: 'An Ihre Tür geliefert. Noch Fragen? Wir helfen gern.', fr: 'Livrée à votre porte. Une question ? Nous sommes là pour vous aider.', es: 'Entregado en su puerta. ¿Alguna pregunta? Estaremos encantados de ayudarle.', it: 'Consegnato alla vostra porta. Domande? Siamo felici di aiutarvi.', pl: 'Dostarczone pod Państwa drzwi. Pytania? Chętnie pomożemy.' },
 
   growK: { en: 'For growers', nl: 'Voor kwekers', de: 'Für Erzeuger', fr: 'Pour les producteurs', es: 'Para productores', it: 'Per i produttori', pl: 'Dla producentów' },
   growH: { en: 'Invoices, packing lists and confirmations', nl: 'Facturen, pakbonnen en bevestigingen', de: 'Rechnungen, Lieferscheine und Bestätigungen', fr: 'Factures, bons de livraison et confirmations', es: 'Facturas, albaranes y confirmaciones', it: 'Fatture, documenti di trasporto e conferme', pl: 'Faktury, dokumenty dostawy i potwierdzenia' },
@@ -1696,18 +1683,7 @@ function viewHome() {
     </div>
   </section>
 
-  <section class="sec sec-sage" aria-labelledby="flow-h">
-    <div class="wrap">
-      <div class="s-head">
-        <p class="kicker">${t('flowK')}</p>
-        <h2 id="flow-h">${t('flowH')}</h2>
-        <p>${t('flowP')}</p>
-      </div>
-      <ol class="flow">${stepsPub().map((s, i) => `<li><span class="flow-n">${i + 1}</span><h3>${s}</h3><p>${t('flow' + (i + 1))}</p></li>`).join('')}</ol>
-    </div>
-  </section>
-
-  <section class="sec" aria-label="${t('growK')}, ${t('custK')}">
+  <section class="sec sec-sage" aria-label="${t('growK')}, ${t('custK')}">
     <div class="wrap doors">
       <article class="door">
         <div class="door-art">${BOT.plant('cala', 'door-plant')}</div>

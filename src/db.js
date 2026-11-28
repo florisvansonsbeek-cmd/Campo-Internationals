@@ -57,6 +57,7 @@ const MIGRATIONS = [
   { v: 5, file: 'schema-5-batch.sql' },
   { v: 6, file: 'schema-6-nagekeken.sql' },
   { v: 7, file: 'schema-7-controle.sql' },
+  { v: 8, file: 'schema-8-verdeling.sql' },
 ];
 
 export async function migrate() {

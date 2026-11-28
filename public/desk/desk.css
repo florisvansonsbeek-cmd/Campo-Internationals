@@ -435,6 +435,8 @@ th.sort[aria-sort=ascending]::after{content:" ↑"}
 .dlg footer{display:flex;justify-content:flex-end;gap:8px;padding:14px 20px 18px}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:60;background:var(--forest);color:var(--on-ink);padding:10px 16px;border-radius:4px;box-shadow:var(--shadow);font-weight:600;max-width:92vw}
 @media (max-width:1000px){.toast{bottom:84px}}
+.toast-act{margin-left:10px;padding:3px 10px;border:1px solid rgba(255,255,255,.55);border-radius:4px;background:transparent;color:#fff;font:inherit;font-weight:700;cursor:pointer}
+.toast-act:hover{background:rgba(255,255,255,.12)}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px}
 @keyframes sp{to{transform:rotate(360deg)}}
 .loading{padding:40px 0;color:var(--ink-2)}

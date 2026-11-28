@@ -82,6 +82,9 @@ const P = {
   back: '<path d="M15 5l-7 7 7 7"/>',
   logout: '<path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4M6 12h10"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  minus: '<path d="M5 12h14"/>',
+  move: '<path d="M4 12h15"/><path d="M14 7l5 5-5 5"/>',
+  grip: '<circle cx="9" cy="6" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1.4" fill="currentColor" stroke="none"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
   db: '<ellipse cx="12" cy="6" rx="7" ry="2.8"/><path d="M5 6v12c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8V6"/><path d="M5 12c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8"/>',
   basket: '<path d="M3.5 9.5h17l-1.8 9.2a1.5 1.5 0 0 1-1.5 1.3H6.8a1.5 1.5 0 0 1-1.5-1.3z"/><path d="M8 9.5l3-5M16 9.5l-3-5"/><path d="M9.5 13v3.5M14.5 13v3.5"/>',
@@ -122,10 +125,17 @@ export const kanaalNaam = k => ({ whatsapp: 'WhatsApp', mail: 'Mail', upload: 'U
 
 // ---------- toast and dialog
 let toastT = null;
-export function toast(msg) {
+export function toast(msg, act = null) {
   const el = document.getElementById('toast');
-  el.textContent = msg; el.hidden = false;
-  clearTimeout(toastT); toastT = setTimeout(() => { el.hidden = true; }, 4200);
+  el.textContent = msg;
+  if (act) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'toast-act'; b.textContent = act.label;
+    b.addEventListener('click', () => { el.hidden = true; act.run(); }, { once: true });
+    el.append(' ', b);
+  }
+  el.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => { el.hidden = true; }, act ? 8000 : 4200);
 }
 export function dialog({ title, body, ok = 'Opslaan', cancel = 'Annuleren', danger = false, onOk }) {
   const d = document.getElementById('dlg');

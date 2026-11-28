@@ -163,8 +163,10 @@ export async function syncProposal(maandag) {
   const d = await weekData(maandag);
   if (!d.regels.length) return 0;
   const locked = new Set(d.slips.filter(s => s.pakbon && s.pakbon.status === 'akkoord').map(s => s.klant_id));
+  const vast = new Set((await rows('SELECT product_id FROM verdeling_vast WHERE maandag = $1', [maandag])).map(x => x.product_id));
   const desired = [];
   for (const [pid, lines] of groupBy(d.regels, r => r.product_id)) {
+    if (vast.has(pid)) continue;      // Jan hands this one out himself
     const fixed = lines.flatMap(r => r.verdeling.filter(v => v.door !== 'desk' || locked.has(v.klant_id)).map(v => ({ ...v, regel_id: r.id })));
     const fixedK = new Set(fixed.map(v => v.klant_id));
     const caps = lines.map(r => ({ id: r.id, cap: Math.max(0, r.avail - sum(fixed.filter(v => v.regel_id === r.id), v => v.dozen)) }));
@@ -173,7 +175,7 @@ export async function syncProposal(maandag) {
   }
   const lockedRows = new Set(d.regels.flatMap(r => r.verdeling.filter(v => v.door !== 'desk' || locked.has(v.klant_id)).map(v => `${r.id}:${v.klant_id}`)));
   const want = new Map(desired.filter(x => !lockedRows.has(`${x.regel_id}:${x.klant_id}`)).map(x => [`${x.regel_id}:${x.klant_id}`, x]));
-  const have = new Map(d.regels.flatMap(r => r.verdeling.filter(v => v.door === 'desk' && !locked.has(v.klant_id)).map(v => [`${r.id}:${v.klant_id}`, { regel_id: r.id, klant_id: v.klant_id, dozen: v.dozen }])));
+  const have = new Map(d.regels.filter(r => !vast.has(r.product_id)).flatMap(r => r.verdeling.filter(v => v.door === 'desk' && !locked.has(v.klant_id)).map(v => [`${r.id}:${v.klant_id}`, { regel_id: r.id, klant_id: v.klant_id, dozen: v.dozen }])));
   const del = [...have.keys()].filter(k => !want.has(k));
   const put = [...want.values()].filter(x => !have.has(`${x.regel_id}:${x.klant_id}`) || have.get(`${x.regel_id}:${x.klant_id}`).dozen !== x.dozen);
   if (!del.length && !put.length) return 0;
@@ -212,12 +214,84 @@ export async function setAllocation({ regel_id, klant_id, dozen }, wie) {
 
 // back to the desk's proposal for one customer and product (or the whole week)
 export async function resetAllocation(maandag, { klant_id = null, product_id = null } = {}, wie) {
+  // the products this concerns are the desk's again; other customers keep what Jan gave them
+  if (klant_id == null && product_id == null) await q('DELETE FROM verdeling_vast WHERE maandag = $1', [maandag]);
+  else if (product_id != null) await q('DELETE FROM verdeling_vast WHERE maandag = $1 AND product_id = $2', [maandag, product_id]);
+  else {
+    await q(`DELETE FROM verdeling_vast f WHERE f.maandag = $1 AND (
+        EXISTS (SELECT 1 FROM weekorders o WHERE o.maandag = $1 AND o.klant_id = $2 AND o.product_id = f.product_id)
+        OR EXISTS (SELECT 1 FROM verdeling v JOIN partij_regels r ON r.id = v.regel_id JOIN partijen p ON p.id = r.partij_id
+                   WHERE p.maandag = $1 AND v.klant_id = $2 AND r.product_id = f.product_id))`, [maandag, klant_id]);
+  }
   await q(`DELETE FROM verdeling v USING partij_regels r, partijen p
      WHERE v.regel_id = r.id AND p.id = r.partij_id AND p.maandag = $1 AND v.door = 'jan'
        AND ($2::int IS NULL OR v.klant_id = $2) AND ($3::int IS NULL OR r.product_id = $3)
        AND NOT EXISTS (SELECT 1 FROM pakbonnen s WHERE s.maandag = $1 AND s.klant_id = v.klant_id AND s.status = 'akkoord')`, [maandag, klant_id, product_id]);
   await log(wie, 'Verdeling terug naar het voorstel', 'week', null, { maandag, klant_id, product_id });
   await syncProposal(maandag);
+}
+
+// From Jan's first change to a product in a week, its hand-out is his: every row of it becomes his, and the desk no
+// longer gives its boxes to anyone. So a box lands exactly where he drags it.
+async function takeOver(c, maandag, product_id, wie) {
+  await ensureWeek(maandag, c);
+  await c.query(`INSERT INTO verdeling_vast (maandag, product_id, door) VALUES ($1, $2, $3) ON CONFLICT (maandag, product_id) DO NOTHING`, [maandag, product_id, wie]);
+  await c.query(`UPDATE verdeling v SET door = 'jan' FROM partij_regels r JOIN partijen p ON p.id = r.partij_id
+    WHERE v.regel_id = r.id AND r.product_id = $2 AND p.maandag = $1 AND v.door = 'desk'`, [maandag, product_id]);
+}
+const putShare = (c, regel_id, klant_id, dozen) => (dozen > 0
+  ? c.query(`INSERT INTO verdeling (regel_id, klant_id, dozen, door) VALUES ($1, $2, $3, 'jan') ON CONFLICT (regel_id, klant_id) DO UPDATE SET dozen = EXCLUDED.dozen, door = 'jan'`, [regel_id, klant_id, dozen])
+  : c.query('DELETE FROM verdeling WHERE regel_id = $1 AND klant_id = $2', [regel_id, klant_id]));
+
+async function lineFor(regel_id, klanten) {
+  const r = await one(`SELECT r.id, r.product_id, p.maandag, p.nummer FROM partij_regels r JOIN partijen p ON p.id = r.partij_id WHERE r.id = $1`, [regel_id]);
+  if (!r) throw fail('Deze regel bestaat niet meer.', 404);
+  const ks = klanten.filter(Boolean);
+  const slip = ks.length ? await one(`SELECT s.nummer, k.naam FROM pakbonnen s JOIN klanten k ON k.id = s.klant_id WHERE s.maandag = $1 AND s.klant_id = ANY($2) AND s.status = 'akkoord' LIMIT 1`, [r.maandag, ks]) : null;
+  if (slip) throw fail(`De pakbon ${slip.nummer} van ${slip.naam} is al akkoord. Heropen hem eerst.`);
+  const d = await weekData(r.maandag);
+  const line = d.regels.find(x => x.id === r.id);
+  return { r, line, have: k => line.verdeling.find(v => v.klant_id === k)?.dozen || 0, K: d.K };
+}
+
+// Jan drags boxes of one shipment line from a customer (or the loods) to another customer (or the loods).
+// Without a number it moves all of them: all the customer has, or all that is free in the loods.
+export async function moveBoxes({ regel_id, van = null, naar = null, dozen = null }, wie) {
+  if (van && naar && van === naar) return { verplaatst: 0 };
+  if (!van && !naar) throw fail('Waar moeten de dozen heen?');
+  const { r, line, have } = await lineFor(regel_id, [van, naar]);
+  const free = Math.max(0, line.rest);
+  let n = dozen == null || dozen === '' ? null : Math.max(0, Math.round(Number(dozen)));
+  n = van ? Math.min(n ?? have(van), have(van)) : Math.min(n ?? free, free);
+  if (!n) throw fail(van ? 'Er zijn hier geen dozen om te verplaatsen.' : 'Er zijn geen vrije dozen van deze regel in de loods.');
+  const c = await pool.connect();
+  try {
+    await c.query('BEGIN');
+    await takeOver(c, r.maandag, r.product_id, wie);
+    if (van) await putShare(c, r.id, van, have(van) - n);
+    if (naar) await putShare(c, r.id, naar, have(naar) + n);
+    await c.query('COMMIT');
+  } catch (e) { await c.query('ROLLBACK').catch(() => {}); throw e; } finally { c.release(); }
+  await log(wie, 'Dozen verplaatst', 'partij_regel', r.id, { van: van || 'loods', naar: naar || 'loods', dozen: n, partij: r.nummer });
+  await syncProposal(r.maandag);
+  return { verplaatst: n, maandag: r.maandag };
+}
+
+// Jan sets the number of boxes one customer gets from one shipment line (− and + on the line, or typed)
+export async function setShare({ regel_id, klant_id, dozen }, wie) {
+  const n = Math.round(Number(dozen));
+  if (!Number.isInteger(n) || n < 0 || n > 9999) throw fail('Een heel aantal dozen.');
+  const { r } = await lineFor(regel_id, [klant_id]);
+  const c = await pool.connect();
+  try {
+    await c.query('BEGIN');
+    await takeOver(c, r.maandag, r.product_id, wie);
+    await putShare(c, r.id, klant_id, n);
+    await c.query('COMMIT');
+  } catch (e) { await c.query('ROLLBACK').catch(() => {}); throw e; } finally { c.release(); }
+  await log(wie, 'Verdeling aangepast', 'partij_regel', r.id, { klant_id, dozen: n, partij: r.nummer });
+  await syncProposal(r.maandag);
+  return { maandag: r.maandag };
 }
 
 // ---------------------------------------------------------------- Monday: the rate and the count

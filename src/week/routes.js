@@ -6,7 +6,8 @@ import { pool, rows, one, q, log, setting, setSetting } from '../db.js';
 import { addDays, focusMonday, isMonday, isoWeek, mondayOf, today, passed, r2, sum, isDay, groupBy } from './util.js';
 import {
   weekData, syncProposal, setAllocation, resetAllocation, setRate, countBoxes, uncount, approveSlips, reopenSlip, markSlipsExact, markPartijExact,
-  orderBook, addOrder, copyPrevious, placeOrders, updateLine, setStage, updatePartij, overview, badges, company, DEFAULT_COMPANY, weekTasks, deviations, proposeBatchNumber, markArrived, excludeCustomer, markChecked } from './model.js';
+  orderBook, addOrder, copyPrevious, placeOrders, updateLine, setStage, updatePartij, overview, badges, company, DEFAULT_COMPANY, weekTasks, deviations, proposeBatchNumber, markArrived, excludeCustomer, markChecked,
+  moveBoxes, setShare } from './model.js';
 import { slipDoc, slipPdfById, slipConcept } from './mail.js';
 import { customerList, customerDetail, yearData } from './stats.js';
 import { yearWorkbook, sheetRows } from './excel.js';
@@ -16,7 +17,7 @@ import { streams, customerStreams } from './flow.js';
 import { relations, customerAnalysis, supplierStat, supplierHistory, deals, onTheWay, leads, forget, plantStats } from './partners.js';
 import { rules } from './rules.js';
 import { archiveTree, archiveZip, documentText, offerText, backupZip, databaseLists, DB_SIZE_SQL, sizeNl } from './archief.js';
-import { exactStatus, exactCan, exactPush, exactCheck, exactImport, exactImportRemove, exactSettings, saveExactSettings, exactDisconnect } from '../exact.js';
+import { exactStatus, exactCan, exactPush, exactCheck, exactImport, exactImportRemove, exactSettings, saveExactSettings, exactDisconnect, exactWeek } from '../exact.js';
 import { slipPdf } from './docs.js';
 
 export const week = express.Router();
@@ -232,7 +233,7 @@ week.get('/maandag', wrap(async (req, res) => {
   for (const r of d.regels) for (const v of r.verdeling) got.set(`${v.klant_id}:${r.product_id}`, (got.get(`${v.klant_id}:${r.product_id}`) || 0) + v.dozen);
   const productsIn = new Set(d.regels.map(r => r.product_id));
   const tekort = d.orders.filter(o => productsIn.has(o.product_id) && (got.get(`${o.klant_id}:${o.product_id}`) || 0) < o.dozen)
-    .map(o => ({ klant_id: o.klant_id, klant: o.klant, product: `${o.product?.naam} ${o.product?.maat}`, gevraagd: o.dozen, krijgt: got.get(`${o.klant_id}:${o.product_id}`) || 0 }));
+    .map(o => ({ klant_id: o.klant_id, klant: o.klant, product_id: o.product_id, product: `${o.product?.naam} ${o.product?.maat}`, gevraagd: o.dozen, krijgt: got.get(`${o.klant_id}:${o.product_id}`) || 0 }));
   const nietIn = d.orders.filter(o => !productsIn.has(o.product_id)).map(o => ({ klant: o.klant, product: `${o.product?.naam} ${o.product?.maat}`, dozen: o.dozen }));
   // who could take what is left: who asked for it this week first, then who buys it most
   const fans = d.regels.some(r => r.rest > 0) ? await rows(`SELECT r.product_id, p.klant_id, k.naam, sum(r.dozen) AS dozen FROM pakbon_regels r JOIN pakbonnen p ON p.id = r.pakbon_id JOIN klanten k ON k.id = p.klant_id
@@ -262,8 +263,15 @@ week.get('/maandag', wrap(async (req, res) => {
       regels: p.regels.map(r => ({ id: r.id, product_id: r.product_id, product: r.product, maat: r.maat, soort: r.soort, per_doos: r.per_doos, besteld: r.besteld, bevestigd: r.bevestigd, verzonden: r.verzonden, geteld: r.geteld, uitval: r.uitval,
         dozen: r.dozen, basis: r.basis, avail: r.avail, gegeven: r.gegeven, rest: r.rest, verdeling: r.verdeling.filter(v => v.dozen > 0 || v.door !== 'desk') })) })),
     tekort, nietIn, over, klanten: [...perKlant.values()].sort((a, b) => a.klant.localeCompare(b.klant, 'nl')),
+    vast: (await rows('SELECT product_id FROM verdeling_vast WHERE maandag = $1', [m])).map(x => x.product_id),
+    alleKlanten: await rows(`SELECT id, naam, plaats, land FROM klanten ORDER BY naam`),
     taken: weekTasks(d).filter(t => t.stap === 'maandag'),
   });
+}));
+// the week as it is (or will be) in Exact: the entries line by line, and what Exact gave back
+week.get('/maandag/exact', wrap(async (req, res) => {
+  const m = await pickMonday(req, workMonday);
+  res.json(await exactWeek(m));
 }));
 week.post('/weken/:maandag/koers', wrap(async (req, res) => {
   if (!isMonday(req.params.maandag)) return bad(res, 'Geen maandag.');
@@ -306,6 +314,19 @@ week.put('/verdeling', wrap(async (req, res) => {
   const r = int(req.body?.regel_id), k = int(req.body?.klant_id), dz = int(req.body?.dozen);
   if (!r || !k || dz == null || dz < 0 || dz > 9999) return bad(res, 'Een heel aantal dozen.');
   await setAllocation({ regel_id: r, klant_id: k, dozen: dz }, who(req));
+  res.json({ ok: true });
+}));
+week.post('/verdeling/verplaats', wrap(async (req, res) => {
+  const b = req.body || {};
+  const r = int(b.regel_id), van = int(b.van) || null, naar = int(b.naar) || null;
+  if (!r) return bad(res, 'Welke regel?');
+  const out = await moveBoxes({ regel_id: r, van, naar, dozen: b.dozen == null || b.dozen === '' ? null : int(b.dozen) }, who(req));
+  res.json({ ok: true, ...out });
+}));
+week.put('/verdeling/aantal', wrap(async (req, res) => {
+  const r = int(req.body?.regel_id), k = int(req.body?.klant_id), dz = int(req.body?.dozen);
+  if (!r || !k || dz == null || dz < 0 || dz > 9999) return bad(res, 'Een heel aantal dozen.');
+  await setShare({ regel_id: r, klant_id: k, dozen: dz }, who(req));
   res.json({ ok: true });
 }));
 week.post('/weken/:maandag/voorstel', wrap(async (req, res) => {

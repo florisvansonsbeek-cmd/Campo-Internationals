@@ -11,7 +11,7 @@ import ExcelJS from 'exceljs';
 import { pool, one, rows, q, setting, setSetting, log } from './db.js';
 import { seal, unseal } from './outlook.js';
 import { slipDoc } from './week/mail.js';
-import { r2, sum, isoWeek, today } from './week/util.js';
+import { r2, sum, isoWeek, today, vatFor } from './week/util.js';
 
 const BASE = () => String(process.env.EXACT_BASE || 'https://start.exactonline.nl').replace(/\/+$/, '');
 const configured = () => !!(process.env.EXACT_CLIENT_ID && process.env.EXACT_CLIENT_SECRET);
@@ -540,7 +540,7 @@ export async function exactCheck({ jaar = Number(today().slice(0, 4)), lezen = f
         if (st === 'ok' && x.exact !== 'in_exact') notes.push('Staat al in Exact; in de desk nog niet aangevinkt');
       }
       res.samen[st]++;
-      res[soort].push({ ...x, status: st, verschillen: notes, exact_boeking: hits[0] ? { entry_nummer: hits[0].entry_nummer, datum: hits[0].datum, bedrag: hits[0].bedrag, relatie_code: hits[0].relatie_code } : null });
+      res[soort].push({ ...x, status: st, verschillen: notes, exact_boeking: hits[0] ? { entry_nummer: hits[0].entry_nummer, datum: hits[0].datum, bedrag: hits[0].bedrag, btw: hits[0].btw, relatie_code: hits[0].relatie_code, regels: hits[0].regels || [] } : null });
     }
   }
   for (const b of ex) {
@@ -549,4 +549,33 @@ export async function exactCheck({ jaar = Number(today().slice(0, 4)), lezen = f
     res.samen.onbekend++;
   }
   return res;
+}
+
+// ---------------------------------------------------------------- Maandag → Exact: the week as Exact holds it
+// The week's invoices and purchase orders as the entries the desk sends (journal, debtor or creditor, every line with
+// its general ledger account, VAT code and the batch as cost unit), with what Exact gave back next to it.
+export async function exactWeek(maandag) {
+  const jaar = Number(String(maandag).slice(0, 4));
+  const [chk, st, can] = await Promise.all([exactCheck({ jaar }), exactSettings(), exactCan()]);
+  const sales = chk.verkoop.filter(x => x.maandag === maandag), buys = chk.inkoop.filter(x => x.maandag === maandag);
+  const sl = sales.length ? await rows(`SELECT r.pakbon_id, r.regelnr, r.partij, r.dozen, r.stuks, r.prijs_eur, r.bedrag, d.naam, d.maat, s.btw_pct, k.land
+      FROM pakbon_regels r JOIN producten d ON d.id = r.product_id JOIN pakbonnen s ON s.id = r.pakbon_id JOIN klanten k ON k.id = s.klant_id
+      WHERE r.pakbon_id = ANY($1) ORDER BY r.pakbon_id, r.regelnr`, [sales.map(x => x.id)]) : [];
+  const pl = buys.length ? await purchaseLines(buys.map(x => x.id)) : [];
+  const GL = { nl: st.gb_omzet_nl, verlegd: st.gb_omzet_eu, export: st.gb_omzet_export }, VAT = { nl: st.btw_nl, verlegd: st.btw_eu, export: st.btw_export };
+  const exactOf = x => (x.exact_boeking ? { nummer: x.exact_boeking.entry_nummer, datum: ymd(x.exact_boeking.datum), bedrag: x.exact_boeking.bedrag, btw: x.exact_boeking.btw, relatie_code: x.exact_boeking.relatie_code,
+    regels: (x.exact_boeking.regels || []).map(r => ({ kostendrager: r.kostendrager || null, bedrag: r2(Number(r.bedrag || 0)), omschrijving: r.omschrijving || null })) } : null);
+  const facturen = sales.map(x => {
+    const ls = sl.filter(l => l.pakbon_id === x.id);
+    const pct = Number(ls[0]?.btw_pct ?? 0), soort = pct > 0 ? 'nl' : vatFor(ls[0]?.land).soort === 'nl' ? 'export' : vatFor(ls[0]?.land).soort;
+    return { id: x.id, nummer: x.ref, klant: x.relatie, klant_id: x.klant_id, debiteur: x.relatie_code, datum: x.datum, valuta: 'EUR', bedrag: x.bedrag, btw: x.btw, totaal: r2(x.bedrag + x.btw), btw_pct: pct,
+      status: x.status, verschillen: x.verschillen, exact: exactOf(x), dagboek: st.dagboek_verkoop, grootboek: GL[soort] || '', btw_code: VAT[soort] || '', btw_soort: soort,
+      regels: ls.map(l => ({ omschrijving: `${l.naam} ${l.maat}`, dozen: l.dozen, stuks: l.stuks, prijs: Number(l.prijs_eur), bedrag: Number(l.bedrag), kostendrager: l.partij })) };
+  });
+  const inkoop = buys.map(x => ({ id: x.id, nummer: x.ref, leverancier: x.relatie, leverancier_id: x.leverancier_id, crediteur: x.relatie_code, datum: x.datum, valuta: 'USD', bedrag: x.bedrag,
+    status: x.status, verschillen: x.verschillen, exact: exactOf(x), dagboek: st.dagboek_inkoop, grootboek: st.gb_inkoop || '', btw_code: st.btw_inkoop || '',
+    regels: pl.filter(l => l.partij_id === x.id).map(l => ({ omschrijving: `${l.naam} ${l.maat}`, stuks: l.stuks, prijs: Number(l.prijs_usd), bedrag: l.bedrag, kostendrager: x.ref })) }));
+  const samen = { ok: 0, verschil: 0, mist: 0, open: 0 };
+  for (const y of [...facturen, ...inkoop]) samen[y.status] = (samen[y.status] || 0) + 1;
+  return { maandag, bron: chk.bron, kan: can, gekoppeld: !!chk.status?.gekoppeld, demo: chk.bron === 'demo', gelezen: chk.gelezen || null, facturen, inkoop, samen };
 }
