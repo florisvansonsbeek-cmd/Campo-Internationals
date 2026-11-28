@@ -1,4 +1,4 @@
-// Klanten: the sixty customers Jan calls with, what they took this year, and one page per customer with
+// Klanten: the customers Jan calls with, what they took this year, and one page per customer with
 // a quick order for the coming week, the products they take, the prices agreed in dollars and every packing slip.
 import { api, h, icon, fNum, fEur, toast, dialog, field, LANG } from '../core.js';
 import { spark, columns } from '../charts.js';

@@ -70,7 +70,7 @@ Lokaal is het desk-wachtwoord `campo`.
 
 ## Demo-data
 
-Bij een lege database (of een database met alleen oude demo-data) maakt de desk een verzonnen wereld: drie leveranciers in Costa Rica en Guatemala, hockeysticks, stammen en stekken, zestig klanten en ruim een jaar afgeronde weken. De huidige week staat waar Jans week staat: besteld, bevestigd, verzendpapieren binnen, maandag nog te doen. Elke vrijdag schuift de demo een week op (alleen zolang alles demo is). Weghalen: Desk → Koppelingen → Demo-data verwijderen.
+Bij een lege database (of een database met alleen oude demo-data) maakt de desk een verzonnen wereld: drie leveranciers in Costa Rica en Guatemala, hockeysticks, stammen en stekken, negen klanten (zo'n zes per week) en ruim een jaar afgeronde weken. De huidige week staat waar Jans week staat: besteld, bevestigd, verzendpapieren binnen, maandag nog te doen. Elke vrijdag schuift de demo een week op (alleen zolang alles demo is). Weghalen: Desk → Koppelingen → Demo-data verwijderen.
 
 ## Mappen
 

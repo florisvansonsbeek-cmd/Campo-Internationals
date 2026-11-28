@@ -1,5 +1,5 @@
 // Demo world for the weekly import rhythm. Every company, person, number and address here is made up.
-// Two suppliers in Costa Rica and one in Guatemala, hockeysticks, canes and cuttings, sixty customers,
+// Two suppliers in Costa Rica and one in Guatemala, all three every week, hockeysticks, canes and cuttings, nine customers,
 // and fourteen months of finished weeks. The current week stands where Jan's week stands: ordered on Tuesday,
 // confirmed on Thursday, shipping papers in on Friday, and Monday still to do. The papers "arrive" at their own time,
 // so on Friday afternoon they come in one by one.
@@ -9,7 +9,7 @@ import { addDays, isoDow, isoWeek, today, r2, r4, vatFor, batchNumber } from './
 import { allocate } from './model.js';
 import { supplierPdf } from './docs.js';
 
-export const WEEK_DEMO_VERSION = 7;
+export const WEEK_DEMO_VERSION = 8;
 const WEEKS = 60;
 
 function rng(seed) {
@@ -25,7 +25,7 @@ export function demoAnchor(t = today()) {
 
 const REGIOS = [
   { code: 'CR', nummer: 1, naam: 'Costa Rica', land: 'CR', valuta: 'USD', vervoer: 'Vliegtuig: vrijdag uit San José, maandag in Nootdorp' },
-  { code: 'GT', nummer: 2, naam: 'Guatemala', land: 'GT', valuta: 'USD', vervoer: 'Vliegtuig: om de week, vrijdag uit Guatemala-Stad, maandag in Nootdorp' },
+  { code: 'GT', nummer: 2, naam: 'Guatemala', land: 'GT', valuta: 'USD', vervoer: 'Vliegtuig: vrijdag uit Guatemala-Stad via Miami, maandag in Nootdorp' },
 ];
 const LEVERANCIERS = [
   // how often the boxes come later than Monday morning, and how often the papers come late
@@ -49,68 +49,18 @@ const PRODUCTEN = [
   ['CF-020', 'Cordyline kopstek', 'Cordyline fruticosa', '20 cm', 300, 0.14, 0.09, 'volcan-azul', 'Cordyline fruticosa esqueje 20 cm'],
   ['DM-060', 'Marginata stam', 'Dracaena marginata', '60 cm', 100, 0.48, 0.32, 'las-flores', 'Dracaena marginata caña 60 cm'],
 ];
-// name, kind, town, postcode, street, country, language, contact, size (3 big, 2 middle, 1 small)
+// name, kind, town, postcode, street, country, language, contact, size (3 big, 2 middle, 1 small).
+// Nine customers: the five big ones order nearly every week, so about six customers a week.
 const KLANTEN = [
   ['Kwekerij De Hoge Akker', 'kwekerij', 'Bleiswijk', '2665 KX', 'Hoge Bergweg', 'NL', 'nl', 'Peter van Dijk', 3],
   ['Van der Lans Potplanten', 'kwekerij', 'Honselersdijk', '2675 BH', 'Kruisweg', 'NL', 'nl', 'Ruud van der Lans', 3],
-  ['Kwekerij Moerkapelle Groen', 'kwekerij', 'Moerkapelle', '2751 GB', 'Bredeweg', 'NL', 'nl', 'Sandra Bos', 2],
   ['Tropenkas Westland', 'kwekerij', "'s-Gravenzande", '2691 KL', 'Naaldwijkseweg', 'NL', 'nl', 'Martijn de Groot', 3],
-  ['Kwekerij Vreeburg', 'kwekerij', 'Naaldwijk', '2671 DM', 'Opveld', 'NL', 'nl', 'Ellen Vreeburg', 2],
-  ['Plantenbedrijf Kooij & Zn', 'kwekerij', 'Rijsenhout', '1435 EK', 'Aalsmeerderdijk', 'NL', 'nl', 'Henk Kooij', 2],
-  ['Kwekerij Zonnehoek', 'kwekerij', 'Aalsmeer', '1431 GN', 'Uiterweg', 'NL', 'nl', 'Anouk Meijer', 1],
-  ['Van Veen Stekbedrijf', 'kwekerij', 'De Lier', '2678 LB', 'Lierweg', 'NL', 'nl', 'Bas van Veen', 3],
-  ['Kwekerij Het Groene Hart', 'kwekerij', 'Bodegraven', '2411 NV', 'Oud Bodegraafseweg', 'NL', 'nl', 'Marloes Jansen', 1],
-  ['Bakker Tropical Plants', 'kwekerij', 'Pijnacker', '2641 RT', 'Oostlaan', 'NL', 'nl', 'Erik Bakker', 2],
-  ['Kwekerij Duinzicht', 'kwekerij', 'Monster', '2681 TC', 'Molenweg', 'NL', 'nl', 'Jeroen Vis', 1],
-  ['Potplantenkwekerij De Lier', 'kwekerij', 'De Lier', '2678 AC', 'Hoofdstraat', 'NL', 'nl', 'Kim Zwinkels', 2],
-  ['Kwekerij Oostland', 'kwekerij', 'Berkel en Rodenrijs', '2651 RA', 'Oostweg', 'NL', 'nl', 'Frank Hoogendoorn', 2],
-  ['Groen & Co Interieurbeplanting', 'interieur', 'Utrecht', '3542 DB', 'Nijverheidsweg', 'NL', 'nl', 'Lotte Verhoef', 1],
-  ['Kwekerij Laakzicht', 'kwekerij', 'Wateringen', '2291 PA', 'Laakweg', 'NL', 'nl', 'Dennis Kuiper', 2],
   ['Plantenhandel Rijnmond', 'groothandel', 'Rotterdam', '3087 BK', 'Waalhaven Zuidzijde', 'NL', 'nl', 'Mustafa Yilmaz', 3],
-  ['Kwekerij De Zuidpolder', 'kwekerij', 'Hoofddorp', '2131 MN', 'Hoofdweg', 'NL', 'nl', 'Ingrid Visser', 1],
-  ['Van Leeuwen Kamerplanten', 'kwekerij', 'Zevenhuizen', '2761 EH', 'Noordelijke Dwarsweg', 'NL', 'nl', 'Pim van Leeuwen', 2],
-  ['Kwekerij Bloemendaal Stek', 'kwekerij', 'Rijnsburg', '2231 KS', 'Vliet Noordzijde', 'NL', 'nl', 'Esther Bloemendaal', 1],
-  ['Tuincentrum De Wilgenhof', 'tuincentrum', 'Leiden', '2321 AA', 'Haagweg', 'NL', 'nl', 'Wim de Wit', 1],
-  ['Kwekerij Middelbroek', 'kwekerij', 'Kwintsheul', '2295 RE', 'Middelbroekweg', 'NL', 'nl', 'Gerard Valk', 2],
-  ['GroenGoed Interieur', 'interieur', 'Amsterdam', '1014 BA', 'Kabelweg', 'NL', 'nl', 'Nina Hendriks', 1],
-  ['Kwekerij Schipluiden', 'kwekerij', 'Schipluiden', '2636 AK', 'Keenenburgweg', 'NL', 'nl', 'Arjan Batenburg', 1],
-  ['Plantenkwekerij Hoek', 'kwekerij', 'Poeldijk', '2685 PN', 'Monsterseweg', 'NL', 'nl', 'Joost Hoek', 2],
-  ['Kwekerij Vandenberghe', 'kwekerij', 'Destelbergen', '9070', 'Dendermondsesteenweg', 'BE', 'nl', 'Pieter Vandenberghe', 2],
-  ['Pépinières du Condroz', 'kwekerij', 'Ciney', '5590', 'Rue de Dinant', 'BE', 'fr', 'Céline Dubois', 1],
-  ['Groothandel Groenwijk', 'groothandel', 'Antwerpen', '2030', 'Noorderlaan', 'BE', 'nl', 'Koen Peeters', 2],
-  ['Serres de la Lys', 'kwekerij', 'Comines', '7780', 'Chaussée de Warneton', 'BE', 'fr', 'Marc Lefebvre', 1],
-  ['Kwekerij Lochristi Groen', 'kwekerij', 'Lochristi', '9080', 'Antwerpsesteenweg', 'BE', 'nl', 'Sofie De Smet', 2],
-  ['Gärtnerei Hofmann', 'kwekerij', 'Straelen', '47638', 'Venloer Straße', 'DE', 'de', 'Thomas Hofmann', 3],
   ['Pflanzen Becker GmbH', 'groothandel', 'Kevelaer', '47623', 'Industriestraße', 'DE', 'de', 'Sabine Becker', 3],
-  ['Gartenbau Schröder', 'kwekerij', 'Hamburg', '21037', 'Kirchwerder Landweg', 'DE', 'de', 'Jan Schröder', 2],
-  ['Grünwerk Pflanzenhandel', 'groothandel', 'Köln', '50829', 'Mathias-Brüggen-Straße', 'DE', 'de', 'Lukas Wolf', 2],
-  ['Gärtnerei Lindenhof', 'kwekerij', 'Dresden', '01259', 'Pillnitzer Landstraße', 'DE', 'de', 'Katrin Lange', 1],
-  ['Zierpflanzen Krämer', 'kwekerij', 'Geldern', '47608', 'Issumer Straße', 'DE', 'de', 'Markus Krämer', 2],
-  ['Pflanzenhof Neumann', 'tuincentrum', 'Hannover', '30659', 'Podbielskistraße', 'DE', 'de', 'Petra Neumann', 1],
-  ['Gärtnerei am Rhein', 'kwekerij', 'Mainz', '55120', 'Rheinallee', 'DE', 'de', 'Stefan Braun', 1],
-  ['Tropica Pflanzen', 'interieur', 'München', '81829', 'Truderinger Straße', 'DE', 'de', 'Anna Huber', 1],
-  ['Baumschule Wagner', 'kwekerij', 'Pinneberg', '25421', 'Elmshorner Straße', 'DE', 'de', 'Klaus Wagner', 1],
-  ['Gärtnerei Pichler', 'kwekerij', 'Graz', '8041', 'Liebenauer Hauptstraße', 'AT', 'de', 'Maria Pichler', 1],
-  ['Pépinières Moreau', 'kwekerij', 'Angers', '49000', 'Route de Bouchemaine', 'FR', 'fr', 'Julien Moreau', 2],
-  ['Jardins du Midi', 'tuincentrum', 'Hyères', '83400', 'Avenue de la Mer', 'FR', 'fr', 'Sophie Garnier', 1],
-  ['Serres Lefèvre', 'kwekerij', 'Nantes', '44300', 'Route de Carquefou', 'FR', 'fr', 'Antoine Lefèvre', 2],
-  ['Végétal Concept', 'interieur', 'Lyon', '69007', 'Rue de Gerland', 'FR', 'fr', 'Camille Roux', 1],
-  ['Hansen Planteskole', 'kwekerij', 'Odense', '5260', 'Rugårdsvej', 'DK', 'da', 'Mette Hansen', 2],
-  ['Nordgrøn ApS', 'groothandel', 'Aarhus', '8200', 'Randersvej', 'DK', 'da', 'Søren Nielsen', 2],
-  ['Fynsk Potteplanter', 'kwekerij', 'Svendborg', '5700', 'Vestergade', 'DK', 'da', 'Lars Jensen', 1],
-  ['Växthuset Lund', 'kwekerij', 'Lund', '223 70', 'Malmövägen', 'SE', 'sv', 'Erik Lindqvist', 1],
-  ['Grönt & Gott AB', 'groothandel', 'Göteborg', '417 05', 'Hisingsgatan', 'SE', 'sv', 'Karin Svensson', 2],
-  ['Ogrodnictwo Nowak', 'kwekerij', 'Poznań', '60-101', 'ul. Ogrodowa', 'PL', 'pl', 'Tomasz Nowak', 2],
-  ['Szklarnie Kowalski', 'kwekerij', 'Kraków', '30-198', 'ul. Zielona', 'PL', 'pl', 'Anna Kowalska', 1],
-  ['Zielony Dom', 'groothandel', 'Warszawa', '02-495', 'ul. Kwiatowa', 'PL', 'pl', 'Piotr Wiśniewski', 2],
-  ['Vivai Rossi', 'kwekerij', 'Pistoia', '51100', 'Via Fiorentina', 'IT', 'it', 'Marco Rossi', 2],
-  ['Serre Bianchi', 'kwekerij', 'Sanremo', '18038', 'Via Aurelia', 'IT', 'it', 'Giulia Bianchi', 1],
-  ['Viveros Martín', 'kwekerij', 'Valencia', '46013', 'Camino de Moncada', 'ES', 'es', 'Carlos Martín', 1],
-  ['Plantas del Sur', 'groothandel', 'Almería', '04009', 'Carretera de Níjar', 'ES', 'es', 'Lucía Fernández', 1],
-  ['Greenleaf Nurseries Ltd', 'kwekerij', 'Spalding', 'PE11 3AB', 'Pinchbeck Road', 'GB', 'en', 'James Wilson', 2],
-  ['Leaf & Loft Ltd', 'interieur', 'London', 'E3 2NQ', 'Dace Road', 'GB', 'en', 'Olivia Brown', 1],
-  ['Zahradnictví Novák', 'kwekerij', 'Brno', '619 00', 'Vídeňská', 'CZ', 'en', 'Petr Novák', 1],
-  ['Gärtnerei Keller AG', 'kwekerij', 'Zürich', '8046', 'Wehntalerstrasse', 'CH', 'de', 'Daniel Keller', 1],
+  ['Gärtnerei Hofmann', 'kwekerij', 'Straelen', '47638', 'Venloer Straße', 'DE', 'de', 'Thomas Hofmann', 2],
+  ['Kwekerij Lochristi Groen', 'kwekerij', 'Lochristi', '9080', 'Antwerpsesteenweg', 'BE', 'nl', 'Sofie De Smet', 2],
+  ['Groen & Co Interieurbeplanting', 'interieur', 'Utrecht', '3542 DB', 'Nijverheidsweg', 'NL', 'nl', 'Lotte Verhoef', 1],
+  ['Pépinières Moreau', 'kwekerij', 'Angers', '49000', 'Route de Bouchemaine', 'FR', 'fr', 'Julien Moreau', 1],
 ];
 const MAIL = { nl: ['inkoop', 'facturen'], de: ['einkauf', 'rechnung'], fr: ['achats', 'factures'], en: ['purchasing', 'accounts'], da: ['indkob', 'faktura'], sv: ['inkop', 'faktura'], pl: ['zakupy', 'faktury'], it: ['acquisti', 'fatture'], es: ['compras', 'facturas'] };
 const PHONE = { NL: ['+31 6', 8], BE: ['+32 47', 7], DE: ['+49 151', 8], AT: ['+43 664', 7], FR: ['+33 6', 8], DK: ['+45 2', 7], SE: ['+46 70', 7], PL: ['+48 60', 7], IT: ['+39 33', 8], ES: ['+34 6', 8], GB: ['+44 77', 8], CZ: ['+420 60', 7], CH: ['+41 79', 7] };
@@ -142,7 +92,8 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
     const maxId = async t => Number((await c.query(`SELECT coalesce(max(id), 0) AS n FROM ${t}`)).rows[0].n);
     // ---------- regions, suppliers, products
     for (const g of REGIOS) {
-      await c.query(`INSERT INTO regios (code, naam, land, valuta, vervoer, nummer, bron) VALUES ($1,$2,$3,$4,$5,(CASE WHEN EXISTS (SELECT 1 FROM regios WHERE nummer = $6) THEN NULL ELSE $6 END),'demo') ON CONFLICT (code) DO NOTHING`, [g.code, g.naam, g.land, g.valuta, g.vervoer, g.nummer]);
+      await c.query(`INSERT INTO regios (code, naam, land, valuta, vervoer, nummer, bron) VALUES ($1,$2,$3,$4,$5,(CASE WHEN EXISTS (SELECT 1 FROM regios WHERE nummer = $6) THEN NULL ELSE $6 END),'demo')
+        ON CONFLICT (code) DO UPDATE SET vervoer = EXCLUDED.vervoer WHERE regios.bron = 'demo'`, [g.code, g.naam, g.land, g.valuta, g.vervoer, g.nummer]);
       await c.query(`UPDATE regios SET nummer = (SELECT coalesce(max(nummer), 0) + 1 FROM regios) WHERE code = $1 AND nummer IS NULL`, [g.code]);
     }
     let lb = await maxId('leveranciers');
@@ -159,7 +110,7 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
       P.map(p => ({ ...p, leverancier_id: L[p.lev].id, exact_code: p.code, bron: 'demo' })));
     const PC = Object.fromEntries(P.map(p => [p.code, p]));
 
-    // ---------- sixty customers with a buying habit each
+    // ---------- nine customers with a buying habit each
     let kb = await maxId('klanten');
     const K = KLANTEN.map(([naam, soort, plaats, postcode, straat, land, taal, contact, size], i) => {
       const dom = `${slug(naam).replace(/-(bv|gmbh|ltd|aps|ab|ag)$/, '')}.example`;
@@ -180,7 +131,7 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
         email: `${m1}@${dom}`, factuur_email: `${m2}@${dom}`, telefoon: `${pre} ${nr.slice(0, 4)} ${nr.slice(4)}`.trim(), kanaal: 'telefoon',
         btw_nummer: btw, exact_code: String(10001 + i), betaaltermijn: land === 'NL' ? 14 : pick([21, 30, 30]), klant_sinds: RI(1998, 2023),
         betaal: r() < 0.1 ? 'laat' : r() < 0.25 ? 'soms' : 'netjes',
-        size, mix, kans: size === 3 ? R(0.82, 0.95) : size === 2 ? R(0.5, 0.68) : R(0.22, 0.38), basis: size === 3 ? R(7, 13) : size === 2 ? R(3.5, 7) : R(1.5, 3.5),
+        size, mix, kans: size === 3 ? R(0.84, 0.95) : size === 2 ? R(0.5, 0.68) : R(0.22, 0.38), basis: size === 3 ? R(9, 16) : size === 2 ? R(5, 9) : R(2, 4),
       };
     });
     await insertMany(c, 'klanten', ['id', 'code', 'naam', 'soort', 'contact', 'email', 'factuur_email', 'telefoon', 'adres', 'postcode', 'plaats', 'land', 'taal', 'kanaal', 'betaaltermijn', 'btw_nummer', 'exact_code', 'klant_sinds', 'bron'],
@@ -204,7 +155,6 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
       const m = addDays(first, i * 7);
       const current = m === anchor, next = m === addDays(anchor, 7);
       const wk = isoWeek(m), month = Number(m.slice(5, 7)) - 1;
-      const gtWeek = (WEEKS - i) % 2 === 0;   // every other week, and always in the week that is on its way
       const quiet = wk.week >= 52 || wk.week === 1;   // the Christmas weeks: hardly anything flies
       const season = SEASON[month] * (quiet ? 0.35 : 1);
       const koers = r4(1.078 + 0.088 * (i / WEEKS) + 0.011 * Math.sin(i / 4.3) + R(-0.004, 0.004));
@@ -215,7 +165,7 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
       for (const k of K) {
         if (r() > k.kans * Math.min(1.15, season)) continue;
         const n = Math.max(1, Math.min(k.mix.length, Math.round(R(0.6, 1) * k.mix.length)));
-        const chosen = [...k.mix].sort(() => r() - 0.5).slice(0, n).filter(code => gtWeek || code !== 'DM-060');
+        const chosen = [...k.mix].sort(() => r() - 0.5).slice(0, n);
         for (const code of chosen) {
           const dz = Math.max(1, Math.round(k.basis * R(0.55, 1.35) * season * (PC[code].per_doos >= 200 ? 0.6 : 1)));
           const when = next ? at(addDays(anchor, RI(-3, 1)), RI(8, 17), RI(0, 59)) : at(addDays(m, -RI(7, 12)), RI(8, 17), RI(0, 59));
@@ -224,13 +174,13 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
       }
       orders.push(...wo);
       if (next) continue;
-      // what goes to which supplier: Guatemala flies every other week and takes a part of the 60 and 90 cm hockeysticks
+      // what goes to which supplier: Guatemala flies every week and takes a part of the 60 and 90 cm hockeysticks
       const demand = new Map();
       for (const o of wo) demand.set(o.p.code, (demand.get(o.p.code) || 0) + o.dozen);
       const plan = new Map();
       const add = (lev, code, dz) => { if (dz <= 0) return; if (!plan.has(lev)) plan.set(lev, new Map()); plan.get(lev).set(code, (plan.get(lev).get(code) || 0) + dz); };
       for (const [code, dz] of demand) {
-        if (gtWeek && (code === 'HS-060' || code === 'HS-090')) { const gt = Math.round(dz * 0.35); add('las-flores', code, gt); add(PC[code].lev, code, dz - gt); } else add(PC[code].lev, code, dz);
+        if (code === 'HS-060' || code === 'HS-090') { const gt = Math.round(dz * 0.35); add('las-flores', code, gt); add(PC[code].lev, code, dz - gt); } else add(PC[code].lev, code, dz);
       }
       const yy = m.slice(2, 4), mine = [];
       for (const lev of ['rio-claro', 'volcan-azul', 'las-flores']) {

@@ -87,7 +87,7 @@ export async function render(params, query) {
       </div></section>
     </div>
     ${d.demo ? `<section class="panel" style="margin-top:16px;border-color:var(--wait)"><header><h2>Demo-data</h2><span class="chip wait">Aan</span></header><div class="body stack">
-      <p>De leveranciers, zestig klanten, zendingen en ruim een jaar weken hier zijn verzonnen, om te laten zien hoe de desk werkt. Elke vrijdag schuift de demo een week op. Zodra Jan echt begint: haal de demo weg.</p>
+      <p>De drie leveranciers, negen klanten, zendingen en ruim een jaar weken hier zijn verzonnen, om te laten zien hoe de desk werkt. Elke vrijdag schuift de demo een week op. Zodra Jan echt begint: haal de demo weg.</p>
       <p><button class="btn btn-bad" data-act="demo-weg">Demo-data verwijderen</button></p></div></section>` : ''}
   </div>`;
 }
