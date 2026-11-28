@@ -714,3 +714,13 @@ table.tb.ksrc td{vertical-align:top}
   .kn .kout .rtm span.on{color:var(--leaf);font-weight:700}
   .kn .kl{order:-1;margin:0 0 8px;padding:0 0 0 12px}
 }
+
+/* ---------- Loods → klant per batch: every region its own number this week ---------- */
+.bsec+.bsec{margin-top:26px}
+.bsec-h{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;margin:2px 0 10px}
+.bsec-h .bnr{font:600 28px/1 var(--serif);color:var(--forest);font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.bsec-h .bt{display:grid;min-width:0;flex:1 1 260px}
+.bsec-h .bt b{font-size:15px;font-weight:700;color:var(--ink)}
+.bsec-h .bt small{font-size:12.5px;color:var(--ink-3)}
+.bsec-h .st{margin-left:auto}
+@media (max-width:520px){.bsec-h .bnr{font-size:24px}.bsec-h .st{margin-left:0}}

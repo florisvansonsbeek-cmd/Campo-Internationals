@@ -135,7 +135,8 @@ week.get('/inkoop', wrap(async (req, res) => {
   res.json({
     maandag: m, week: d.week, jaar: d.jaar, vandaag: today(), dagen: { bevestiging: addDays(m, -4), verzonden: addDays(m, -3) }, geteld: d.counted,
     partijen: d.partijen.map(p => ({ ...partijJson(p, m), risico: riskJson(risk.per.get(p.id)), stroom: flow.partijen.find(x => x.partij_id === p.id) || null })),
-    stroom: flow.week, klanten: customerStreams(d), koers: d.koers, bronnen: risk.bronnen, plekken: PLEKKEN,
+    stroom: flow.week, klanten: customerStreams(d), regios: await rows('SELECT code, naam, land, nummer FROM regios ORDER BY nummer NULLS LAST, code'),
+    koers: d.koers, bronnen: risk.bronnen, plekken: PLEKKEN,
     afwijkingen: dev,
     vorige: prev.partijen.filter(p => p.exact === 'open' && p.stage !== 'gepland').map(p => ({ id: p.id, nummer: p.nummer, leverancier: p.leverancier, maandag: prev.maandag, week: prev.week })),
   });
