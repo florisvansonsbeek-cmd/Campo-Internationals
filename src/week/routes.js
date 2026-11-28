@@ -238,10 +238,22 @@ week.get('/maandag', wrap(async (req, res) => {
   // who could take what is left: who asked for it this week first, then who buys it most
   const fans = d.regels.some(r => r.rest > 0) ? await rows(`SELECT r.product_id, p.klant_id, k.naam, sum(r.dozen) AS dozen FROM pakbon_regels r JOIN pakbonnen p ON p.id = r.pakbon_id JOIN klanten k ON k.id = p.klant_id
       WHERE p.maandag >= $1::date - 70 AND p.maandag < $1 AND r.product_id = ANY($2) GROUP BY r.product_id, p.klant_id, k.naam ORDER BY sum(r.dozen) DESC`, [m, [...productsIn]]) : [];
+  // who misses this plant comes first, and gets what he misses; then who asked for it most, then who buys it most.
+  // Never a customer who is out this week, or whose slip is already approved.
+  const slipsDone = d.slips.filter(s => s.pakbon && s.pakbon.status === 'akkoord').map(s => s.klant_id);
+  const outIds = [...groupBy(d.orders, o => o.klant_id)].filter(([k]) => {
+    const vs = d.regels.flatMap(r => r.verdeling.filter(v => v.klant_id === k));
+    return vs.length && vs.every(v => v.door === 'jan' && v.dozen === 0);
+  }).map(([k, os]) => ({ k, os }));
+  const noGive = new Set([...slipsDone, ...outIds.map(x => x.k)]);
   const over = d.regels.filter(r => r.rest > 0).map(r => {
-    const here = d.orders.filter(o => o.product_id === r.product_id).sort((a, b) => b.dozen - a.dozen).slice(0, 3).map(o => ({ klant_id: o.klant_id, klant: o.klant, reden: `vroeg ${o.dozen}` }));
-    const more = fans.filter(f => f.product_id === r.product_id && !here.some(h => h.klant_id === f.klant_id)).slice(0, 3).map(f => ({ klant_id: f.klant_id, klant: f.naam, reden: `${f.dozen} dozen in 10 weken` }));
-    return { regel_id: r.id, nummer: r.nummer, product: `${r.product} ${r.maat}`, rest: r.rest, suggesties: [...here, ...more].slice(0, 4) };
+    const mist = tekort.filter(t => t.product_id === r.product_id && !noGive.has(t.klant_id)).sort((a, b) => (b.gevraagd - b.krijgt) - (a.gevraagd - a.krijgt))
+      .map(t => ({ klant_id: t.klant_id, klant: t.klant, reden: `mist ${t.gevraagd - t.krijgt}`, dozen: Math.min(r.rest, t.gevraagd - t.krijgt) }));
+    const here = d.orders.filter(o => o.product_id === r.product_id && !noGive.has(o.klant_id) && !mist.some(m => m.klant_id === o.klant_id)).sort((a, b) => b.dozen - a.dozen).slice(0, 3)
+      .map(o => ({ klant_id: o.klant_id, klant: o.klant, reden: `vroeg ${o.dozen}`, dozen: r.rest }));
+    const more = fans.filter(f => f.product_id === r.product_id && !noGive.has(f.klant_id) && ![...mist, ...here].some(h => h.klant_id === f.klant_id)).slice(0, 3)
+      .map(f => ({ klant_id: f.klant_id, klant: f.naam, reden: `${f.dozen} dozen in 10 weken`, dozen: r.rest }));
+    return { regel_id: r.id, nummer: r.nummer, product: `${r.product} ${r.maat}`, rest: r.rest, suggesties: [...mist, ...here, ...more].slice(0, 4) };
   });
   const perKlant = new Map();
   for (const r of d.regels) for (const v of r.verdeling) {
@@ -249,16 +261,12 @@ week.get('/maandag', wrap(async (req, res) => {
     if (!perKlant.has(v.klant_id)) { const k = d.K.get(v.klant_id); perKlant.set(v.klant_id, { klant_id: v.klant_id, klant: v.klant, plaats: k?.plaats, land: k?.land, dozen: 0, regels: [] }); }
     const x = perKlant.get(v.klant_id); x.dozen += v.dozen; x.regels.push({ product: `${r.product} ${r.maat}`, partij: r.nummer, dozen: v.dozen });
   }
-  const slipsDone = d.slips.filter(s => s.pakbon && s.pakbon.status === 'akkoord').map(s => s.klant_id);
   res.json({
     maandag: m, week: d.week, jaar: d.jaar, vandaag: today(), koers: d.koers, koers_op: d.wk.koers_op, koers_door: d.wk.koers_door, koersen: lastRates.reverse(),
     geteld: d.counted, geteld_op: d.wk.geteld_op, geteld_door: d.wk.geteld_door, nagekeken: !!d.wk.nagekeken_op, nagekeken_op: d.wk.nagekeken_op, akkoord: slipsDone,
     regios: await rows('SELECT code, naam, land, nummer FROM regios ORDER BY nummer NULLS LAST, code'),
     gevraagd: Object.fromEntries([...groupBy(d.orders, o => o.klant_id)].map(([k, os]) => [k, sum(os, o => o.dozen)])),
-    eruit: [...groupBy(d.orders, o => o.klant_id)].filter(([k]) => {
-      const vs = d.regels.flatMap(r => r.verdeling.filter(v => v.klant_id === k));
-      return vs.length && vs.every(v => v.door === 'jan' && v.dozen === 0);
-    }).map(([k, os]) => ({ klant_id: k, klant: d.K.get(k)?.naam || '?', plaats: d.K.get(k)?.plaats || '', gevraagd: sum(os, o => o.dozen) })),
+    eruit: outIds.map(({ k, os }) => ({ klant_id: k, klant: d.K.get(k)?.naam || '?', plaats: d.K.get(k)?.plaats || '', gevraagd: sum(os, o => o.dozen) })),
     partijen: d.partijen.map(p => ({ id: p.id, nummer: p.nummer, regio: p.regio, leverancier: p.leverancier, plaats: p.lev_plaats, binnen_op: p.binnen_op, stage: p.stage, docsIn: passed(p.verzonden_op),
       regels: p.regels.map(r => ({ id: r.id, product_id: r.product_id, product: r.product, maat: r.maat, soort: r.soort, per_doos: r.per_doos, besteld: r.besteld, bevestigd: r.bevestigd, verzonden: r.verzonden, geteld: r.geteld, uitval: r.uitval,
         dozen: r.dozen, basis: r.basis, avail: r.avail, gegeven: r.gegeven, rest: r.rest, verdeling: r.verdeling.filter(v => v.dozen > 0 || v.door !== 'desk') })) })),

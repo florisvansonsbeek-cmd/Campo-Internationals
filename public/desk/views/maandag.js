@@ -1,8 +1,8 @@
 // Maandag: the boxes come in and go out, in five steps.
 // 1 the dollar rate of the week. 2 in: per shipment what really came in. The desk filled in what the papers say; Jan
-// changes a number with − and + and ticks the shipment off (on the Overzicht it turns green). 3 the hand-out per region
-// and customer, checked and changed in one place: drag a line to the customer it belongs to, or to the loods; − and +
-// for the numbers; what is free in the loods folds out below and drags to a customer just the same. 4 the packing
+// changes a number with − and + and ticks the shipment off (on the Overzicht it turns green). 3 the hand-out, checked
+// and changed in one place: one compact row per customer; drag a line to the customer it belongs to, or to the loods;
+// a click on a line for − and +; what is free in the loods folds out below and drags to a customer just the same. 4 the packing
 // slips and invoices (in euro, with the plant passports) as drafts in Outlook. 5 Exact: every entry as Exact holds it.
 // The desk did the groundwork; Jan changes and moves. Nothing leaves the desk without him.
 import { api, h, icon, fNum, toast, dialog } from '../core.js';
@@ -133,7 +133,11 @@ async function saveCounts(p) {
 }
 const draftsOf = p => p.regels.filter(r => draft.has(r.id)).map(r => ({ id: r.id, geteld: draft.get(r.id).g, uitval: draft.get(r.id).u }));
 
-// ---------------------------------------------------------------- 3 the hand-out: per region and customer, drag to change
+// ---------------------------------------------------------------- 3 the hand-out: one row per customer, drag to change
+// Every customer on one row with what he gets, from every batch together, each line a small block. A block drags to
+// another customer or to the loods; a click on it shows − and + and the arrow. What is free folds out below.
+let openChip = null, dragEnd = 0;     // the line Jan opened for − and + ("regel:klant"); when the last drag ended
+const rowOpen = new Set();            // on a phone every customer is one short row; these Jan opened to see his lines
 function board(d) {
   const ls = lines(d);
   if (!ls.length) return '<p class="empty">Nog niets te verdelen.</p>';
@@ -142,70 +146,74 @@ function board(d) {
   const plaats = new Map((d.alleKlanten || []).map(k => [k.id, k.plaats]));
   const over = ls.filter(r => r.rest > 0), too = ls.filter(r => r.rest < 0), free = sum(over, r => r.rest);
   const anyJan = (d.vast || []).length > 0 || ls.some(r => r.verdeling.some(v => v.door === 'jan'));
-  const short_ = new Map();
-  for (const t of d.tekort || []) { if (!out.has(t.klant_id)) short_.set(t.klant_id, [...(short_.get(t.klant_id) || []), t]); }
   const head = too.length ? ['bad', 'warn', `Te veel verdeeld bij ${too.map(r => `${r.product} ${r.maat} (${r.nummer}): ${-r.rest} ${-r.rest === 1 ? 'doos' : 'dozen'}`).join(', ')}. Haal er dozen af of zet ze in de loods.`]
-    : free ? ['wait', 'stock', `${fNum(free)} ${free === 1 ? 'doos staat' : 'dozen staan'} nog vrij in de loods. Klap de loods onderaan open en sleep ze naar een klant, of laat ze staan.`]
+    : free ? ['wait', 'stock', `${fNum(free)} ${free === 1 ? 'doos staat' : 'dozen staan'} nog vrij in de loods: sleep ze naar een klant, of laat ze staan.`]
       : ['ok', 'check', 'Netto nul: elke doos heeft een klant.'];
-  // per batch (region, week): who gets something from it, and who asked for one of its plants but got none of it
-  const byB = new Map();
-  for (const r of ls) {
-    if (!byB.has(r.nummer)) byB.set(r.nummer, { nummer: r.nummer, regio: r.regio, lev: new Set(), pids: new Set(), dozen: 0, klanten: new Map() });
-    const b = byB.get(r.nummer);
-    b.lev.add(short(r.leverancier)); b.pids.add(r.product_id); b.dozen += r.avail;
-    for (const v of r.verdeling) {
-      if (v.dozen <= 0 || out.has(v.klant_id)) continue;
-      if (!b.klanten.has(v.klant_id)) b.klanten.set(v.klant_id, { klant_id: v.klant_id, klant: v.klant, items: [] });
-      b.klanten.get(v.klant_id).items.push({ r, v });
-    }
+  // the batches of the week; with more than one, a customer's lines are grouped by the batch they come from
+  const nrs = [...new Set(ls.map(r => r.nummer))].sort();
+  const multi = nrs.length > 1;
+  const bName = nr => { const r = ls.find(x => x.nummer === nr); return `${nr} ${regioName(d, r.regio)}`; };
+  // per customer: what he gets, and what he asked for but does not get
+  const ks = new Map();
+  const of = (id, naam) => { if (!ks.has(id)) ks.set(id, { klant_id: id, klant: naam, items: [], mist: [] }); return ks.get(id); };
+  for (const r of [...ls].sort((a, b) => a.nummer.localeCompare(b.nummer))) {
+    for (const v of r.verdeling) if (v.dozen > 0 && !out.has(v.klant_id)) of(v.klant_id, v.klant).items.push({ r, v });
   }
-  for (const b of byB.values()) {
-    for (const [kid, ts] of short_) {
-      if (b.klanten.has(kid) || locked.has(kid)) continue;
-      const mine = ts.filter(t => b.pids.has(t.product_id) && t.krijgt === 0);
-      if (mine.length) b.klanten.set(kid, { klant_id: kid, klant: mine[0].klant, items: [], vroeg: mine });
-    }
-  }
-  const chip = (r, v, k, lock, tip = '') => {
-    const what = `${r.product} ${r.maat}`, mine = !!k;
-    return `<li class="cl${v.door === 'jan' ? ' is-jan' : ''}${lock ? ' is-locked' : ''}" data-chip data-r="${r.id}" data-k="${mine ? k.klant_id : ''}" data-n="${v.dozen}" data-what="${h(what)}">
-      <span class="grip" title="Sleep naar een andere klant of de loods" aria-hidden="true">${icon('grip')}</span>
-      <b class="cl-p">${h(r.product)} <span class="nw">${h(r.maat)}</span></b><small class="cl-s">${mine ? '' : `${h(r.nummer)} · `}${h(short(r.leverancier))}${v.door === 'jan' ? ' · door jou' : ''}</small>
-      ${mine ? `<span class="stp sm"><button type="button" class="stp-b" data-act="sh" data-r="${r.id}" data-k="${k.klant_id}" data-d="-1" aria-label="${h(`${k.klant}, ${what}`)}: één doos minder"${lock || v.dozen <= 0 ? ' disabled' : ''}>${icon('minus')}</button><input type="number" inputmode="numeric" min="0" max="9999" value="${v.dozen}" data-share data-r="${r.id}" data-k="${k.klant_id}" aria-label="${h(`${k.klant}, ${what}`)}: dozen"${lock ? ' disabled' : ''}><button type="button" class="stp-b" data-act="sh" data-r="${r.id}" data-k="${k.klant_id}" data-d="1" aria-label="${h(`${k.klant}, ${what}`)}: één doos meer uit de loods"${lock || r.rest <= 0 ? ' disabled' : ''} title="${r.rest > 0 ? 'Eén doos meer, uit de loods' : 'Niets meer vrij van deze regel'}">${icon('plus')}</button></span>`
-        : `<span class="cl-n"><b>${fNum(v.dozen)}</b> dz</span>`}
-      ${lock ? '' : `<button type="button" class="ic mv" data-act="mv" data-r="${r.id}" data-k="${mine ? k.klant_id : ''}" data-n="${v.dozen}" data-what="${h(what)}" title="Verplaats naar…" aria-label="${h(`${what} verplaatsen`)}">${icon('move')}</button>`}${tip}
+  for (const t of d.tekort || []) if (!out.has(t.klant_id) && (ks.has(t.klant_id) || !locked.has(t.klant_id))) of(t.klant_id, t.klant).mist.push(t);
+  const chip = (r, v, k, lock) => {
+    const what = `${r.product} ${r.maat}`, open = !lock && openChip === `${r.id}:${k.klant_id}`, label = `${k.klant}, ${what}`;
+    const where = `${bName(r.nummer)} · ${short(r.leverancier)}${v.door === 'jan' ? ' · door jou aangepast' : ''}`;
+    const name = `<b class="cl-n">${fNum(v.dozen)}</b><span class="cl-p">${h(r.product)} <span class="nw">${h(r.maat)}</span></span>`;
+    if (lock) return `<li class="cl is-locked" title="${h(where)}"><span class="cl-b">${name}</span></li>`;
+    return `<li class="cl${v.door === 'jan' ? ' is-jan' : ''}${open ? ' is-open' : ''}" data-chip data-r="${r.id}" data-k="${k.klant_id}" data-n="${v.dozen}" data-what="${h(what)}">
+      <span class="grip" aria-hidden="true">${icon('grip')}</span><button type="button" class="cl-b" data-act="chip" aria-expanded="${open}" title="${h(where)}">${name}</button>
+      <span class="cl-e"><span class="stp sm"><button type="button" class="stp-b" data-act="sh" data-r="${r.id}" data-k="${k.klant_id}" data-d="-1" aria-label="${h(label)}: één doos minder">${icon('minus')}</button><input type="number" inputmode="numeric" min="0" max="9999" value="${v.dozen}" data-share data-r="${r.id}" data-k="${k.klant_id}" aria-label="${h(label)}: dozen"><button type="button" class="stp-b" data-act="sh" data-r="${r.id}" data-k="${k.klant_id}" data-d="1" aria-label="${h(label)}: één doos meer uit de loods"${r.rest <= 0 ? ' disabled' : ''} title="${r.rest > 0 ? 'Eén doos meer, uit de loods' : 'Niets meer vrij van deze regel'}">${icon('plus')}</button></span><button type="button" class="ic mv" data-act="mv" data-r="${r.id}" data-k="${k.klant_id}" data-n="${v.dozen}" data-what="${h(what)}" title="Verplaats naar…" aria-label="${h(`${what} verplaatsen`)}">${icon('move')}</button></span>
     </li>`;
   };
-  const card = k => {
-    const lock = locked.has(k.klant_id), n = sum(k.items, i => i.v.dozen), ts = short_.get(k.klant_id) || [];
-    const minder = sum(ts, t => t.gevraagd - t.krijgt), jan = k.items.some(i => i.v.door === 'jan');
-    return `<article class="vk${lock ? ' is-locked' : ''}${k.items.length ? '' : ' is-empty'}" data-drop="klant" data-k="${k.klant_id}" data-name="${h(k.klant)}">
-      <header class="vk-h"><span class="vk-n"><b>${h(k.klant)}</b>${plaats.get(k.klant_id) ? `<small>${h(plaats.get(k.klant_id))}</small>` : ''}</span>
-        <span class="vk-c">${fNum(n)} dz${minder > 0 ? ` <span class="lt t-wait" title="${h(ts.map(t => `vroeg ${t.gevraagd} × ${t.product}, krijgt ${t.krijgt}`).join('; '))}">−${fNum(minder)}</span>` : ''}</span></header>
-      <ul class="vk-l">${k.items.map(i => chip(i.r, i.v, k, lock)).join('')}${k.items.length ? '' : `<li class="vk-e">Vroeg ${h((k.vroeg || []).map(t => `${fNum(t.gevraagd)} × ${t.product}`).join(', '))}, krijgt hier niets. Sleep een regel hierheen.</li>`}</ul>
-      <footer class="vk-f">${lock ? `<span class="chip ok">${icon('check')}pakbon akkoord</span><a class="lnk small" href="#/pakbon/${k.klant_id}?maandag=${d.maandag}">heropen om te wijzigen</a>`
-        : `${jan ? `<button type="button" class="vk-x" data-act="reset" data-k="${k.klant_id}">Terug naar voorstel</button>` : ''}${k.items.length ? `<button type="button" class="vk-x danger" data-act="eruit" data-k="${k.klant_id}" data-n="${h(k.klant)}">Eruit deze week</button>` : ''}`}</footer>
+  const row = k => {
+    const lock = locked.has(k.klant_id), n = sum(k.items, i => i.v.dozen), asked = Number(d.gevraagd?.[k.klant_id] || 0);
+    const jan = k.items.some(i => i.v.door === 'jan');
+    // per batch a line behind its region (with one batch this week, just the lines); what he misses comes last
+    const groups = new Map();
+    const group = r => { if (!groups.has(r.nummer)) groups.set(r.nummer, { nr: r.nummer, regio: r.regio, li: [] }); return groups.get(r.nummer).li; };
+    for (const i of k.items) group(i.r).push(chip(i.r, i.v, k, lock));
+    // what he misses goes with the batch the plant comes in
+    for (const t of k.mist) group(ls.find(r => r.product_id === t.product_id) || ls[0]).push(`<li class="cl-m" title="${h(`vroeg ${t.gevraagd}, krijgt ${t.krijgt}`)}">mist <b>${fNum(t.gevraagd - t.krijgt)}</b> ${h(t.product)}</li>`);
+    const blocks = [...groups.values()].sort((a, b) => a.nr.localeCompare(b.nr)).map(g => (multi ? `<div class="cl-grp"><span class="cl-g" title="${h(bName(g.nr))}">${h(g.regio)}</span><ul class="vk-l">${g.li.join('')}</ul></div>` : `<ul class="vk-l">${g.li.join('')}</ul>`)).join('');
+    // folded on a phone: what he gets in one or two lines of text
+    const gist = [...k.items.map(i => `<span class="nw"><b>${fNum(i.v.dozen)}</b> ${h(`${i.r.product} ${i.r.maat}`)}</span>`), ...k.mist.map(t => `<span class="nw t-wait">mist <b>${fNum(t.gevraagd - t.krijgt)}</b> ${h(t.product)}</span>`)].join(' · ');
+    const fold = !rowOpen.has(k.klant_id);
+    const sub = [plaats.get(k.klant_id) ? h(plaats.get(k.klant_id)) : '', lock ? '<span class="t-ok">pakbon akkoord</span>' : jan ? '<span class="vr-j">aangepast</span>' : ''].filter(Boolean).join(' · ');
+    const acts = lock ? '' : `${jan ? `<button type="button" data-act="reset" data-k="${k.klant_id}">Terug naar het voorstel</button>` : ''}${k.items.length ? `<button type="button" class="danger" data-act="eruit" data-k="${k.klant_id}" data-n="${h(k.klant)}">Eruit deze week</button>` : ''}`;
+    const menu = lock ? `<a class="vr-lk" href="#/pakbon/${k.klant_id}?maandag=${d.maandag}" title="De pakbon is akkoord. Heropen hem om te wijzigen." aria-label="${h(`Pakbon van ${k.klant}: heropen om te wijzigen`)}">${icon('file')}</a>`
+      : acts ? `<details class="vr-m"><summary title="Meer" aria-label="${h(`Meer voor ${k.klant}`)}">${icon('more')}</summary><div class="vr-mm">${acts}</div></details>` : '';
+    return `<article class="vr${lock ? ' is-locked' : ''}${k.items.length ? '' : ' is-empty'}${fold ? ' is-fold' : ''}" data-drop="klant" data-k="${k.klant_id}" data-name="${h(k.klant)}">
+      <div class="vr-k"><b>${h(k.klant)}</b>${sub ? `<small>${sub}</small>` : ''}</div>
+      <div class="vr-n"><span><b>${fNum(n)}</b> dz</span>${asked !== n ? `<small class="${n < asked ? 't-wait' : ''}">${asked ? `vroeg ${fNum(asked)}` : 'niet besteld'}</small>` : ''}</div>
+      <button type="button" class="vr-t" data-act="row" aria-expanded="${!fold}" aria-label="${h(`${fold ? 'Regels tonen' : 'Regels verbergen'}: ${k.klant}`)}">${icon('back')}</button>
+      <div class="vr-l">${blocks}</div><button type="button" class="vr-sum" data-act="row" tabindex="-1">${gist}</button>${menu}
     </article>`;
   };
   const sug = new Map((d.over || []).map(o => [o.regel_id, o.suggesties || []]));
+  const freeLine = r => {
+    const s = (sug.get(r.id) || [])[0], what = `${r.product} ${r.maat}`;
+    return `<li class="cl is-free" data-chip data-r="${r.id}" data-k="" data-n="${r.rest}" data-what="${h(what)}">
+      <span class="grip" aria-hidden="true">${icon('grip')}</span><button type="button" class="cl-b" data-act="mv" data-r="${r.id}" data-k="" data-n="${r.rest}" data-what="${h(what)}" title="Kies zelf naar wie en hoeveel"><b class="cl-n">${fNum(r.rest)}</b><span class="cl-p">${h(r.product)} <span class="nw">${h(r.maat)}</span></span></button>
+      <small class="cl-s">${multi ? `${h(r.regio)} · ` : ''}${h(short(r.leverancier))}</small>
+      ${s ? `<span class="cl-x"><button type="button" class="vk-x" data-act="give" data-r="${r.id}" data-k="${s.klant_id}" data-n="${s.dozen || r.rest}">${(s.dozen || r.rest) < r.rest ? `${fNum(s.dozen)} aan` : 'Aan'} ${h(short(s.klant))}</button><small>${h(s.reden)}</small></span>` : ''}
+    </li>`;
+  };
+  const rows = [...ks.values()].sort((a, b) => a.klant.localeCompare(b.klant, 'nl'));
   const loods = `<details class="loods" id="loods" data-drop="loods"${opened.has('loods') ? ' open' : ''}>
-      <summary><span class="ld-i">${icon('stock')}</span><b>Vrij in de loods</b><span class="ld-n${free ? ' t-wait' : ''}">${fNum(free)} ${free === 1 ? 'doos' : 'dozen'}</span><small>${free ? 'klap uit om te zien wat er staat' : 'alles heeft een klant'} · sleep een regel hierheen om hem in de loods te houden</small><span class="ld-c" aria-hidden="true">${icon('back')}</span></summary>
-      ${free ? `<ul class="vk-l ld-l">${over.map(r => {
-        const s = (sug.get(r.id) || [])[0];
-        return chip(r, { dozen: r.rest, door: '' }, null, false, s ? `<span class="cl-x"><button type="button" class="vk-x" data-act="give" data-r="${r.id}" data-k="${s.klant_id}" data-n="${r.rest}" title="De desk stelt voor: ${h(s.reden)}">Aan ${h(short(s.klant))}</button> <span class="faint">${h(s.reden)}</span></span>` : '');
-      }).join('')}</ul>` : '<p class="small muted ld-e">Niets vrij: elke doos heeft een klant.</p>'}
+      <summary><span class="ld-i">${icon('stock')}</span><b>Vrij in de loods</b><span class="ld-n${free ? ' t-wait' : ''}">${fNum(free)} ${free === 1 ? 'doos' : 'dozen'}</span><small>${free ? 'klap uit om te zien wat er staat · ' : ''}sleep een regel hierheen om hem vrij te houden</small><span class="ld-c" aria-hidden="true">${icon('back')}</span></summary>
+      ${free ? `<ul class="ld-l">${over.map(freeLine).join('')}</ul>` : '<p class="small muted ld-e">Niets vrij: elke doos heeft een klant.</p>'}
     </details>`;
-  const bs = [...byB.values()].sort((a, b) => a.nummer.localeCompare(b.nummer));
-  return `<div class="nz ${head[0]}">${icon(head[1])}<div><p><b>${h(head[2])}</b></p>${allIn ? '' : '<p class="nz-sub">Nog niet alles is binnen: dit is wat de papieren zeggen. Het staat vast als alle zendingen zijn afgevinkt.</p>'}</div></div>
-    <div class="vd-bar"><p class="small muted"><span class="vd-g">${icon('grip')}</span>Sleep een regel naar de klant waar hij heen moet, of naar de loods. Met − en + pas je het aantal aan; met ${icon('move')} kies je zelf hoeveel en waarheen.</p>
+  return `<div class="nz ${head[0]}">${icon(head[1])}<div><p><b>${h(head[2])}</b></p>${allIn ? '' : '<p class="nz-sub">Nog niet alles is binnen: dit is volgens de papieren, tot alle zendingen zijn afgevinkt.</p>'}</div></div>
+    <div class="vd-bar"><p class="small muted"><span class="vd-g">${icon('grip')}</span><span class="vd-h1">Sleep een regel naar de klant waar hij heen moet, of naar de loods. Klik erop voor − en +.</span><span class="vd-h2">Tik op een klant voor zijn regels. Sleep een regel aan ${icon('grip')} naar een andere klant of naar de loods; tik erop voor − en +.</span></p>
       <span class="vd-a"><button type="button" class="btn btn-sm btn-line" data-act="print">${icon('file')}Lijst printen voor de hal</button>${anyJan ? '<button type="button" class="btn btn-sm btn-ghost" data-act="reset-all">Alles terug naar het voorstel</button>' : ''}</span></div>
-    ${bs.map(b => {
-      const ks = [...b.klanten.values()].sort((x, y) => (y.items.length > 0) - (x.items.length > 0) || x.klant.localeCompare(y.klant, 'nl'));
-      return `<section class="vb">
-        <header class="vb-h"><span class="bnr">${h(b.nummer)}</span><span class="vb-t"><b>${h(regioName(d, b.regio))}</b><small>${[...b.lev].map(h).join(' · ')}</small></span><span class="vb-c">${fNum(b.dozen)} dozen · ${fNum(ks.filter(k => k.items.length).length)} klanten</span></header>
-        <div class="vb-g">${ks.map(card).join('')}<div class="vk vk-new" data-drop="ander" role="note"><span>${icon('plus')}</span><b>Andere klant</b><small>sleep een regel hierheen</small></div></div>
-      </section>`;
-    }).join('')}
+    ${multi ? `<p class="vd-leg">${nrs.map(nr => { const r = ls.find(x => x.nummer === nr); return `<span><i class="cl-g">${h(r.regio)}</i>${h(bName(nr))} · ${fNum(sum(ls.filter(x => x.nummer === nr), x => x.avail))} dozen</span>`; }).join('')}</p>` : ''}
+    <div class="vt">${rows.map(row).join('')}
+      <div class="vr vr-new" data-drop="ander" role="note">${icon('plus')}<span><b>Andere klant</b> <small>sleep een regel hierheen voor een klant die hier niet staat</small></span></div></div>
     ${loods}
     ${d.eruit.length ? `<div class="outk"><h3 class="h3s">Eruit deze week</h3>${d.eruit.map(x => `<div class="outk-i"><span><b>${h(x.klant)}</b> <small>vroeg ${fNum(x.gevraagd)} dozen</small></span>
       <button type="button" class="btn btn-sm btn-line" data-act="reset" data-k="${x.klant_id}">Terugzetten</button></div>`).join('')}</div>` : ''}
@@ -401,7 +409,9 @@ function bindDnd() {
   document.addEventListener('pointerdown', e => {
     if (e.button !== 0 || !document.querySelector('.monday')) return;
     const chip = e.target.closest('[data-chip]');
-    if (!chip || chip.classList.contains('is-locked') || e.target.closest('input,button,a,select')) return;
+    if (!chip || chip.classList.contains('is-locked')) return;
+    const ctl = e.target.closest('input,button,a,select');
+    if (ctl && !ctl.classList.contains('cl-b')) return;     // the block itself drags; its − + and arrow do not
     if (e.pointerType !== 'mouse' && !e.target.closest('.grip')) return;
     if (e.pointerType === 'mouse') e.preventDefault();
     dnd = { chip, id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, on: false };
@@ -415,18 +425,34 @@ function bindDnd() {
   }, { passive: false });
   document.addEventListener('pointerup', e => { if (dnd && e.pointerId === dnd.id) endDrag(true); });
   document.addEventListener('pointercancel', e => { if (dnd && e.pointerId === dnd.id) endDrag(false); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && dnd?.on) endDrag(false); });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (dnd?.on) endDrag(false); else if (openChip) closeChips();
+  });
   // a touch drag must not scroll the page
   document.addEventListener('touchmove', e => { if (dnd?.on) e.preventDefault(); }, { passive: false });
+  // a click elsewhere folds an opened line back, and closes a customer's menu
+  document.addEventListener('click', e => {
+    if (!document.querySelector('.monday')) return;
+    if (openChip && !e.target.closest('.cl.is-open,.cl-b,dialog')) closeChips();
+    document.querySelectorAll('.vr-m[open]').forEach(m => { if (!m.contains(e.target)) m.open = false; });
+  });
 }
+function closeChips() {
+  openChip = null;
+  document.querySelectorAll('.cl.is-open').forEach(x => { x.classList.remove('is-open'); x.querySelector('.cl-b')?.setAttribute('aria-expanded', 'false'); });
+}
+const justDragged = () => performance.now() - dragEnd < 400;
 function startDrag() {
   dnd.on = true;
   const r = dnd.chip.getBoundingClientRect();
   dnd.dx = dnd.x0 - r.left; dnd.dy = dnd.y0 - r.top;
   const g = dnd.chip.cloneNode(true);
-  g.classList.add('dnd-ghost'); g.style.width = `${r.width}px`;
+  g.classList.add('dnd-ghost'); g.classList.remove('is-open');
   g.removeAttribute('data-chip');
   document.body.append(g); dnd.ghost = g;
+  // a wide line from the loods travels as a small block, under the pointer
+  dnd.dx = Math.max(8, Math.min(dnd.dx, g.offsetWidth - 12)); dnd.dy = Math.max(6, Math.min(dnd.dy, g.offsetHeight - 6));
   dnd.chip.classList.add('is-dragging'); document.body.classList.add('dnd-on');
   if (dnd.chip.dataset.k) {
     const bar = document.createElement('div');
@@ -467,6 +493,7 @@ function endDrag(drop) {
   cancelAnimationFrame(x.raf);
   x.ghost?.remove(); x.bar?.remove(); x.over?.classList.remove('is-over');
   x.chip.classList.remove('is-dragging'); document.body.classList.remove('dnd-on');
+  if (x.on) dragEnd = performance.now();     // the click that ends a drag does not open the line
   if (drop && x.on && x.over) dropOn(x.chip, x.over).catch(e => { toast(e.message); ctxRef.refresh(); });
 }
 async function dropOn(chip, zone) {
@@ -476,7 +503,8 @@ async function dropOn(chip, zone) {
   if (van === naar) return;
   // the line moves at once; the desk saves it and draws the hand-out again
   const list = naar ? zone.querySelector('.vk-l') : null;
-  if (list) { list.querySelector('.vk-e')?.remove(); list.append(chip); } else chip.remove();
+  chip.classList.remove('is-open');
+  if (list) list.append(chip); else chip.remove();
   const out = await move({ regel_id: r, van, naar });
   await moved(out, { r, van, naar, what });
 }
@@ -562,16 +590,31 @@ export const actions = {
       toast(`${todo.length} zendingen binnen. Op het Overzicht staan ze op groen.`);
     } finally { ctx.refresh(); }
   },
+  // on a phone: a customer's row opens to show his lines, and folds back
+  row: el => {
+    const art = el.closest('.vr'), fold = art.classList.toggle('is-fold'), t = art.querySelector('.vr-t');
+    if (fold) rowOpen.delete(Number(art.dataset.k)); else rowOpen.add(Number(art.dataset.k));
+    t.setAttribute('aria-expanded', String(!fold));
+    t.setAttribute('aria-label', `${fold ? 'Regels tonen' : 'Regels verbergen'}: ${art.dataset.name}`);
+  },
+  // a click on a line of the hand-out opens it: − and +, and the arrow; a second click folds it back
+  chip: el => {
+    if (justDragged()) return;
+    const li = el.closest('.cl'), was = li.classList.contains('is-open');
+    closeChips();
+    if (!was) { li.classList.add('is-open'); el.setAttribute('aria-expanded', 'true'); openChip = `${li.dataset.r}:${li.dataset.k}`; }
+  },
   // − and + on a line of the hand-out: the box goes to the loods, or comes from it
   sh: async (el, ctx) => {
-    const r = lines(last).find(x => x.id === Number(el.dataset.r)), k = Number(el.dataset.k);
-    const cur = r?.verdeling.find(v => v.klant_id === k)?.dozen || 0, n = Math.max(0, cur + Number(el.dataset.d));
+    const r = lines(last).find(x => x.id === Number(el.dataset.r)), k = Number(el.dataset.k), dir = el.dataset.d;
+    const cur = r?.verdeling.find(v => v.klant_id === k)?.dozen || 0, n = Math.max(0, cur + Number(dir));
     el.disabled = true;
     await api('/week/verdeling/aantal', { method: 'PUT', body: { regel_id: r.id, klant_id: k, dozen: n } });
     opened.add('verdelen');
-    return ctx.refresh();
+    await ctx.refresh();
+    document.querySelector(`.cl.is-open [data-act="sh"][data-d="${dir}"]:not(:disabled)`)?.focus({ preventScroll: true });
   },
-  mv: el => moveDialog({ r: Number(el.dataset.r), van: Number(el.dataset.k) || null, n: Number(el.dataset.n), what: el.dataset.what }),
+  mv: el => { if (!justDragged()) moveDialog({ r: Number(el.dataset.r), van: Number(el.dataset.k) || null, n: Number(el.dataset.n), what: el.dataset.what }); },
   give: async (el, ctx) => {
     const r = Number(el.dataset.r), naar = Number(el.dataset.k), what = lines(last).find(x => x.id === r);
     const out = await move({ regel_id: r, van: null, naar, dozen: Number(el.dataset.n) });
