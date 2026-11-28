@@ -8,12 +8,17 @@ const load = () => (lib ||= import('/desk/vendor/pdf.mjs').catch(e => { lib = nu
 
 export function paperHtml(id, title, mime = '') {
   const url = `/api/bestanden/${Number(id)}`;
-  if (String(mime).startsWith('image/')) return `<div class="paper"><img src="${url}" alt="${h(title)}"></div>`;
-  return `<div class="paper" data-pdf="${url}" data-title="${h(title)}"><p class="paper-wait">Het origineel laden…</p></div>`;
+  if (String(mime).startsWith('image/')) return `<div class="pdfbox"><img src="${url}" alt="${h(title)}"></div>`;
+  return pdfHtml(url, title);
+}
+
+// any pdf of the desk itself, such as a packing slip
+export function pdfHtml(url, title) {
+  return `<div class="pdfbox" data-pdf="${h(url)}" data-title="${h(title)}"><p class="pdfbox-wait">Het origineel laden…</p></div>`;
 }
 
 export function drawPapers(root = document) {
-  for (const box of root.querySelectorAll('.paper[data-pdf]:not([data-busy])')) draw(box);
+  for (const box of root.querySelectorAll('.pdfbox[data-pdf]:not([data-busy])')) draw(box);
 }
 
 const MAX_PAGES = 8;
@@ -41,7 +46,7 @@ async function draw(box) {
     }
     if (box.isConnected) {
       box.replaceChildren(...pages);
-      if (doc.numPages > n) box.insertAdjacentHTML('beforeend', `<p class="paper-more">Nog ${doc.numPages - n} pagina's in het origineel.</p>`);
+      if (doc.numPages > n) box.insertAdjacentHTML('beforeend', `<p class="pdfbox-more">Nog ${doc.numPages - n} pagina's in het origineel.</p>`);
       box.classList.add('is-drawn');
     }
     Promise.resolve().then(() => task.destroy?.()).catch(() => {});

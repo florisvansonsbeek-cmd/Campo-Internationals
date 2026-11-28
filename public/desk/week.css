@@ -534,13 +534,13 @@ button.lane-link{border:0;padding:0;margin:0;background:transparent;cursor:point
 .om-tabs button[aria-selected=true]{border-color:var(--forest);box-shadow:inset 0 -2px 0 var(--forest);background:var(--paper)}
 .om-tabs button.om-add{border-style:dashed;color:var(--ink-2)}
 .om-view iframe{display:block;width:100%;height:min(64vh,600px);border:1px solid var(--line);border-radius:4px;background:#fff}
-.paper{max-height:min(64vh,600px);overflow:auto;border:1px solid var(--line);border-radius:4px;background:#fff;overscroll-behavior:contain}
-.paper canvas,.paper img{display:block;width:100%;height:auto}
-.paper canvas+canvas{border-top:1px solid var(--line)}
-.paper iframe{display:block;width:100%;height:min(64vh,600px);border:0}
-.paper-wait{margin:0;padding:48px 16px;text-align:center;color:var(--ink-3);font-size:13px}
-.paper-more{margin:0;padding:10px 14px;border-top:1px solid var(--line);color:var(--ink-3);font-size:12.5px}
-.docview .orig .paper{max-height:min(70vh,640px)}
+.pdfbox{max-height:min(64vh,600px);overflow:auto;border:1px solid var(--line);border-radius:4px;background:#fff;overscroll-behavior:contain}
+.pdfbox canvas,.pdfbox img{display:block;width:100%;height:auto}
+.pdfbox canvas+canvas{border-top:1px solid var(--line)}
+.pdfbox iframe{display:block;width:100%;height:min(64vh,600px);border:0}
+.pdfbox-wait{margin:0;padding:48px 16px;text-align:center;color:var(--ink-3);font-size:13px}
+.pdfbox-more{margin:0;padding:10px 14px;border-top:1px solid var(--line);color:var(--ink-3);font-size:12.5px}
+.docview .orig .pdfbox{max-height:min(70vh,640px)}
 .om-view .mailtxt{max-height:min(64vh,600px);overflow:auto;margin:0}
 .om-view>p{margin-top:6px}
 table.tb.om-t{font-size:13.5px}
@@ -572,6 +572,7 @@ table.tb.plants tr.pdr>td{background:var(--paper);padding:4px 16px 18px}
 .lg-b:first-child{margin-left:0}
 
 .ln .fork path.not.t-wait{stroke:var(--t-wait)}
+.ln .fork path.not.t-bad{stroke:var(--t-bad)}
 .ln .cust.s-gepland.t-wait .cd{background:var(--sheet)}
 
 table.tb.om-t td.num{white-space:nowrap}
@@ -596,4 +597,120 @@ table.tb.om-t td.num{white-space:nowrap}
   table.om-t td:last-child:not([data-l]){grid-column:5;grid-row:1;justify-self:end;align-self:center}
   table.om-t td[data-l]::before{content:attr(data-l);display:block;font-size:11px;font-weight:400;color:var(--ink-3);line-height:1.3}
   table.om-t td:last-child:empty{display:none}
+}
+
+/* =====================================================================================================================
+   Inkoop: one big switch (supplier → loods, loods → customer), the route on the line, and the customer lanes
+   ===================================================================================================================== */
+.vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.fl-top{display:flex;flex-wrap:wrap;gap:12px 14px;align-items:center;margin-bottom:14px}
+.fl-switch{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));flex:1 1 560px;border:1px solid var(--line-2);border-radius:6px;overflow:hidden;background:var(--sheet)}
+.fl-sw{display:flex;align-items:center;gap:12px;padding:13px 18px;color:var(--ink-2);text-decoration:none;min-width:0}
+.fl-sw+.fl-sw{border-left:1px solid var(--line-2)}
+.fl-sw:not(.on):hover{background:var(--paper-2)}
+.fl-sw .sw-i{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:var(--paper-2);color:var(--forest);flex:none}
+.fl-sw .sw-i svg{width:19px;height:19px}
+.fl-sw .sw-t{display:grid;min-width:0}
+.fl-sw b{font:600 21px/1.15 var(--serif);color:var(--forest);white-space:nowrap}
+.fl-sw small{font-size:12.5px;color:var(--ink-3);margin-top:2px}
+.fl-sw .sw-ds{display:flex;gap:8px;margin-left:auto;flex:none}
+.sw-d{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:700;color:var(--ink-2)}
+.sw-d i{width:8px;height:8px;border-radius:50%;background:var(--t-ok)}
+.sw-d.t-wait i{background:var(--t-wait)}.sw-d.t-bad i{background:var(--t-bad)}.sw-d.t-done i{background:var(--line-2)}
+.fl-sw.on{background:var(--forest);color:var(--on-ink)}
+.fl-sw.on b{color:#fff}.fl-sw.on small{color:rgba(255,255,255,.72)}
+.fl-sw.on .sw-i{background:rgba(255,255,255,.12);color:#fff}
+.fl-sw.on .sw-d{color:#fff}.fl-sw.on .sw-d.t-done i{background:rgba(255,255,255,.45)}
+.fl-acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.flowpage .flow-sec>.grp:first-of-type{margin-top:8px}
+h2.grp{font:600 13px/1 var(--sans);color:var(--ink-2);margin:18px 0 8px}
+@media (max-width:760px){.fl-sw{padding:11px 12px;gap:9px}.fl-sw b{font-size:17px}.fl-sw .sw-i{display:none}.fl-sw .sw-ds{display:none}}
+@media (max-width:440px){.fl-switch{grid-template-columns:minmax(0,1fr)}.fl-sw+.fl-sw{border-left:0;border-top:1px solid var(--line-2)}}
+
+/* the route on the line: every stop with its code above and its day or time below, the loods time at the hub */
+.ln .in .ap em{position:absolute;left:50%;top:10px;transform:translateX(-50%);font-style:normal;font-size:11px;line-height:1.2;color:var(--ink-3);white-space:nowrap}
+.ln .in .ap.done em{color:var(--ink-2)}
+.ln .in .ap[data-l=oranje] em{color:var(--t-wait);font-weight:700}.ln .in .ap[data-l=rood] em{color:var(--t-bad);font-weight:700}
+.ln .in .ap0{left:0;transform:translate(0,-50%)}
+.ln .in .ap0 b,.ln .in .ap0 em{left:0;transform:none}
+.ln .in .ap0 b{bottom:8px;text-transform:uppercase}
+.ln .in .ap0 em{top:8px}
+.ln .in .rtm{display:none}
+.ln .hub em{color:var(--ink-2)}
+.ln .hub em.t-wait{color:var(--t-wait)}.ln .hub em.t-bad{color:var(--t-bad)}
+.om3{min-width:0}
+.om3 .whom{columns:2 380px;column-gap:28px}
+.om3 .whom li{break-inside:avoid}
+@media (max-width:700px){
+  .ln .in{height:auto;min-height:38px}
+  .ln .in .rtm{display:flex;flex-wrap:wrap;gap:2px 6px;align-items:center;padding:9px 0 9px 18px;font-size:12px;line-height:1.35;color:var(--ink-2)}
+  .ln .in .rtm i{font-style:normal;color:var(--ink-3)}
+  .ln .in .rtm [data-l=oranje]{color:var(--t-wait);font-weight:700}.ln .in .rtm [data-l=rood]{color:var(--t-bad);font-weight:700}
+}
+
+/* ---------- from the loods to the customer: suppliers fan in, Monday's steps on the line, the customer on the right ---------- */
+:root{--klane-cols:minmax(230px,1.5fr) 64px 40px minmax(170px,1.15fr) minmax(170px,1fr)}
+.kcols{grid-template-columns:var(--klane-cols)}
+.kcols span:nth-child(4){text-align:center}
+.ln.kn{grid-template-columns:var(--klane-cols)}
+.kn .kfrom{list-style:none;margin:0;padding:0;align-self:stretch;min-width:0}
+.kn .kf{display:grid;grid-template-columns:minmax(0,1fr) auto 12px minmax(18px,16%);align-items:center;height:28px}
+.kn .kf .sn{position:relative;z-index:2;display:flex;gap:6px;align-items:baseline;min-width:0;padding-right:8px;color:var(--ink);text-decoration:none;white-space:nowrap;overflow:hidden}
+.kn .kf .sn b{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto}
+.kn .kf .sn span{font-size:12.5px;color:var(--ink-3);font-variant-numeric:tabular-nums;flex:none}
+.kn .kf a.sn:hover b{text-decoration:underline}
+.kn .kf .sd{font-size:13px;font-weight:600;color:var(--ink-2);white-space:nowrap;padding-right:8px}
+.kn .kf .cd{width:12px;height:12px;box-sizing:border-box;border-radius:50%;border:2px solid var(--t-ok);background:var(--sheet)}
+.kn .kf.t-wait .cd{border-color:var(--t-wait)}.kn .kf.t-bad .cd{border-color:var(--t-bad);background:var(--t-bad)}
+.kn .kf.s-in .cd{border-color:var(--leaf);background:var(--leaf)}
+.kn .kf .bl{position:relative;height:2px;background:repeating-linear-gradient(90deg,var(--line-2) 0 4px,transparent 4px 9px)}
+.kn .kf .bl i{position:absolute;left:0;top:0;bottom:0;background:var(--leaf)}
+.kn .kf.none .sn,.kn .kf.more .sn{font-size:13px;color:var(--ink-3)}
+.kn .kf.none .cd,.kn .kf.more .cd{border-color:var(--line-2)}
+.kn .hub{justify-self:center}
+.kn .hub em{color:var(--ink-3)}
+.kn .kout{margin:0 6px}
+.kn .kout .tk::before{display:none}
+.kn .kout .ap b{text-transform:uppercase}
+.kn .kout .ap.done i{border-color:var(--leaf);background:var(--leaf)}
+.kn .kl{position:relative;z-index:2;display:grid;gap:1px;padding-left:12px;min-width:0;border-left:3px solid var(--line-2)}
+.klane.t-wait .kl{border-left-color:var(--t-wait)}.klane.t-bad .kl{border-left-color:var(--t-bad)}.klane.t-done .kl,.klane.t-ok .kl{border-left-color:var(--leaf)}
+.kn .kl a{color:var(--ink);text-decoration:none;min-width:0}
+.kn .kl a b{font-size:15px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.kn .kl a:hover b{text-decoration:underline}
+.kn .kl>span{font-size:12.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kn .kl .kd{display:flex;gap:6px;align-items:baseline;color:var(--ink-2)}
+.kn .kl .kd b{font-size:13.5px;color:var(--ink)}
+.kn .kl .kd small{font-size:12px;color:var(--ink-3)}
+.lane-top .kn .sn,.lane-top .kn .kl a{position:relative;z-index:2}
+/* the customer opened: the slip as on the Pakbonnen tab, what is next, and where every box came from */
+.km{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px;align-items:start}
+.km-slip{min-width:0}
+.km-slip .paper{box-shadow:none}
+.km-info{min-width:0}
+.km-next .acts-row{margin:0}
+table.tb.ksrc{font-size:13.5px}
+table.tb.ksrc td{vertical-align:top}
+.kort{list-style:none;margin:0;padding:0;font-size:13.5px}
+.kort li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:4px 12px;padding:6px 0;border-bottom:1px solid var(--line)}
+.kort li:last-child{border-bottom:0}
+.kort li span{color:var(--ink-2)}
+@media (max-width:1240px) and (min-width:701px){:root{--klane-cols:minmax(190px,1.4fr) 56px 40px minmax(150px,1fr) minmax(150px,1fr)}}
+@media (max-width:980px){.km{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:700px){
+  .kcols{display:none}
+  .ln.kn{grid-template-columns:minmax(0,1fr)}
+  .kn .kfrom{padding:0 0 4px!important;border-left:2px solid var(--line-2);margin-left:5px}
+  .kn .kf{grid-template-columns:14px 12px minmax(0,1fr) auto}
+  .kn .kf .bl{order:-2;background:var(--line-2)!important}
+  .kn .kf .bl i{display:none}
+  .kn .kf .cd{order:-1}
+  .kn .kf .sn{padding-left:9px}
+  .kn .fork{display:none}
+  .kn .hub{justify-self:start;margin:6px 0 0 -9px}
+  .kn .hub em{top:50%;left:calc(100% + 8px);transform:translateY(-50%);font-size:12.5px}
+  .kn .kout{margin:6px 0 6px 5px}
+  .kn .kout .ap{display:none}
+  .kn .kout .rtm span.on{color:var(--leaf);font-weight:700}
+  .kn .kl{order:-1;margin:0 0 8px;padding:0 0 0 12px}
 }

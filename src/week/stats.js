@@ -74,8 +74,12 @@ export async function yearData(jaar = Number(today().slice(0, 4))) {
         sum(coalesce(r.geteld, r.verzonden, r.bevestigd, r.besteld, 0)) AS dozen_in, sum(r.uitval) AS uitval
       FROM partijen p JOIN partij_regels r ON r.partij_id = p.id JOIN leveranciers l ON l.id = p.leverancier_id JOIN weken w ON w.maandag = p.maandag
       WHERE p.maandag BETWEEN $1 AND $2 GROUP BY p.id, l.naam, w.geteld_op),
-    uit AS (SELECT r.partij, sum(r.dozen) AS dozen_uit FROM pakbon_regels r JOIN pakbonnen s ON s.id = r.pakbon_id WHERE s.status = 'akkoord' GROUP BY r.partij)
-    SELECT inn.*, coalesce(uit.dozen_uit, 0) AS dozen_uit, inn.dozen_in - inn.uitval - coalesce(uit.dozen_uit, 0) AS rest FROM inn LEFT JOIN uit ON uit.partij = inn.nummer ORDER BY inn.maandag, inn.nummer`, [a, b]);
+    -- one batch number can hold several suppliers of a region: a slip line counts for the shipment it came from
+    uit AS (SELECT p.partij_id, sum(r.dozen) AS dozen_uit FROM pakbon_regels r JOIN pakbonnen s ON s.id = r.pakbon_id
+      LEFT JOIN LATERAL (SELECT x.id AS partij_id FROM partijen x LEFT JOIN partij_regels pr ON pr.partij_id = x.id AND pr.id = r.regel_id
+        WHERE x.nummer = r.partij ORDER BY (pr.id IS NULL), x.id LIMIT 1) p ON true
+      WHERE s.status = 'akkoord' GROUP BY p.partij_id)
+    SELECT inn.*, coalesce(uit.dozen_uit, 0) AS dozen_uit, inn.dozen_in - inn.uitval - coalesce(uit.dozen_uit, 0) AS rest FROM inn LEFT JOIN uit ON uit.partij_id = inn.id ORDER BY inn.maandag, inn.nummer, inn.leverancier`, [a, b]);
   const regios = await rows(`SELECT code, naam, land FROM regios ORDER BY code`);
   const perRegio = regios.map(g => {
     const bs = batches.filter(x => x.regio === g.code && x.geteld);

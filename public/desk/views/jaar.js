@@ -41,7 +41,7 @@ export async function render(params, query) {
         <section class="panel xl"><header><h2>Het Excel-bestand</h2><span class="sub">altijd de stand van nu</span></header><div class="body stack" style="gap:10px">
           <p>De desk maakt het bestand bij elke download opnieuw uit de database. Zo heb je het zelf in handen: alles nakijken, sorteren, filteren.</p>
           <ul class="plainlist small"><li><b>Overzicht</b>: totalen, per regio en per week</li><li><b>Inkoop</b>: elke regel van elke zending, van besteld tot geteld</li><li><b>Verkoop</b>: elke regel van elke pakbon, met partij en kostendrager</li>
-            <li><b>Partijen</b>: per zendnummer in, uit en rest</li><li><b>Klanten</b>, <b>Koersen</b> en <b>Plantenpaspoorten</b></li></ul>
+            <li><b>Partijen</b>: per zending (batchnummer) in, uit en rest</li><li><b>Klanten</b>, <b>Koersen</b> en <b>Plantenpaspoorten</b></li></ul>
           <p class="small faint">Totalen zijn formules op de regels, dus wat je aanpast rekent mee.</p>
           <p><a class="btn btn-leaf" href="/api/week/excel?jaar=${d.jaar}" download>${icon('db')}Download Excel ${d.jaar}</a></p></div></section>
         <section class="panel"><header><h2>Grootste klanten</h2></header><table class="tb"><tbody>${d.klanten.map(c => `<tr class="click" data-href="#/klant/${c.id}"><td><a href="#/klant/${c.id}">${h(c.naam)}</a><small class="faint" style="display:block">${h(c.land)} · ${fNum(c.weken)} weken</small></td><td class="r num">${fEur(c.omzet)}</td></tr>`).join('')}</tbody></table></section>

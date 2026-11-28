@@ -52,3 +52,52 @@ export function streams(d) {
     },
   };
 }
+
+// The other way round, for Monday: per customer, which shipments (supplier and batch) bring what, what was asked
+// and where the packing slip stands. On the Inkoop page this is the second view, from the loods to the customer.
+export function customerStreams(d) {
+  const asked = new Map(), names = new Map();
+  for (const o of d.orders) {
+    const k = `${o.klant_id}:${o.product_id}`;
+    asked.set(k, (asked.get(k) || 0) + o.dozen);
+    if (o.product) names.set(o.product_id, { naam: o.product.naam, maat: o.product.maat });
+  }
+  const per = new Map();
+  const of = kid => { if (!per.has(kid)) per.set(kid, { van: new Map(), got: new Map() }); return per.get(kid); };
+  for (const p of d.partijen) for (const r of p.regels) {
+    names.set(r.product_id, { naam: r.product, maat: r.maat });
+    for (const v of r.verdeling) {
+      if (!(v.dozen > 0)) continue;
+      const x = of(v.klant_id);
+      if (!x.van.has(p.id)) x.van.set(p.id, { partij_id: p.id, nummer: p.nummer, leverancier: p.leverancier, leverancier_id: p.leverancier_id, regio: p.regio, plaats: p.lev_plaats || '', dozen: 0, regels: [], jan: false });
+      const s = x.van.get(p.id);
+      s.dozen += v.dozen; s.regels.push({ product_id: r.product_id, naam: r.product, maat: r.maat, dozen: v.dozen });
+      if (v.door === 'jan') s.jan = true;
+      x.got.set(r.product_id, (x.got.get(r.product_id) || 0) + v.dozen);
+    }
+  }
+  for (const k of asked.keys()) of(Number(k.split(':')[0]));
+  const slipOf = new Map(d.slips.map(s => [s.klant_id, s]));
+  const out = [];
+  for (const [kid, x] of per) {
+    const c = d.K.get(kid);
+    if (!c) continue;
+    const kort = [];
+    let gevraagd = 0;
+    for (const [k, n] of asked) {
+      const [a, pid] = k.split(':').map(Number);
+      if (a !== kid) continue;
+      gevraagd += n;
+      const krijgt = x.got.get(pid) || 0;
+      if (krijgt < n) kort.push({ product_id: pid, naam: names.get(pid)?.naam || '?', maat: names.get(pid)?.maat || '', gevraagd: n, krijgt });
+    }
+    const s = slipOf.get(kid);
+    const van = [...x.van.values()].sort((a, b) => b.dozen - a.dozen || a.leverancier.localeCompare(b.leverancier, 'nl'));
+    out.push({
+      id: kid, naam: c.naam, plaats: c.plaats || '', land: c.land || '', dozen: sum(van, v => v.dozen), gevraagd, tekort: sum(kort, k => k.gevraagd - k.krijgt), kort, van,
+      slip: s ? { status: s.status, reden: s.reden, gewijzigd: !!s.gewijzigd, totaal: s.totaal, id: s.pakbon?.id || null, nummer: s.pakbon?.status === 'akkoord' ? s.pakbon.nummer : null,
+        exact: s.pakbon?.exact || null, mail: s.concept?.status || null, gedrukt: !!s.pakbon?.gedrukt_op } : null,
+    });
+  }
+  return out.sort((a, b) => b.dozen - a.dozen || a.naam.localeCompare(b.naam, 'nl'));
+}

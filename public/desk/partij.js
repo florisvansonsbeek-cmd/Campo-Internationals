@@ -188,9 +188,9 @@ export function partijActions(find) {
     },
     stage: async (el, ctx) => { await api(`/week/partijen/${el.dataset.id}/stap`, { method: 'POST', body: { stap: el.dataset.stap } }); toast('Verwerkt.'); ctx.refresh(); },
     nummer: (el, ctx) => dialog({
-      title: 'Zendnummer', ok: 'Opslaan',
-      body: `${field('nummer', 'Zendnummer (C op het plantenpaspoort, kostendrager in Exact)', el.dataset.nr)}<p class="small faint" style="margin-top:8px">Regiocode vooraan, daarna jaar en volgnummer, bijvoorbeeld CR26-048. Elk nummer is uniek.</p>`,
-      onOk: async v => { await api(`/week/partijen/${el.dataset.id}`, { method: 'PATCH', body: { nummer: v.nummer } }); toast('Zendnummer opgeslagen.'); ctx.refresh(); },
+      title: 'Batchnummer', ok: 'Opslaan',
+      body: `${field('nummer', 'Batchnummer (C op het plantenpaspoort, kostendrager in Exact)', el.dataset.nr)}<p class="small faint" style="margin-top:8px">Jaar, week en regio: 264901 is 2026, week 49, regio 01. Leveranciers uit dezelfde regio in dezelfde week delen het nummer.</p>`,
+      onOk: async v => { await api(`/week/partijen/${el.dataset.id}`, { method: 'PATCH', body: { nummer: v.nummer } }); toast('Batchnummer opgeslagen.'); ctx.refresh(); },
     }),
     route: (el, ctx) => {
       const p = find(el.dataset.p);

@@ -22,7 +22,7 @@ export const SLIP = {
     pay: (n, iban, nr) => (iban ? `Graag betalen binnen ${n} dagen op ${iban}, onder vermelding van ${nr}.` : `Graag betalen binnen ${n} dagen, onder vermelding van ${nr}.`),
     ask: 'Klopt er iets niet? Laat het me weten, dan lossen we het samen op.', bye: 'Met vriendelijke groet,', file: 'Pakbon en factuur', doos: 'dozen',
     pdf: { title: 'PAKBON EN FACTUUR', nr: 'Factuurnummer', date: 'Datum', due: 'Vervaldatum', delivery: 'Levering', week: 'week', cust: 'Klantnummer', vatno: 'Btw-nummer',
-      to: 'Aan', boxes: 'Dozen', qty: 'Stuks', desc: 'Omschrijving', batch: 'Partij', price: 'Prijs per stuk', amount: 'Bedrag', total: 'Totaal excl. btw', vat: 'Btw', inc: 'Totaal incl. btw',
+      to: 'Aan', boxes: 'Dozen', qty: 'Stuks', desc: 'Omschrijving', batch: 'Batch', price: 'Prijs per stuk', amount: 'Bedrag', total: 'Totaal excl. btw', vat: 'Btw', inc: 'Totaal incl. btw',
       reverse: 'Btw verlegd: intracommunautaire levering.', export: 'Uitvoer buiten de EU: 0% btw.', totalBoxes: 'Totaal dozen', pp: 'Plantenpaspoort', ppLocal: 'Plantenpaspoort',
       rateLine: (w, k) => `Prijzen in dollars, omgerekend met de koers van week ${w}: 1 euro = ${k} dollar.`,
       payLine: (n, iban, nr) => (iban ? `Betalen binnen ${n} dagen op ${iban}, onder vermelding van ${nr}.` : `Betalen binnen ${n} dagen, onder vermelding van ${nr}.`) } },
@@ -70,7 +70,10 @@ export async function slipDoc(pakbonId) {
   if (!s) return null;
   const k = await one('SELECT * FROM klanten WHERE id = $1', [s.klant_id]);
   const regels = await rows(`SELECT r.*, d.naam, d.soort, d.maat, d.code, d.exact_code, g.land AS herkomst
-      FROM pakbon_regels r JOIN producten d ON d.id = r.product_id LEFT JOIN partijen p ON p.nummer = r.partij LEFT JOIN regios g ON g.code = p.regio
+      FROM pakbon_regels r JOIN producten d ON d.id = r.product_id
+      LEFT JOIN LATERAL (SELECT x.regio FROM partijen x LEFT JOIN partij_regels pr ON pr.partij_id = x.id AND pr.id = r.regel_id
+        WHERE x.nummer = r.partij ORDER BY (pr.id IS NULL), x.id LIMIT 1) p ON true
+      LEFT JOIN regios g ON g.code = p.regio
       WHERE r.pakbon_id = $1 ORDER BY r.regelnr`, [pakbonId]);
   const co = await company();
   const taal = slipLang(k.taal), T = SLIP[taal], loc = LOC[taal];

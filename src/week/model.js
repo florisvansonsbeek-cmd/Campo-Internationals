@@ -1,7 +1,7 @@
 // The weekly rhythm in one place: what is known about a week, how the boxes are handed out, and the packing slips.
 // Rule of the house: the desk reads, counts, proposes and prepares. Jan notes the rate, checks, approves and sends.
 import { pool, rows, one, q, setting, log } from '../db.js';
-import { addDays, isoWeek, focusMonday, today, passed, r2, eurPrice, lineAmount, vatFor, sum, groupBy, cycleDays } from './util.js';
+import { addDays, isoWeek, focusMonday, today, passed, r2, eurPrice, lineAmount, vatFor, sum, groupBy, cycleDays, batchNumber } from './util.js';
 
 export const DEFAULT_COMPANY = {
   naam: 'Campo International B.V.', straat: 'Stoomweg 10', postcode: '2631 RR', plaats: 'Nootdorp', land: 'Nederland',
@@ -357,15 +357,15 @@ export async function markPartijExact(id, wie, { nummer = null, terug = false } 
 }
 
 // ---------------------------------------------------------------- Tuesday: ordering for the coming Monday
+// the batch number: year, week, region (264901). Every supplier of one region in one week shares it.
 async function nextBatch(c, regio, maandag) {
-  const prefix = `${regio}${maandag.slice(2, 4)}-`;
-  // $2::int: with a text argument substring() would treat it as a regular expression
-  const r = await c.query(`SELECT max(substring(nummer from $2::int)::int) AS n FROM partijen WHERE nummer LIKE $1 AND substring(nummer from $2::int) ~ '^[0-9]+$'`, [`${prefix}%`, prefix.length + 1]);
-  return `${prefix}${String((r.rows[0].n || 0) + 1).padStart(3, '0')}`;
+  const g = (await c.query('SELECT code, naam, nummer FROM regios WHERE code = $1', [regio])).rows[0];
+  if (!g || !g.nummer) throw fail(`Regio ${g ? g.naam : regio} heeft nog geen nummer voor het batchnummer. Vul het in bij Koppelingen, Regio's.`);
+  return batchNumber(maandag, g.nummer);
 }
 export async function proposeBatchNumber(regio, maandag) {
   const c = await pool.connect();
-  try { return await nextBatch(c, regio, maandag); } finally { c.release(); }
+  try { return await nextBatch(c, regio, maandag); } catch { return null; } finally { c.release(); }
 }
 
 export async function orderBook(maandag, { now = new Date() } = {}) {
@@ -493,11 +493,14 @@ export async function updatePartij(id, v, wie) {
   const set = [], vals = [id];
   if ('nummer' in v) {
     const n = String(v.nummer || '').trim().toUpperCase();
-    if (!/^[A-Z0-9][A-Z0-9-]{2,15}$/.test(n)) throw fail('Een zendnummer is 3 tot 16 tekens: letters, cijfers en streepjes, bijvoorbeeld CR26-048.');
+    if (!/^[A-Z0-9][A-Z0-9-]{2,15}$/.test(n)) throw fail('Een batchnummer is jaar, week en regio: 264901 is 2026, week 49, regio 01.');
     if (p.exact === 'in_exact' && n !== p.nummer) throw fail('Deze inkooporder staat al in Exact met dit nummer als kostendrager.');
-    const dup = await one('SELECT 1 FROM partijen WHERE nummer = $1 AND id <> $2', [n, id]);
-    if (dup) throw fail(`Zendnummer ${n} bestaat al. Elk nummer is uniek.`);
-    const used = await one('SELECT 1 FROM pakbon_regels WHERE partij = $1', [p.nummer]);
+    // the same number is right for another supplier of the same region in the same week (one batch), not for another week or region
+    const other = await one('SELECT 1 FROM partijen WHERE nummer = $1 AND id <> $2 AND (regio <> $3 OR maandag <> $4) LIMIT 1', [n, id, p.regio, p.maandag]);
+    if (other) throw fail(`Batchnummer ${n} hoort al bij een andere week of regio.`);
+    const twice = await one('SELECT 1 FROM partijen WHERE nummer = $1 AND id <> $2 AND leverancier_id = $3', [n, id, p.leverancier_id]);
+    if (twice) throw fail(`Deze leverancier heeft al een zending met batchnummer ${n}.`);
+    const used = await one('SELECT 1 FROM pakbon_regels r JOIN partij_regels x ON x.id = r.regel_id WHERE x.partij_id = $1', [id]);
     if (used && n !== p.nummer) throw fail('Er staan al pakbonnen met dit nummer op het plantenpaspoort.');
     vals.push(n); set.push(`nummer = $${vals.length}`);
   }

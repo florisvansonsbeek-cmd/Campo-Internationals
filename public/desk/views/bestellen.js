@@ -166,7 +166,7 @@ export async function render(params, query) {
         <section class="panel"><header><h2>Bestelling per leverancier</h2><span class="sub">${placed.length ? `besteld ${h(dayTime(placed[0].besteld_op))}` : 'nog niet besteld'}</span></header>
           <div class="body stack">${suppliers(d)}
             <div class="next" style="margin:0"><b>${placed.length ? 'Bestelling aangepast?' : 'Besteld bij de leveranciers?'}</b>
-              <p>${placed.length ? 'Zet de nieuwe aantallen in de zendingen.' : 'Dan maakt de desk per leverancier een zending met een eigen zendnummer. Dat nummer gaat mee tot op het plantenpaspoort.'}</p>
+              <p>${placed.length ? 'Zet de nieuwe aantallen in de zendingen.' : 'Dan maakt de desk per leverancier een zending met het batchnummer: jaar, week en regio, zoals 264901. Dat nummer gaat mee tot op het plantenpaspoort en in Exact.'}</p>
               <button type="button" class="btn btn-leaf" data-act="order-place">${icon('check')}${placed.length ? 'Aantallen bijwerken' : 'Ik heb besteld'}</button></div>
           </div></section>
         ${placed.length ? `<section class="panel"><header><h2>Zendingen</h2></header><ul class="ships">${placed.map(p => `<li><a href="#/inkoop?maandag=${d.maandag}&p=${p.id}">${zn(p.nummer)}</a><span class="ships-b"><b>${h(p.leverancier)}</b><small>${regio(p.regio)} ${fNum(p.regels.reduce((s, r) => s + (r.besteld || 0), 0))} dozen besteld</small></span><span class="ships-s">${stageChip(p.stage)}</span></li>`).join('')}</ul></section>` : ''}
@@ -233,7 +233,7 @@ export const actions = {
     if (!items.length) { toast('Er staat nog niets om te bestellen.'); return; }
     el.disabled = true;
     const r = await api('/week/bestellen/plaatsen', { method: 'POST', body: { maandag: last.maandag, regels: items } });
-    toast(`Zendingen: ${r.partijen.map(p => p.nummer).join(', ')}.`);
+    toast(`Besteld: ${r.partijen.map(p => `${p.leverancier} (batch ${p.nummer})`).join(', ')}.`);
     ctx.refresh();
   },
 };

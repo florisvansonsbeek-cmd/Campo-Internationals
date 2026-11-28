@@ -80,7 +80,7 @@ function loginView(msg = '') {
 function shell() {
   app.innerHTML = `<header class="top">
       <a class="wm" href="#/week">${MARK}<b>CAMPO</b><i>Desk</i></a>
-      <div class="search"><input type="search" id="q" placeholder="Zoek klant, zendnummer of factuur" autocomplete="off" aria-label="Zoeken">${icon('search')}<div class="sres" id="sres" hidden></div></div>
+      <div class="search"><input type="search" id="q" placeholder="Zoek klant, batchnummer of factuur" autocomplete="off" aria-label="Zoeken">${icon('search')}<div class="sres" id="sres" hidden></div></div>
       <div class="top-r"><span class="clock" id="clock"></span><span class="who">${h(me.naam)}</span><button class="btn btn-sm btn-line" data-act="logout">${icon('logout')}<span class="sr">Uitloggen</span></button></div>
     </header>
     <div class="shell">

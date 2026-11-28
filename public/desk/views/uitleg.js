@@ -9,11 +9,11 @@ export async function render() {
   const steps = [
     { t: 'De klant belt', p: 'Jan spreekt zijn klanten aan de telefoon. Wat ze willen noteert hij in een paar tikken bij Bestellen: klant, product, aantal dozen. Belt iemand die meestal bestelt nog niet, dan staat hij in het lijstje met zijn nummer en "zelfde als vorige keer".',
       waar: [['#/bestellen', 'Bestellen: telefoon']], nu: `${fNum(d.volgende.klanten)} klanten belden al voor week ${d.volgende.week}` },
-    { t: 'Dinsdag: bestellen', p: 'De desk telt op wat er per product gevraagd is, per leverancier. Jan stuurt de bestelling zelf (de tekst staat klaar in het Spaans). Daarna tikt hij op "Ik heb besteld": elke leverancier krijgt een zending met een eigen zendnummer, de regiocode vooraan, zoals CR26-048. Bovenaan staan de goede deals: aanbod van een leverancier dat de desk meteen aan vaste kopers koppelt, en dozen die al onderweg zijn zonder koper. Zo blijft er niets over.',
+    { t: 'Dinsdag: bestellen', p: 'De desk telt op wat er per product gevraagd is, per leverancier. Jan stuurt de bestelling zelf (de tekst staat klaar in het Spaans). Daarna tikt hij op "Ik heb besteld": elke leverancier krijgt een zending met het batchnummer: jaar, week en regio, zoals 264901 (2026, week 49, regio 01). Bovenaan staan de goede deals: aanbod van een leverancier dat de desk meteen aan vaste kopers koppelt, en dozen die al onderweg zijn zonder koper. Zo blijft er niets over.',
       waar: [['#/bestellen', 'Bestellen']], nu: now('bestellen') },
     { t: 'Donderdag: de bevestiging', p: 'De leverancier bevestigt wat er maandag binnenkomt. Soms 10% meer of minder, omdat Jan op het laatste moment nog iets afsprak. De desk zet bevestigd naast besteld, zodat elk verschil meteen opvalt.',
       waar: [['#/inkoop', 'Inkoop']], nu: now('bevestiging') },
-    { t: 'Vrijdag: het vliegtuig en de verzendpapieren', p: 'De factura en packing list zijn officieel: dat is de inkooporder. De desk leest ze en zet elke regel klaar zoals hij in Exact komt, met het zendnummer als kostendrager. Twijfelt de desk, dan staat het origineel ernaast en kiest Jan. Per leverancier zie je wat hij levert en naar welke klanten het gaat, en een stoplicht dat zegt of het maandag binnen is.',
+    { t: 'Vrijdag: het vliegtuig en de verzendpapieren', p: 'De factura en packing list zijn officieel: dat is de inkooporder. De desk leest ze en zet elke regel klaar zoals hij in Exact komt, met het batchnummer als kostendrager. Twijfelt de desk, dan staat het origineel ernaast en kiest Jan. Per leverancier zie je wat hij levert en naar welke klanten het gaat, en een stoplicht dat zegt of het maandag binnen is.',
       waar: [['#/inkoop', 'Inkoop: inkooporder voor Exact']], nu: now('verzonden') },
     { t: 'Maandag: koers, tellen, verdelen', p: 'De dozen staan in de hal. Jan zet de dollarkoers van de week vast; daarmee rekent de desk de hele week. Hij telt de dozen (alleen wat afwijkt hoeft hij in te tikken). De desk verdeelt de dozen over de klanten volgens hun telefoonbestelling; Jan past aan wat hij wil. Elke doos krijgt een klant, zodat de loods weer netto nul is. De verdeellijst gaat geprint de hal in.',
       waar: [['#/maandag', 'Maandag']], nu: d.koers ? `Koers 1 € = $ ${fKoers(d.koers)}` : now('maandag') },
@@ -34,9 +34,9 @@ export async function render() {
       </li>`).join('')}</ol>
       <aside class="stack">
         <section class="panel"><header><h2>Eén nummer door alles heen</h2></header><div class="body stack" style="gap:10px">
-          <p>Elke zending krijgt een zendnummer, de regiocode vooraan: <b>CR</b> voor Costa Rica, <b>GT</b> voor Guatemala. Dat nummer is:</p>
-          <ul class="plainlist"><li>C op het plantenpaspoort</li><li>de kostendrager in Exact, op de inkooporder én op elke verkoopregel</li><li>de partij in de verdeling en op de pakbon</li></ul>
-          <p class="small muted">Zo telt de desk per partij en per regio wat erin en eruit ging: netto nul.</p></div></section>
+          <p>Elke zending krijgt het batchnummer: <b>jaar, week, regio</b>. <b>264901</b> is 2026, week 49, regio 01 (Costa Rica). Leveranciers uit dezelfde regio die in dezelfde week binnenkomen, delen één batchnummer. Dat nummer is:</p>
+          <ul class="plainlist"><li>C op het plantenpaspoort</li><li>de kostendrager in Exact, op de inkooporder én op elke verkoopregel</li><li>de batch in de verdeling en op de pakbon</li></ul>
+          <p class="small muted">Zo telt de desk per batch en per regio wat erin en eruit ging: netto nul. De regionummers staan bij Koppelingen.</p></div></section>
         <section class="panel"><header><h2>Het stoplicht</h2></header><div class="body stack" style="gap:8px">
           <p><span class="lgt" data-l="groen"><i></i>Groen</span> niets in de weg: maandagochtend in de loods.</p>
           <p><span class="lgt" data-l="oranje"><i></i>Oranje</span> let op: papieren later dan normaal, een twijfel op het verzendbewijs, een leverancier die vaker te laat is, harde wind of sneeuw op de route, drukke vrachtweken.</p>

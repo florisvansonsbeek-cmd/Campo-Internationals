@@ -16,7 +16,8 @@ const f = (formula, result) => ({ formula, result });
 // a moment as Jan reads it in Nootdorp (Excel has no time zones)
 const xdt = v => { const d = new Date(v); return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes())); };
 // the row order of the sheets; the desk uses the same order to say on which row a shipment stands
-export const ORDER = { inkoop: 'p.maandag, p.nummer, d.volgorde, d.code, r.id', partijen: 'p.maandag, p.nummer', verkoop: 's.maandag, s.nummer, r.regelnr', leveranciers: 'l.naam, l.id' };
+// one batch number can hold two suppliers of a region, so the supplier sorts within it (and the id makes it exact)
+export const ORDER = { inkoop: 'p.maandag, p.nummer, l.naam, d.volgorde, d.code, r.id', partijen: 'p.maandag, p.nummer, l.naam, p.id', verkoop: 's.maandag, s.nummer, r.regelnr', leveranciers: 'l.naam, l.id' };
 const serial = s => (s ? Date.UTC(...String(s).slice(0, 10).split('-').map((v, i) => Number(v) - (i === 1 ? 1 : 0))) / 864e5 + 25569 : '');
 
 function sheet(wb, name, cols, { freeze = 1 } = {}) {
@@ -37,10 +38,11 @@ export async function yearWorkbook(jaar, { now = new Date() } = {}) {
     FROM partijen p JOIN partij_regels r ON r.partij_id = p.id JOIN leveranciers l ON l.id = p.leverancier_id JOIN producten d ON d.id = r.product_id JOIN weken w ON w.maandag = p.maandag
     WHERE p.maandag BETWEEN $1 AND $2 ORDER BY ${ORDER.inkoop}`, [a, b]);
   const verkoop = await rows(`SELECT s.id AS pakbon_id, s.maandag, s.nummer, s.datum, s.exact, s.btw_pct, s.koers, k.naam AS klant, k.land, k.exact_code AS debiteur,
-      d.code, d.exact_code, d.naam, d.soort, d.maat, r.regelnr, r.partij, p.regio, r.dozen, r.stuks, r.prijs_usd, r.prijs_eur, r.bedrag,
+      d.code, d.exact_code, d.naam, d.soort, d.maat, r.regelnr, r.partij, p.regio, p.leverancier, r.dozen, r.stuks, r.prijs_usd, r.prijs_eur, r.bedrag,
       (SELECT c.status FROM concepten c WHERE c.pakbon_id = s.id AND c.status <> 'vervallen' LIMIT 1) AS mail
     FROM pakbonnen s JOIN pakbon_regels r ON r.pakbon_id = s.id JOIN klanten k ON k.id = s.klant_id JOIN producten d ON d.id = r.product_id
-    LEFT JOIN partijen p ON p.nummer = r.partij
+    LEFT JOIN LATERAL (SELECT x.regio, x.id AS partij_id, l2.naam AS leverancier FROM partijen x JOIN leveranciers l2 ON l2.id = x.leverancier_id
+      LEFT JOIN partij_regels pr ON pr.partij_id = x.id AND pr.id = r.regel_id WHERE x.nummer = r.partij ORDER BY (pr.id IS NULL), x.id LIMIT 1) p ON true
     WHERE s.status = 'akkoord' AND s.maandag BETWEEN $1 AND $2 ORDER BY ${ORDER.verkoop}`, [a, b]);
   const partijen = await rows(`SELECT p.nummer, p.regio, p.maandag, p.binnen_op, p.route, l.route AS lev_route, l.naam AS leverancier, w.geteld_op IS NOT NULL AS geteld
     FROM partijen p JOIN leveranciers l ON l.id = p.leverancier_id JOIN weken w ON w.maandag = p.maandag WHERE p.maandag BETWEEN $1 AND $2 ORDER BY ${ORDER.partijen}`, [a, b]);
@@ -51,7 +53,8 @@ export async function yearWorkbook(jaar, { now = new Date() } = {}) {
   const regios = await rows('SELECT code, naam, land FROM regios ORDER BY code');
   const paspoort = await rows(`SELECT DISTINCT s.nummer, s.datum, k.naam AS klant, d.soort, r.partij, g.land AS herkomst
     FROM pakbonnen s JOIN pakbon_regels r ON r.pakbon_id = s.id JOIN klanten k ON k.id = s.klant_id JOIN producten d ON d.id = r.product_id
-    LEFT JOIN partijen p ON p.nummer = r.partij LEFT JOIN regios g ON g.code = p.regio
+    LEFT JOIN LATERAL (SELECT x.regio, x.id AS partij_id, l2.naam AS leverancier FROM partijen x JOIN leveranciers l2 ON l2.id = x.leverancier_id
+      LEFT JOIN partij_regels pr ON pr.partij_id = x.id AND pr.id = r.regel_id WHERE x.nummer = r.partij ORDER BY (pr.id IS NULL), x.id LIMIT 1) p ON true LEFT JOIN regios g ON g.code = p.regio
     WHERE s.status = 'akkoord' AND s.maandag BETWEEN $1 AND $2 ORDER BY s.nummer, r.partij, d.soort`, [a, b]);
 
   const wb = new ExcelJS.Workbook();
@@ -63,7 +66,7 @@ export async function yearWorkbook(jaar, { now = new Date() } = {}) {
 
   // ---------- Inkoop: one row per product per shipment
   const wsI = sheet(wb, 'Inkoop', [
-    { h: 'Week', k: 'week', w: 7, fmt: '0' }, { h: 'Aankomst', k: 'maandag', w: 11, fmt: NUM.date }, { h: 'Zendnummer (C)', k: 'nummer', w: 13 }, { h: 'Regio', k: 'regio', w: 7 },
+    { h: 'Week', k: 'week', w: 7, fmt: '0' }, { h: 'Aankomst', k: 'maandag', w: 11, fmt: NUM.date }, { h: 'Batchnummer (C)', k: 'nummer', w: 13 }, { h: 'Regio', k: 'regio', w: 7 },
     { h: 'Leverancier', k: 'leverancier', w: 26 }, { h: 'Crediteur Exact', k: 'crediteur', w: 10 }, { h: 'Artikel', k: 'artikel', w: 9 }, { h: 'Product', k: 'product', w: 18 },
     { h: 'Botanische naam (A)', k: 'soort', w: 20 }, { h: 'Maat', k: 'maat', w: 8 }, { h: 'Per doos', k: 'per', w: 8, fmt: NUM.int },
     { h: 'Besteld (dozen)', k: 'besteld', w: 9, fmt: NUM.int }, { h: 'Bevestigd', k: 'bevestigd', w: 9, fmt: NUM.int }, { h: 'Verzonden', k: 'verzonden', w: 9, fmt: NUM.int },
@@ -94,28 +97,30 @@ export async function yearWorkbook(jaar, { now = new Date() } = {}) {
   const wsV = sheet(wb, 'Verkoop', [
     { h: 'Week', k: 'week', w: 7, fmt: '0' }, { h: 'Maandag', k: 'maandag', w: 11, fmt: NUM.date }, { h: 'Factuur', k: 'nummer', w: 9 }, { h: 'Datum', k: 'datum', w: 11, fmt: NUM.date },
     { h: 'Klant', k: 'klant', w: 28 }, { h: 'Land', k: 'land', w: 6 }, { h: 'Debiteur Exact', k: 'debiteur', w: 10 }, { h: 'Artikel', k: 'artikel', w: 9 }, { h: 'Product', k: 'product', w: 18 },
-    { h: 'Botanische naam (A)', k: 'soort', w: 20 }, { h: 'Maat', k: 'maat', w: 8 }, { h: 'Partij (C) = kostendrager', k: 'partij', w: 13 }, { h: 'Regio', k: 'regio', w: 7 },
+    { h: 'Botanische naam (A)', k: 'soort', w: 20 }, { h: 'Maat', k: 'maat', w: 8 }, { h: 'Batch (C) = kostendrager', k: 'partij', w: 13 }, { h: 'Regio', k: 'regio', w: 7 },
     { h: 'Dozen', k: 'dozen', w: 7, fmt: NUM.int }, { h: 'Stuks', k: 'stuks', w: 9, fmt: NUM.int }, { h: 'Prijs $/st', k: 'usd', w: 9, fmt: NUM.usd4 }, { h: 'Koers ($ per €)', k: 'koers', w: 9, fmt: NUM.koers },
     { h: 'Prijs €/st', k: 'eur', w: 9, fmt: NUM.eur4 }, { h: 'Bedrag €', k: 'bedrag', w: 11, fmt: NUM.eur }, { h: 'Btw', k: 'btw', w: 6, fmt: NUM.pct }, { h: 'Btw €', k: 'btwe', w: 9, fmt: NUM.eur },
-    { h: 'In Exact', k: 'exact', w: 8 }, { h: 'Verstuurd', k: 'mail', w: 14 }, { h: 'Regel', k: 'regel', w: 6, fmt: '0' },
+    { h: 'In Exact', k: 'exact', w: 8 }, { h: 'Verstuurd', k: 'mail', w: 14 }, { h: 'Regel', k: 'regel', w: 6, fmt: '0' }, { h: 'Leverancier', k: 'leverancier', w: 26 },
   ]);
   const verkoopRows = [];
   verkoop.forEach((x, i) => {
     const n = i + 2, btw = Number(x.btw_pct) / 100, bedrag = Number(x.bedrag);
-    verkoopRows.push({ maandag: x.maandag, klant: x.klant, partij: x.partij, dozen: x.dozen, bedrag, regel: x.regelnr });
+    verkoopRows.push({ maandag: x.maandag, klant: x.klant, partij: x.partij, leverancier: x.leverancier, dozen: x.dozen, bedrag, regel: x.regelnr });
     wsV.addRow({
       week: isoWeek(x.maandag).week, maandag: xd(x.maandag), nummer: x.nummer, datum: xd(x.datum), klant: x.klant, land: x.land, debiteur: x.debiteur, artikel: x.exact_code || x.code,
       product: x.naam, soort: x.soort, maat: x.maat, partij: x.partij, regio: x.regio, dozen: x.dozen, stuks: x.stuks, usd: Number(x.prijs_usd), koers: Number(x.koers),
       eur: f(`ROUND(P${n}/Q${n},4)`, Number(x.prijs_eur)), bedrag: f(`ROUND(O${n}*R${n},2)`, bedrag), btw, btwe: f(`ROUND(S${n}*T${n},2)`, r2(bedrag * btw)),
       exact: x.exact === 'in_exact' ? 'ja' : 'nee', mail: x.mail === 'verstuurd' ? 'per mail' : x.mail === 'in_outlook' ? 'in Outlook' : x.mail === 'concept' ? 'concept' : 'met de goederen', regel: x.regelnr,
+      leverancier: x.leverancier,
     });
   });
   const nV = verkoop.length + 1;
-  wsV.autoFilter = { from: 'A1', to: `X${Math.max(2, nV)}` };
+  wsV.autoFilter = { from: 'A1', to: `Y${Math.max(2, nV)}` };
 
-  // ---------- Partijen: in, out and what is left of every batch number
+  // ---------- Partijen: in, out and what is left of every shipment. One batch number (year, week, region) can hold
+  // several suppliers of the same region, so each row counts its batch number and its supplier.
   const wsP = sheet(wb, 'Partijen', [
-    { h: 'Zendnummer (C)', k: 'nummer', w: 13 }, { h: 'Regio', k: 'regio', w: 7 }, { h: 'Week', k: 'week', w: 7, fmt: '0' }, { h: 'Aankomst', k: 'maandag', w: 11, fmt: NUM.date },
+    { h: 'Batchnummer (C)', k: 'nummer', w: 13 }, { h: 'Regio', k: 'regio', w: 7 }, { h: 'Week', k: 'week', w: 7, fmt: '0' }, { h: 'Aankomst', k: 'maandag', w: 11, fmt: NUM.date },
     { h: 'Leverancier', k: 'leverancier', w: 26 }, { h: 'Dozen in', k: 'in', w: 9, fmt: NUM.int }, { h: 'Uitval', k: 'uitval', w: 8, fmt: NUM.int }, { h: 'Dozen uit', k: 'uit', w: 9, fmt: NUM.int },
     { h: 'Rest', k: 'rest', w: 8, fmt: NUM.int }, { h: 'Stand', k: 'stand', w: 16 }, { h: 'Geteld', k: 'geteld', w: 8 },
     { h: 'Route', k: 'route', w: 26 }, { h: 'In de loods', k: 'binnen', w: 16, fmt: 'dd-mm-yyyy hh:mm' }, { h: 'Op tijd (voor maandag 12:00)', k: 'optijd', w: 11 },
@@ -124,15 +129,16 @@ export async function yearWorkbook(jaar, { now = new Date() } = {}) {
   const partRows = [];
   partijen.forEach((p, i) => {
     const n = i + 2;
-    const inn = inkoopRows.filter(x => x.nummer === p.nummer).reduce((s, x) => s + x.dozen, 0), uitval = inkoopRows.filter(x => x.nummer === p.nummer).reduce((s, x) => s + x.uitval, 0);
-    const uit = verkoopRows.filter(x => x.partij === p.nummer).reduce((s, x) => s + x.dozen, 0), rest = inn - uitval - uit;
+    const mine = inkoopRows.filter(x => x.nummer === p.nummer && x.leverancier === p.leverancier);
+    const inn = mine.reduce((s, x) => s + x.dozen, 0), uitval = mine.reduce((s, x) => s + x.uitval, 0);
+    const uit = verkoopRows.filter(x => x.partij === p.nummer && x.leverancier === p.leverancier).reduce((s, x) => s + x.dozen, 0), rest = inn - uitval - uit;
     const stand = !p.geteld ? 'loopt nog' : rest === 0 ? 'netto nul' : rest > 0 ? 'over in de loods' : 'meer uit dan in';
     const binnen = passed(p.binnen_op, now) ? new Date(p.binnen_op) : null;
     const opTijd = binnen ? (binnen.getTime() <= new Date(`${String(p.maandag).slice(0, 10)}T12:00:00`).getTime() ? 'ja' : 'nee') : '';
     partRows.push({ ...p, in: inn, uitval, uit, rest, opTijd });
     wsP.addRow({
       nummer: p.nummer, regio: p.regio, week: isoWeek(p.maandag).week, maandag: xd(p.maandag), leverancier: p.leverancier,
-      in: f(`SUMIFS(${I('Q')},${I('C')},A${n})`, inn), uitval: f(`SUMIFS(${I('P')},${I('C')},A${n})`, uitval), uit: f(`SUMIFS(${V('N')},${V('L')},A${n})`, uit),
+      in: f(`SUMIFS(${I('Q')},${I('C')},A${n},${I('E')},E${n})`, inn), uitval: f(`SUMIFS(${I('P')},${I('C')},A${n},${I('E')},E${n})`, uitval), uit: f(`SUMIFS(${V('N')},${V('L')},A${n},${V('Y')},E${n})`, uit),
       rest: f(`F${n}-G${n}-H${n}`, rest), stand: f(`IF(K${n}="nee","loopt nog",IF(I${n}=0,"netto nul",IF(I${n}>0,"over in de loods","meer uit dan in")))`, stand), geteld: p.geteld ? 'ja' : 'nee',
       route: routeText([...routeOf(p), 'Nootdorp']), binnen: binnen ? xdt(binnen) : null, optijd: f(`IF(M${n}="","",IF(M${n}<=D${n}+0.5,"ja","nee"))`, opTijd),
     });
@@ -226,7 +232,7 @@ export async function yearWorkbook(jaar, { now = new Date() } = {}) {
   // the rows above: A4 Zendingen, A5 Dozen binnen, A6 Dozen naar klanten, A7 Omzet, A8 Inkoop, A9 Marge
   put('D4', 'Dollarkoers: dollars voor één euro, door Jan op maandag vastgezet. Een dollarprijs gedeeld door de koers is de europrijs.', { font: { color: { argb: 'FF5F6963' } } });
   put('D5', 'Inkoop: wat op het verzendbewijs staat, in euro alleen voor weken met een koers. Rest per partij: dozen in min uitval min dozen naar klanten; 0 is netto nul.', { font: { color: { argb: 'FF5F6963' } } });
-  put('D6', `Plantenpaspoort: A botanische naam, B ${co.pp_b}${co.pp_b_voorbeeld ? ' (voorbeeldnummer)' : ''}, C partij, D land van herkomst.`, { font: { color: { argb: 'FF5F6963' } } });
+  put('D6', `Plantenpaspoort: A botanische naam, B ${co.pp_b}${co.pp_b_voorbeeld ? ' (voorbeeldnummer)' : ''}, C batchnummer (jaar, week, regio), D land van herkomst.`, { font: { color: { argb: 'FF5F6963' } } });
 
   let r0 = 14;
   put(`A${r0 - 1}`, 'Per regio (alleen getelde weken)', { font: { bold: true, size: 11 } });
@@ -266,7 +272,7 @@ export async function yearWorkbook(jaar, { now = new Date() } = {}) {
     ['Overzicht', 'De totalen van het jaar, per regio en per week. Alles zijn formules op de andere bladen.'],
     ['Inkoop', 'Elke regel van elke zending: besteld (dinsdag), bevestigd (donderdag), verzonden (verzendbewijs, vrijdag), geteld (maandag). Dozen in = geteld, anders het laatst bekende aantal.'],
     ['Verkoop', 'Elke regel van elke pakbon. De pakbon is ook de factuur. Prijs €/st = prijs $/st gedeeld door de koers van die week, afgerond op 4 decimalen; bedrag = stuks × prijs €/st.'],
-    ['Partijen', 'Per zendnummer (C op het plantenpaspoort, kostendrager in Exact): dozen in, uitval, dozen naar klanten en de rest. Rood = een getelde partij die niet op nul uitkomt. Met de route en of het voor maandag 12:00 in de loods stond.'],
+    ['Partijen', 'Per zending: batchnummer (jaar, week, regio: 264901; C op het plantenpaspoort en kostendrager in Exact), dozen in, uitval, dozen naar klanten en de rest. Leveranciers uit dezelfde regio in dezelfde week delen één batchnummer. Rood = een getelde zending die niet op nul uitkomt. Met de route en of het voor maandag 12:00 in de loods stond.'],
     ['Leveranciers', 'Per leverancier: besteld, bevestigd, verzonden en geteld, hoeveel daarvan klopte en hoe vaak het op tijd binnen was. Formules op Inkoop en Partijen; de score is hoe de desk hem over het laatste halfjaar rekent.'],
     ['Klanten', 'Omzet, dozen en facturen per klant in dit jaar.'],
     ['Koersen', 'De dollarkoers per week, zoals Jan hem op maandag vastzette.'],
@@ -290,9 +296,11 @@ export async function sheetRows(partijId) {
     one(`SELECT rij FROM (SELECT p.id, row_number() OVER (ORDER BY ${ORDER.partijen}) + 1 AS rij FROM partijen p JOIN leveranciers l ON l.id = p.leverancier_id JOIN weken w ON w.maandag = p.maandag
         WHERE p.maandag BETWEEN $1 AND $2) x WHERE id = $3`, [a, b, partijId]),
     one(`SELECT rij FROM (SELECT l.id, row_number() OVER (ORDER BY ${ORDER.leveranciers}) + 1 AS rij FROM leveranciers l) x WHERE id = $1`, [p.leverancier_id]),
-    rows(`SELECT * FROM (SELECT s.nummer AS factuur, k.naam AS klant, r.partij, r.dozen, row_number() OVER (ORDER BY ${ORDER.verkoop}) + 1 AS rij
+    rows(`SELECT * FROM (SELECT s.nummer AS factuur, k.naam AS klant, r.partij, r.dozen, p.partij_id, row_number() OVER (ORDER BY ${ORDER.verkoop}) + 1 AS rij
         FROM pakbonnen s JOIN pakbon_regels r ON r.pakbon_id = s.id JOIN klanten k ON k.id = s.klant_id JOIN producten d ON d.id = r.product_id
-        WHERE s.status = 'akkoord' AND s.maandag BETWEEN $1 AND $2) x WHERE partij = $3 ORDER BY rij`, [a, b, p.nummer]),
+        LEFT JOIN LATERAL (SELECT x.regio, x.id AS partij_id, l2.naam AS leverancier FROM partijen x JOIN leveranciers l2 ON l2.id = x.leverancier_id
+      LEFT JOIN partij_regels pr ON pr.partij_id = x.id AND pr.id = r.regel_id WHERE x.nummer = r.partij ORDER BY (pr.id IS NULL), x.id LIMIT 1) p ON true
+        WHERE s.status = 'akkoord' AND s.maandag BETWEEN $1 AND $2) x WHERE partij_id = $3 ORDER BY rij`, [a, b, p.id]),
   ]);
   return { jaar, inkoop: ink.map(x => Number(x.rij)), regels: Object.fromEntries(ink.map(x => [x.regel_id, Number(x.rij)])), partijen: par ? Number(par.rij) : null, leveranciers: lev ? Number(lev.rij) : null,
     verkoop: ver.map(x => ({ ...x, rij: Number(x.rij) })) };

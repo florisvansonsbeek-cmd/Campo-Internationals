@@ -13,7 +13,7 @@ import { customerList, customerDetail, yearData } from './stats.js';
 import { yearWorkbook, sheetRows } from './excel.js';
 import { readShipping, matchProduct } from './read.js';
 import { assess, lateHistory, riskJson, routeOf, parseRoute, PLEKKEN } from './risk.js';
-import { streams } from './flow.js';
+import { streams, customerStreams } from './flow.js';
 import { relations, customerAnalysis, supplierStat, supplierHistory, deals, onTheWay, leads, forget, plantStats } from './partners.js';
 
 export const week = express.Router();
@@ -135,7 +135,7 @@ week.get('/inkoop', wrap(async (req, res) => {
   res.json({
     maandag: m, week: d.week, jaar: d.jaar, vandaag: today(), dagen: { bevestiging: addDays(m, -4), verzonden: addDays(m, -3) }, geteld: d.counted,
     partijen: d.partijen.map(p => ({ ...partijJson(p, m), risico: riskJson(risk.per.get(p.id)), stroom: flow.partijen.find(x => x.partij_id === p.id) || null })),
-    stroom: flow.week, bronnen: risk.bronnen, plekken: PLEKKEN,
+    stroom: flow.week, klanten: customerStreams(d), koers: d.koers, bronnen: risk.bronnen, plekken: PLEKKEN,
     afwijkingen: dev,
     vorige: prev.partijen.filter(p => p.exact === 'open' && p.stage !== 'gepland').map(p => ({ id: p.id, nummer: p.nummer, leverancier: p.leverancier, maandag: prev.maandag, week: prev.week })),
   });
@@ -469,7 +469,7 @@ week.get('/excel', wrap(async (req, res) => {
 
 // ---------------------------------------------------------------- what is printed on the slip and invoice
 week.get('/instellingen', wrap(async (req, res) => {
-  const regios = await rows('SELECT * FROM regios ORDER BY code');
+  const regios = await rows('SELECT * FROM regios ORDER BY nummer NULLS LAST, code');
   const leveranciers = await rows(`SELECT l.*, (SELECT count(*) FROM partijen p WHERE p.leverancier_id = l.id) AS zendingen FROM leveranciers l ORDER BY regio, naam`);
   const producten = await rows('SELECT d.*, l.naam AS leverancier FROM producten d LEFT JOIN leveranciers l ON l.id = d.leverancier_id ORDER BY d.volgorde, d.code');
   res.json({ bedrijf: await company(), standaard: DEFAULT_COMPANY, regios, leveranciers, producten });
@@ -488,8 +488,16 @@ week.patch('/instellingen', wrap(async (req, res) => {
 week.post('/regios', wrap(async (req, res) => {
   const b = req.body || {}, code = String(b.code || '').trim().toUpperCase(), land = String(b.land || '').trim().toUpperCase();
   if (!/^[A-Z]{2,3}$/.test(code) || !/^[A-Z]{2}$/.test(land) || !String(b.naam || '').trim()) return bad(res, 'Een code van 2 of 3 letters, een naam en het land van herkomst.');
-  await q(`INSERT INTO regios (code, naam, land, valuta, vervoer) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (code) DO UPDATE SET naam = EXCLUDED.naam, land = EXCLUDED.land, valuta = EXCLUDED.valuta, vervoer = EXCLUDED.vervoer`,
-    [code, String(b.naam).trim().slice(0, 60), land, /^[A-Z]{3}$/.test(b.valuta || '') ? b.valuta : 'USD', b.vervoer ? String(b.vervoer).slice(0, 120) : null]);
+  // the two digits of the region in the batch number (264901: region 01). Empty keeps the number, or takes the next free one.
+  const raw = String(b.nummer ?? '').trim(), nr = raw === '' ? null : Number(raw);
+  if (nr != null && (!Number.isInteger(nr) || nr < 1 || nr > 99)) return bad(res, 'Het regionummer is 1 tot 99, zoals 01 tot 04.');
+  if (nr != null) {
+    const taken = await one('SELECT code FROM regios WHERE nummer = $1 AND code <> $2', [nr, code]);
+    if (taken) return bad(res, `Nummer ${String(nr).padStart(2, '0')} hoort al bij regio ${taken.code}.`);
+  }
+  await q(`INSERT INTO regios (code, naam, land, valuta, vervoer, nummer) VALUES ($1, $2, $3, $4, $5, coalesce($6, (SELECT coalesce(max(nummer), 0) + 1 FROM regios)))
+    ON CONFLICT (code) DO UPDATE SET naam = EXCLUDED.naam, land = EXCLUDED.land, valuta = EXCLUDED.valuta, vervoer = EXCLUDED.vervoer, nummer = coalesce($6, regios.nummer)`,
+    [code, String(b.naam).trim().slice(0, 60), land, /^[A-Z]{3}$/.test(b.valuta || '') ? b.valuta : 'USD', b.vervoer ? String(b.vervoer).slice(0, 120) : null, nr]);
   await log(who(req), `Regio ${code} opgeslagen`);
   res.json({ ok: true });
 }));

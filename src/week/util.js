@@ -23,6 +23,14 @@ export function isoWeek(s) {
 // Tuesday Jan orders for it, Thursday it is confirmed, Friday it flies, Monday it is in the hall.
 export const focusMonday = (t = today()) => (isoDow(t) === 1 ? t : addDays(mondayOf(t), 7));
 
+// the batch number Jan gives a shipment: year, week of the arrival Monday, region (26 49 01 = 264901).
+// It is C on the plant passport and the cost unit in Exact; suppliers from one region in one week share it.
+export function batchNumber(maandag, regioNr) {
+  const w = isoWeek(maandag), p2 = n => String(n).padStart(2, '0');
+  return `${p2(w.jaar % 100)}${p2(w.week)}${p2(regioNr)}`;
+}
+export const BATCH_RE = /^[0-9]{6}$/;
+
 // the week of a Monday, as Jan says it: "week 49"
 export const weekLabel = m => `week ${isoWeek(m).week}`;
 

@@ -5,11 +5,11 @@
 // so on Friday afternoon they come in one by one.
 import crypto from 'node:crypto';
 import { pool } from '../db.js';
-import { addDays, isoDow, isoWeek, today, r2, r4, vatFor } from './util.js';
+import { addDays, isoDow, isoWeek, today, r2, r4, vatFor, batchNumber } from './util.js';
 import { allocate } from './model.js';
 import { supplierPdf } from './docs.js';
 
-export const WEEK_DEMO_VERSION = 6;
+export const WEEK_DEMO_VERSION = 7;
 const WEEKS = 60;
 
 function rng(seed) {
@@ -24,8 +24,8 @@ export function demoAnchor(t = today()) {
 }
 
 const REGIOS = [
-  { code: 'CR', naam: 'Costa Rica', land: 'CR', valuta: 'USD', vervoer: 'Vliegtuig: vrijdag uit San José, maandag in Nootdorp' },
-  { code: 'GT', naam: 'Guatemala', land: 'GT', valuta: 'USD', vervoer: 'Vliegtuig: om de week, vrijdag uit Guatemala-Stad, maandag in Nootdorp' },
+  { code: 'CR', nummer: 1, naam: 'Costa Rica', land: 'CR', valuta: 'USD', vervoer: 'Vliegtuig: vrijdag uit San José, maandag in Nootdorp' },
+  { code: 'GT', nummer: 2, naam: 'Guatemala', land: 'GT', valuta: 'USD', vervoer: 'Vliegtuig: om de week, vrijdag uit Guatemala-Stad, maandag in Nootdorp' },
 ];
 const LEVERANCIERS = [
   // how often the boxes come later than Monday morning, and how often the papers come late
@@ -141,7 +141,10 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
     await c.query('BEGIN');
     const maxId = async t => Number((await c.query(`SELECT coalesce(max(id), 0) AS n FROM ${t}`)).rows[0].n);
     // ---------- regions, suppliers, products
-    for (const g of REGIOS) await c.query(`INSERT INTO regios (code, naam, land, valuta, vervoer, bron) VALUES ($1,$2,$3,$4,$5,'demo') ON CONFLICT (code) DO NOTHING`, [g.code, g.naam, g.land, g.valuta, g.vervoer]);
+    for (const g of REGIOS) {
+      await c.query(`INSERT INTO regios (code, naam, land, valuta, vervoer, nummer, bron) VALUES ($1,$2,$3,$4,$5,(CASE WHEN EXISTS (SELECT 1 FROM regios WHERE nummer = $6) THEN NULL ELSE $6 END),'demo') ON CONFLICT (code) DO NOTHING`, [g.code, g.naam, g.land, g.valuta, g.vervoer, g.nummer]);
+      await c.query(`UPDATE regios SET nummer = (SELECT coalesce(max(nummer), 0) + 1 FROM regios) WHERE code = $1 AND nummer IS NULL`, [g.code]);
+    }
     let lb = await maxId('leveranciers');
     const L = {};
     for (const l of LEVERANCIERS) {
@@ -194,7 +197,8 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
     const RAISE = addDays(anchor, -7 * 34);
     const weken = [], orders = [], partijen = [], regels = [], verdeling = [], pakbonnen = [], pakRegels = [], docs = [], files = [];
     let pid = await maxId('partijen'), rid = await maxId('partij_regels'), sid = await maxId('pakbonnen'), srid = await maxId('pakbon_regels');
-    const batchNo = {}, slipNo = {}, invNo = { 'rio-claro': 410, 'volcan-azul': 1180, 'las-flores': 233 };
+    const slipNo = {}, invNo = { 'rio-claro': 410, 'volcan-azul': 1180, 'las-flores': 233 };
+    const regioNr = Object.fromEntries((await c.query('SELECT code, nummer FROM regios')).rows.map(g => [g.code, g.nummer]));
     const nowMs = Date.now();
     for (let i = 0; i <= WEEKS + 1; i++) {
       const m = addDays(first, i * 7);
@@ -232,8 +236,8 @@ export async function seedWeekDemo({ anchor = demoAnchor(), seed = 20261127 } = 
       for (const lev of ['rio-claro', 'volcan-azul', 'las-flores']) {
         if (!plan.has(lev)) continue;
         const l = L[lev];
-        batchNo[`${l.regio}${yy}`] = (batchNo[`${l.regio}${yy}`] || 0) + 1;
-        const nummer = `${l.regio}${yy}-${String(batchNo[`${l.regio}${yy}`]).padStart(3, '0')}`;
+        // year, week, region: both Costa Rican growers of one week share their batch (264901)
+        const nummer = batchNumber(m, regioNr[l.regio]);
         const gt = l.regio === 'GT', second = lev === 'volcan-azul';
         const p = {
           id: ++pid, nummer, regio: l.regio, leverancier_id: l.id, maandag: m, bron: 'demo', lev: l,
